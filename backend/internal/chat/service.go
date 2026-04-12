@@ -41,11 +41,24 @@ func (s *Service) ListChats(ctx context.Context, userID uuid.UUID) ([]db.Chat, e
 	return s.repo.ListByUser(ctx, userID, listChatsLimit)
 }
 
-// CreateChat creates a chat (5-chat eviction added in T14).
+// CreateChat creates a chat, evicting the oldest when the user already has 5.
 func (s *Service) CreateChat(ctx context.Context, userID uuid.UUID, postType string) (*db.Chat, error) {
 	pt, err := parsePostType(postType)
 	if err != nil {
 		return nil, err
+	}
+	n, err := s.repo.CountByUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if n >= 5 {
+		oldest, err := s.repo.OldestChatID(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+		if err := s.DeleteChat(ctx, userID, oldest); err != nil {
+			return nil, err
+		}
 	}
 	return s.repo.Create(ctx, userID, pt)
 }
