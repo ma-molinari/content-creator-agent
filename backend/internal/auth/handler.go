@@ -39,6 +39,37 @@ func (h *Handler) Register(c echo.Context) error {
 	}
 	return c.JSON(http.StatusCreated, registerResponse{SecurityKey: res.SecurityKey})
 }
+
+type loginBody struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type loginResponse struct {
+	AccessToken string `json:"accessToken"`
+}
+
+func (h *Handler) Login(c echo.Context) error {
+	var body loginBody
+	if err := c.Bind(&body); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid JSON body")
+	}
+	res, err := h.svc.Login(c.Request().Context(), body.Email, body.Password)
+	if err != nil {
+		return mapAuthError(err)
+	}
+	cookie := &http.Cookie{
+		Name:     refreshCookieName,
+		Value:    res.RefreshToken,
+		Path:     "/",
+		MaxAge:   7 * 24 * 3600,
+		HttpOnly: true,
+		Secure:   h.svc.CookieSecure(),
+		SameSite: http.SameSiteStrictMode,
+	}
+	c.SetCookie(cookie)
+	return c.JSON(http.StatusOK, loginResponse{AccessToken: res.AccessToken})
+}
 func mapAuthError(err error) error {
 	var se *ServiceError
 	if errors.As(err, &se) {

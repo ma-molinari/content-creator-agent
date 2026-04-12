@@ -87,3 +87,52 @@ func (s *Service) Register(ctx context.Context, email, password string) (*Regist
 	}
 	return &RegisterResult{SecurityKey: secKey}, nil
 }
+
+type LoginResult struct {
+	AccessToken  string
+	RefreshToken string
+}
+
+func (s *Service) Login(ctx context.Context, email, password string) (*LoginResult, error) {
+	email = strings.TrimSpace(strings.ToLower(email))
+	u, err := s.repo.FindByEmail(ctx, email)
+	if err != nil {
+		return nil, err
+	}
+	if u == nil {
+		return nil, errStatus(http.StatusUnauthorized, "invalid credentials")
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password)); err != nil {
+		return nil, errStatus(http.StatusUnauthorized, "invalid credentials")
+	}
+	access, refresh, err := s.issueTokens(u.ID)
+	if err != nil {
+		return nil, err
+	}
+	return &LoginResult{AccessToken: access, RefreshToken: refresh}, nil
+}
+
+func (s *Service) issueTokens(userID uuid.UUID) (access string, refresh string, err error) {
+	now := time.Now()
+	accessClaims := jwt.RegisteredClaims{
+		Subject:   userID.String(),
+		IssuedAt:  jwt.NewNumericDate(now),
+		ExpiresAt: jwt.NewNumericDate(now.Add(accessTokenTTL)),
+	}
+	at := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
+	access, err = at.SignedString(s.jwtSecret)
+	if err != nil {
+		return "", "", err
+	}
+	refreshClaims := jwt.RegisteredClaims{
+		Subject:   userID.String(),
+		IssuedAt:  jwt.NewNumericDate(now),
+		ExpiresAt: jwt.NewNumericDate(now.Add(refreshTokenTTL)),
+	}
+	rt := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
+	refresh, err = rt.SignedString(s.jwtRefreshSecret)
+	if err != nil {
+		return "", "", err
+	}
+	return access, refresh, nil
+}

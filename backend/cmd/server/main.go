@@ -38,6 +38,7 @@ func main() {
 
 	authGroup := e.Group("/auth")
 	authGroup.POST("/register", h.Register)
+	authGroup.POST("/login", h.Login)
 
 	addr := ":" + cfg.Port
 	if err := e.Start(addr); err != nil && err != http.ErrServerClosed {
