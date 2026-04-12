@@ -31,11 +31,14 @@ func main() {
 	cookieSecure := os.Getenv("COOKIE_SECURE") != "false"
 	svc := auth.NewService(repo, cfg.JWTSecret, cfg.JWTRefreshSecret, cookieSecure)
 	h := auth.NewHandler(svc)
-	var stor storage.StorageService = storage.Nop{}
+
+	stor, err := storage.NewS3Service(cfg.AWSRegion, cfg.S3Bucket, cfg.AWSAccessKeyID, cfg.AWSSecretAccessKey)
+	if err != nil {
+		log.Fatalf("storage: %v", err)
+	}
 	chatRepo := chat.NewRepository(gdb)
 	chatSvc := chat.NewService(chatRepo, stor)
 	ch := chat.NewHandler(chatSvc)
-
 	e := echo.New()
 	e.HideBanner = true
 	e.Use(middleware.Recover())
