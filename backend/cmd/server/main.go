@@ -61,6 +61,7 @@ func main() {
 	})
 
 	protected.GET("/chats", ch.ListChats)
+	protected.POST("/chats", ch.CreateChat)
 	llm := protected.Group("/api/llm")
 	llm.Use(appmw.LLMByUser())
 	llm.GET("/ready", func(c echo.Context) error {
