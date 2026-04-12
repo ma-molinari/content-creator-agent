@@ -67,6 +67,7 @@ func main() {
 	protected.POST("/chats", ch.CreateChat)
 	protected.GET("/chats/:id", ch.GetChat)
 	protected.DELETE("/chats/:id", ch.DeleteChat)
+	protected.GET("/chats/:id/files/download", ch.DownloadZip)
 	protected.GET("/chats/:id/files", ch.ListFiles)
 	llm := protected.Group("/api/llm")
 	llm.Use(appmw.LLMByUser())
