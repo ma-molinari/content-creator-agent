@@ -39,6 +39,7 @@ func main() {
 	chatRepo := chat.NewRepository(gdb)
 	chatSvc := chat.NewService(chatRepo, stor)
 	ch := chat.NewHandler(chatSvc)
+
 	e := echo.New()
 	e.HideBanner = true
 	e.Use(middleware.Recover())
@@ -69,6 +70,8 @@ func main() {
 	protected.DELETE("/chats/:id", ch.DeleteChat)
 	protected.GET("/chats/:id/files/download", ch.DownloadZip)
 	protected.GET("/chats/:id/files", ch.ListFiles)
+	protected.GET("/chats/:id/files/:fileId", ch.GetFile)
+
 	llm := protected.Group("/api/llm")
 	llm.Use(appmw.LLMByUser())
 	llm.GET("/ready", func(c echo.Context) error {
