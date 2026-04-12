@@ -6,9 +6,11 @@ import (
 	"os"
 
 	"content-creator-agent/internal/auth"
+	"content-creator-agent/internal/chat"
 	"content-creator-agent/internal/config"
 	"content-creator-agent/internal/db"
 	appmw "content-creator-agent/internal/middleware"
+	"content-creator-agent/internal/storage"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -30,14 +32,26 @@ func main() {
 	svc := auth.NewService(repo, cfg.JWTSecret, cfg.JWTRefreshSecret, cookieSecure)
 	h := auth.NewHandler(svc)
 
+	stor, err := storage.NewS3Service(cfg.AWSRegion, cfg.S3Bucket, cfg.AWSAccessKeyID, cfg.AWSSecretAccessKey)
+	if err != nil {
+		log.Fatalf("storage: %v", err)
+	}
+	chatRepo := chat.NewRepository(gdb)
+	chatSvc := chat.NewService(chatRepo, stor)
+	ch := chat.NewHandler(chatSvc)
+
 	e := echo.New()
 	e.HideBanner = true
 	e.Use(middleware.Recover())
+	e.Use(appmw.SecurityHeaders())
+	e.Use(appmw.CORS(cfg.CORSAllowedOrigins))
+
 	e.GET("/health", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})
 
 	authGroup := e.Group("/auth")
+	authGroup.Use(appmw.AuthByIP())
 	authGroup.POST("/register", h.Register)
 	authGroup.POST("/login", h.Login)
 	authGroup.POST("/refresh", h.Refresh)
@@ -49,8 +63,10 @@ func main() {
 		uid := appmw.UserID(c)
 		return c.JSON(http.StatusOK, map[string]string{"userId": uid.String()})
 	})
-	protected.GET("/chats", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, []interface{}{})
+	llm := protected.Group("/api/llm")
+	llm.Use(appmw.LLMByUser())
+	llm.GET("/ready", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})
 
 	addr := ":" + cfg.Port
