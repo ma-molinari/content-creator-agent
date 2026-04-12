@@ -62,6 +62,8 @@ func main() {
 
 	protected.GET("/chats", ch.ListChats)
 	protected.POST("/chats", ch.CreateChat)
+	protected.GET("/chats/:id", ch.GetChat)
+	protected.DELETE("/chats/:id", ch.DeleteChat)
 	llm := protected.Group("/api/llm")
 	llm.Use(appmw.LLMByUser())
 	llm.GET("/ready", func(c echo.Context) error {
