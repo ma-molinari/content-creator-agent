@@ -70,6 +70,23 @@ func (h *Handler) Login(c echo.Context) error {
 	c.SetCookie(cookie)
 	return c.JSON(http.StatusOK, loginResponse{AccessToken: res.AccessToken})
 }
+
+type refreshResponse struct {
+	AccessToken string `json:"accessToken"`
+}
+
+func (h *Handler) Refresh(c echo.Context) error {
+	var token string
+	cookie, err := c.Cookie(refreshCookieName)
+	if err == nil && cookie != nil {
+		token = strings.TrimSpace(cookie.Value)
+	}
+	access, err := h.svc.Refresh(c.Request().Context(), token)
+	if err != nil {
+		return mapAuthError(err)
+	}
+	return c.JSON(http.StatusOK, refreshResponse{AccessToken: access})
+}
 func mapAuthError(err error) error {
 	var se *ServiceError
 	if errors.As(err, &se) {

@@ -136,3 +136,42 @@ func (s *Service) issueTokens(userID uuid.UUID) (access string, refresh string, 
 	}
 	return access, refresh, nil
 }
+
+func (s *Service) Refresh(ctx context.Context, refreshToken string) (accessToken string, err error) {
+	if refreshToken == "" {
+		return "", errStatus(http.StatusUnauthorized, "missing refresh token")
+	}
+	parser := jwt.NewParser(jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
+	tok, err := parser.ParseWithClaims(refreshToken, &jwt.RegisteredClaims{}, func(t *jwt.Token) (interface{}, error) {
+		if t.Method != jwt.SigningMethodHS256 {
+			return nil, fmt.Errorf("unexpected signing method")
+		}
+		return s.jwtRefreshSecret, nil
+	})
+	if err != nil || !tok.Valid {
+		return "", errStatus(http.StatusUnauthorized, "invalid or expired refresh token")
+	}
+	claims, ok := tok.Claims.(*jwt.RegisteredClaims)
+	if !ok || claims.Subject == "" {
+		return "", errStatus(http.StatusUnauthorized, "invalid refresh token")
+	}
+	userID, err := uuid.Parse(claims.Subject)
+	if err != nil {
+		return "", errStatus(http.StatusUnauthorized, "invalid refresh token")
+	}
+	u, err := s.repo.FindByID(ctx, userID)
+	if err != nil {
+		return "", err
+	}
+	if u == nil {
+		return "", errStatus(http.StatusUnauthorized, "invalid refresh token")
+	}
+	now := time.Now()
+	accessClaims := jwt.RegisteredClaims{
+		Subject:   userID.String(),
+		IssuedAt:  jwt.NewNumericDate(now),
+		ExpiresAt: jwt.NewNumericDate(now.Add(accessTokenTTL)),
+	}
+	at := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
+	return at.SignedString(s.jwtSecret)
+}

@@ -8,6 +8,7 @@ import (
 	"content-creator-agent/internal/auth"
 	"content-creator-agent/internal/config"
 	"content-creator-agent/internal/db"
+	appmw "content-creator-agent/internal/middleware"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -39,6 +40,17 @@ func main() {
 	authGroup := e.Group("/auth")
 	authGroup.POST("/register", h.Register)
 	authGroup.POST("/login", h.Login)
+	authGroup.POST("/refresh", h.Refresh)
+
+	protected := e.Group("")
+	protected.Use(appmw.JWT(cfg.JWTSecret))
+	protected.GET("/me", func(c echo.Context) error {
+		uid := appmw.UserID(c)
+		return c.JSON(http.StatusOK, map[string]string{"userId": uid.String()})
+	})
+	protected.GET("/chats", func(c echo.Context) error {
+		return c.JSON(http.StatusOK, []interface{}{})
+	})
 
 	addr := ":" + cfg.Port
 	if err := e.Start(addr); err != nil && err != http.ErrServerClosed {
