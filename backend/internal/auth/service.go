@@ -175,3 +175,28 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (accessToken
 	at := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
 	return at.SignedString(s.jwtSecret)
 }
+
+func (s *Service) RecoverPassword(ctx context.Context, email, securityKey, newPassword string) error {
+	email = strings.TrimSpace(strings.ToLower(email))
+	if len(newPassword) < 8 {
+		return errStatus(http.StatusBadRequest, "password must be at least 8 characters")
+	}
+	u, err := s.repo.FindByEmail(ctx, email)
+	if err != nil {
+		return err
+	}
+	if u == nil {
+		return errStatus(http.StatusNotFound, "user not found")
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(u.SecurityKeyHash), []byte(securityKey)); err != nil {
+		return errStatus(http.StatusForbidden, "invalid security key")
+	}
+	passHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcryptCost)
+	if err != nil {
+		return err
+	}
+	return s.repo.UpdatePasswordHash(ctx, u.ID, string(passHash))
+}
+
+// CookieSecure returns whether Set-Cookie should use the Secure flag.
+func (s *Service) CookieSecure() bool { return s.cookieSecure }

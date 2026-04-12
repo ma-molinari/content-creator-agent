@@ -87,6 +87,29 @@ func (h *Handler) Refresh(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, refreshResponse{AccessToken: access})
 }
+
+type recoverBody struct {
+	Email        string `json:"email"`
+	SecurityKey  string `json:"securityKey"`
+	NewPassword  string `json:"newPassword"`
+}
+
+type recoverResponse struct {
+	Success bool `json:"success"`
+}
+
+func (h *Handler) RecoverPassword(c echo.Context) error {
+	var body recoverBody
+	if err := c.Bind(&body); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid JSON body")
+	}
+	err := h.svc.RecoverPassword(c.Request().Context(), body.Email, body.SecurityKey, body.NewPassword)
+	if err != nil {
+		return mapAuthError(err)
+	}
+	return c.JSON(http.StatusOK, recoverResponse{Success: true})
+}
+
 func mapAuthError(err error) error {
 	var se *ServiceError
 	if errors.As(err, &se) {

@@ -41,6 +41,7 @@ func main() {
 	authGroup.POST("/register", h.Register)
 	authGroup.POST("/login", h.Login)
 	authGroup.POST("/refresh", h.Refresh)
+	authGroup.POST("/recover-password", h.RecoverPassword)
 
 	protected := e.Group("")
 	protected.Use(appmw.JWT(cfg.JWTSecret))
