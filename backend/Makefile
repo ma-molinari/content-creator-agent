@@ -24,6 +24,7 @@ help:
 	@echo ""
 	@echo "Variáveis obrigatórias: DATABASE_URL, JWT_SECRET, JWT_REFRESH_SECRET"
 	@echo "(S3: AWS_REGION, AWS_S3_BUCKET ao subir o servidor.)"
+	@echo "Agent/export: OPENAI_API_KEY, PROFILE_DATA_ROOT, REPO_ROOT; JPEG export precisa Node + Playwright (scripts/export-slides.js)."
 	@echo "Veja .env.example"
 
 run:

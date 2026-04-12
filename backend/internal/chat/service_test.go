@@ -99,7 +99,7 @@ func TestChatLimit_fourThenFifthNoEviction(t *testing.T) {
 	gdb, u := testDBWithUser(t)
 	repo := NewRepository(gdb)
 	store := &mockStorage{}
-	svc := NewService(repo, store)
+	svc := NewService(repo, store, nil)
 	ctx := context.Background()
 	for range 4 {
 		if _, err := svc.CreateChat(ctx, u.ID, "single"); err != nil {
@@ -128,7 +128,7 @@ func TestChatLimit_sixthEvictsOldest(t *testing.T) {
 	gdb, u := testDBWithUser(t)
 	repo := NewRepository(gdb)
 	store := &mockStorage{}
-	svc := NewService(repo, store)
+	svc := NewService(repo, store, nil)
 	ctx := context.Background()
 	var firstID uuid.UUID
 	for i := range 5 {
@@ -165,7 +165,7 @@ func TestChatLimit_sixthEvictsOldest(t *testing.T) {
 func TestChatLimit_oneNoEviction(t *testing.T) {
 	gdb, u := testDBWithUser(t)
 	store := &mockStorage{}
-	svc := NewService(NewRepository(gdb), store)
+	svc := NewService(NewRepository(gdb), store, nil)
 	ctx := context.Background()
 	if _, err := svc.CreateChat(ctx, u.ID, "carousel"); err != nil {
 		t.Fatal(err)

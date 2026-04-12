@@ -4,11 +4,14 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
+	"content-creator-agent/internal/agent"
 	"content-creator-agent/internal/auth"
 	"content-creator-agent/internal/chat"
 	"content-creator-agent/internal/config"
 	"content-creator-agent/internal/db"
+	"content-creator-agent/internal/export"
 	appmw "content-creator-agent/internal/middleware"
 	"content-creator-agent/internal/storage"
 
@@ -37,7 +40,28 @@ func main() {
 		log.Fatalf("storage: %v", err)
 	}
 	chatRepo := chat.NewRepository(gdb)
-	chatSvc := chat.NewService(chatRepo, stor)
+	exportTimeout := 120 * time.Second
+	if cfg.ExportTimeout != "" {
+		if d, err := time.ParseDuration(cfg.ExportTimeout); err == nil {
+			exportTimeout = d
+		}
+	}
+	var chatAgent *chat.AgentDeps
+	if cfg.OpenAIAPIKey != "" && cfg.ProfileDataRoot != "" && cfg.RepoRoot != "" {
+		llm, err := agent.NewLLMClient(cfg.OpenAIAPIKey, cfg.OpenAIModel, "", nil)
+		if err != nil {
+			log.Printf("agent: OpenAI client not started: %v", err)
+		} else {
+			pc := agent.NewProfileChecker(cfg.ProfileDataRoot)
+			chatAgent = &chat.AgentDeps{
+				Profile:   pc,
+				Optimizer: agent.NewPromptOptimizer(llm),
+				SlideGen:  agent.NewSlideGenerator(llm, pc),
+				Runner:    export.NewPlaywrightRunner(cfg.RepoRoot, exportTimeout),
+			}
+		}
+	}
+	chatSvc := chat.NewService(chatRepo, stor, chatAgent)
 	ch := chat.NewHandler(chatSvc)
 
 	e := echo.New()
@@ -71,6 +95,11 @@ func main() {
 	protected.GET("/chats/:id/files/download", ch.DownloadZip)
 	protected.GET("/chats/:id/files", ch.ListFiles)
 	protected.GET("/chats/:id/files/:fileId", ch.GetFile)
+	protected.GET("/setup/status", ch.SetupStatus)
+
+	chatLLM := protected.Group("/chats")
+	chatLLM.Use(appmw.LLMByUser())
+	chatLLM.POST("/:id/messages", ch.PostMessage)
 
 	llm := protected.Group("/api/llm")
 	llm.Use(appmw.LLMByUser())

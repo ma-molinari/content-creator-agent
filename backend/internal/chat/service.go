@@ -16,10 +16,12 @@ import (
 
 // Sentinel errors mapped to HTTP in handlers.
 var (
-	ErrNotFound    = errors.New("chat: not found")
-	ErrForbidden   = errors.New("chat: forbidden")
-	ErrNoFiles     = errors.New("chat: no files to zip")
-	ErrBadPostType = errors.New("chat: invalid post type")
+	ErrNotFound           = errors.New("chat: not found")
+	ErrForbidden          = errors.New("chat: forbidden")
+	ErrNoFiles            = errors.New("chat: no files to zip")
+	ErrBadPostType        = errors.New("chat: invalid post type")
+	ErrAgentNotConfigured = errors.New("chat: agent not configured")
+	ErrExportFailed       = errors.New("chat: export failed")
 )
 
 const listChatsLimit = 5
@@ -29,11 +31,12 @@ const signedURLExpiry = time.Hour
 type Service struct {
 	repo  *Repository
 	store storage.StorageService
+	agent *AgentDeps
 }
 
-// NewService constructs a chat service.
-func NewService(repo *Repository, store storage.StorageService) *Service {
-	return &Service{repo: repo, store: store}
+// NewService constructs a chat service. agent may be nil (agent routes unavailable).
+func NewService(repo *Repository, store storage.StorageService, agent *AgentDeps) *Service {
+	return &Service{repo: repo, store: store, agent: agent}
 }
 
 // ListChats returns up to 5 chats for the user.

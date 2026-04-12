@@ -5,11 +5,13 @@ import (
 	"net/http"
 	"time"
 
+	"content-creator-agent/internal/agent"
 	"content-creator-agent/internal/db"
 	"content-creator-agent/internal/middleware"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/tmc/langchaingo/llms"
 )
 
 // Handler exposes chat HTTP endpoints.
@@ -208,4 +210,88 @@ func mapChatErr(err error) *echo.HTTPError {
 	default:
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+}
+
+type postMessageBody struct {
+	Content string `json:"content"`
+}
+
+type postMessageResponse struct {
+	Message chatContentJSON `json:"message"`
+	Files   []FileListItem  `json:"files"`
+}
+
+// PostMessage handles POST /chats/:id/messages (with LLM rate limit middleware).
+func (h *Handler) PostMessage(c echo.Context) error {
+	chatID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid chat id")
+	}
+	var body postMessageBody
+	if err := c.Bind(&body); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid JSON body")
+	}
+	if body.Content == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "content is required")
+	}
+	uid := middleware.UserID(c)
+	res, err := h.svc.PostMessage(c.Request().Context(), uid, chatID, body.Content)
+	if err != nil {
+		return mapPostErr(err)
+	}
+	now := time.Now()
+	msg := chatContentJSON{
+		ID:        res.Assistant.ID,
+		ChatID:    chatID,
+		Role:      string(res.Assistant.Role),
+		Content:   res.Assistant.Content,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	for _, im := range res.Images {
+		msg.Images = append(msg.Images, chatContentImgJSON{
+			ID:            im.ID,
+			ChatContentID: im.ChatContentID,
+			S3Key:         im.S3Key,
+			URL:           im.URL,
+			SlideNumber:   im.SlideNumber,
+			CreatedAt:     now,
+			UpdatedAt:     now,
+		})
+	}
+	return c.JSON(http.StatusOK, postMessageResponse{Message: msg, Files: res.Files})
+}
+
+// SetupStatus handles GET /setup/status.
+func (h *Handler) SetupStatus(c echo.Context) error {
+	uid := middleware.UserID(c)
+	ok, err := h.svc.IsProfileConfigured(c.Request().Context(), uid)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	return c.JSON(http.StatusOK, map[string]bool{"configured": ok})
+}
+
+func mapPostErr(err error) *echo.HTTPError {
+	switch {
+	case errors.Is(err, agent.ErrSetupRequired):
+		return echo.NewHTTPError(http.StatusBadRequest, map[string]string{
+			"code":    "SETUP_REQUIRED",
+			"message": "Add AUDIT.md and BRAND.md under instagram-audits/<your-user-id>/ in PROFILE_DATA_ROOT.",
+		})
+	case errors.Is(err, ErrAgentNotConfigured):
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "language features are not configured on this server")
+	case errors.Is(err, ErrExportFailed):
+		return echo.NewHTTPError(http.StatusInternalServerError, "slide export failed; try again later")
+	case errors.Is(err, agent.ErrEmptyPrompt):
+		return echo.NewHTTPError(http.StatusBadRequest, "content is empty after sanitization")
+	}
+	var le *llms.Error
+	if errors.As(err, &le) {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "language model unavailable")
+	}
+	if errors.Is(err, ErrNotFound) || errors.Is(err, ErrForbidden) {
+		return mapChatErr(err)
+	}
+	return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 }
