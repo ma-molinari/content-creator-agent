@@ -1,0 +1,207 @@
+package chat
+
+import (
+	"archive/zip"
+	"bytes"
+	"context"
+	"errors"
+	"fmt"
+	"time"
+
+	"content-creator-agent/internal/db"
+	"content-creator-agent/internal/storage"
+
+	"github.com/google/uuid"
+)
+
+// Sentinel errors mapped to HTTP in handlers.
+var (
+	ErrNotFound    = errors.New("chat: not found")
+	ErrForbidden   = errors.New("chat: forbidden")
+	ErrNoFiles     = errors.New("chat: no files to zip")
+	ErrBadPostType = errors.New("chat: invalid post type")
+)
+
+const listChatsLimit = 5
+const signedURLExpiry = time.Hour
+
+// Service coordinates chat use cases and storage.
+type Service struct {
+	repo  *Repository
+	store storage.StorageService
+}
+
+// NewService constructs a chat service.
+func NewService(repo *Repository, store storage.StorageService) *Service {
+	return &Service{repo: repo, store: store}
+}
+
+// ListChats returns up to 5 chats for the user.
+func (s *Service) ListChats(ctx context.Context, userID uuid.UUID) ([]db.Chat, error) {
+	return s.repo.ListByUser(ctx, userID, listChatsLimit)
+}
+
+// CreateChat creates a chat (5-chat eviction added in T14).
+func (s *Service) CreateChat(ctx context.Context, userID uuid.UUID, postType string) (*db.Chat, error) {
+	pt, err := parsePostType(postType)
+	if err != nil {
+		return nil, err
+	}
+	return s.repo.Create(ctx, userID, pt)
+}
+
+func parsePostType(s string) (db.PostType, error) {
+	switch db.PostType(s) {
+	case db.PostTypeSingle, db.PostTypeCarousel:
+		return db.PostType(s), nil
+	default:
+		return "", fmt.Errorf("%w: %q", ErrBadPostType, s)
+	}
+}
+
+// GetChat returns a chat with contents when the user owns it.
+func (s *Service) GetChat(ctx context.Context, userID, chatID uuid.UUID) (*db.Chat, error) {
+	c, err := s.repo.GetByID(ctx, chatID)
+	if ErrRecordNotFound(err) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if c.UserID != userID {
+		return nil, ErrForbidden
+	}
+	return s.repo.GetByIDWithContents(ctx, chatID)
+}
+
+// DeleteChat removes S3 objects then the chat row.
+func (s *Service) DeleteChat(ctx context.Context, userID, chatID uuid.UUID) error {
+	c, err := s.repo.GetByID(ctx, chatID)
+	if ErrRecordNotFound(err) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if c.UserID != userID {
+		return ErrForbidden
+	}
+	keys, err := s.repo.CollectS3KeysForChat(ctx, chatID)
+	if err != nil {
+		return err
+	}
+	if err := s.store.DeleteMany(ctx, keys); err != nil {
+		return err
+	}
+	if err := s.repo.DeleteChat(ctx, chatID); err != nil {
+		return err
+	}
+	return nil
+}
+
+// FileListItem is one generated slide with a presigned download URL.
+type FileListItem struct {
+	ID          uuid.UUID `json:"id"`
+	FileName    string    `json:"fileName"`
+	MimeType    string    `json:"mimeType"`
+	DownloadURL string    `json:"downloadUrl"`
+}
+
+// ListFiles returns signed URLs for all images in the chat.
+func (s *Service) ListFiles(ctx context.Context, userID, chatID uuid.UUID) ([]FileListItem, error) {
+	if err := s.assertChatOwner(ctx, userID, chatID); err != nil {
+		return nil, err
+	}
+	imgs, err := s.repo.ListImagesForChat(ctx, chatID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]FileListItem, 0, len(imgs))
+	for _, img := range imgs {
+		url, err := s.store.GetSignedURL(ctx, img.S3Key, signedURLExpiry)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, FileListItem{
+			ID:          img.ID,
+			FileName:    fmt.Sprintf("slide-%d.jpg", img.SlideNumber),
+			MimeType:    "image/jpeg",
+			DownloadURL: url,
+		})
+	}
+	return out, nil
+}
+
+// BuildChatZip downloads all JPEGs and returns a zip in memory.
+func (s *Service) BuildChatZip(ctx context.Context, userID, chatID uuid.UUID) ([]byte, string, error) {
+	if err := s.assertChatOwner(ctx, userID, chatID); err != nil {
+		return nil, "", err
+	}
+	imgs, err := s.repo.ListImagesForChat(ctx, chatID)
+	if err != nil {
+		return nil, "", err
+	}
+	if len(imgs) == 0 {
+		return nil, "", ErrNoFiles
+	}
+	buf := new(bytes.Buffer)
+	zw := zip.NewWriter(buf)
+	for _, img := range imgs {
+		data, err := s.store.GetObject(ctx, img.S3Key)
+		if err != nil {
+			_ = zw.Close()
+			return nil, "", err
+		}
+		name := fmt.Sprintf("slide-%d.jpg", img.SlideNumber)
+		w, err := zw.Create(name)
+		if err != nil {
+			_ = zw.Close()
+			return nil, "", err
+		}
+		if _, err := w.Write(data); err != nil {
+			_ = zw.Close()
+			return nil, "", err
+		}
+	}
+	if err := zw.Close(); err != nil {
+		return nil, "", err
+	}
+	filename := fmt.Sprintf("slides-%s.zip", chatID.String())
+	return buf.Bytes(), filename, nil
+}
+
+// GetImageJPEG returns raw JPEG bytes when the file belongs to the user's chat.
+func (s *Service) GetImageJPEG(ctx context.Context, userID, chatID, fileID uuid.UUID) ([]byte, error) {
+	c, err := s.repo.GetByID(ctx, chatID)
+	if ErrRecordNotFound(err) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if c.UserID != userID {
+		return nil, ErrForbidden
+	}
+	img, err := s.repo.GetImageInChat(ctx, chatID, fileID)
+	if ErrRecordNotFound(err) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return s.store.GetObject(ctx, img.S3Key)
+}
+
+func (s *Service) assertChatOwner(ctx context.Context, userID, chatID uuid.UUID) error {
+	c, err := s.repo.GetByID(ctx, chatID)
+	if ErrRecordNotFound(err) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if c.UserID != userID {
+		return ErrForbidden
+	}
+	return nil
+}

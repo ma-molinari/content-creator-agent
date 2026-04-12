@@ -31,11 +31,7 @@ func main() {
 	cookieSecure := os.Getenv("COOKIE_SECURE") != "false"
 	svc := auth.NewService(repo, cfg.JWTSecret, cfg.JWTRefreshSecret, cookieSecure)
 	h := auth.NewHandler(svc)
-
-	stor, err := storage.NewS3Service(cfg.AWSRegion, cfg.S3Bucket, cfg.AWSAccessKeyID, cfg.AWSSecretAccessKey)
-	if err != nil {
-		log.Fatalf("storage: %v", err)
-	}
+	var stor storage.StorageService = storage.Nop{}
 	chatRepo := chat.NewRepository(gdb)
 	chatSvc := chat.NewService(chatRepo, stor)
 	ch := chat.NewHandler(chatSvc)
@@ -63,6 +59,8 @@ func main() {
 		uid := appmw.UserID(c)
 		return c.JSON(http.StatusOK, map[string]string{"userId": uid.String()})
 	})
+
+	protected.GET("/chats", ch.ListChats)
 	llm := protected.Group("/api/llm")
 	llm.Use(appmw.LLMByUser())
 	llm.GET("/ready", func(c echo.Context) error {
