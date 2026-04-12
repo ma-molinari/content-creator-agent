@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 
+	"content-creator-agent/internal/auth"
 	"content-creator-agent/internal/config"
 	"content-creator-agent/internal/db"
 
@@ -14,12 +15,19 @@ import (
 
 func main() {
 	cfg := config.Load()
-	_ = cfg
+	if cfg.JWTSecret == "" || cfg.JWTRefreshSecret == "" {
+		log.Fatal("JWT_SECRET and JWT_REFRESH_SECRET must be set")
+	}
+
 	gdb := db.Connect()
 	if err := db.RunMigrations(os.Getenv("DATABASE_URL")); err != nil {
 		log.Fatalf("migrations: %v", err)
 	}
-	_ = gdb
+
+	repo := auth.NewRepository(gdb)
+	cookieSecure := os.Getenv("COOKIE_SECURE") != "false"
+	svc := auth.NewService(repo, cfg.JWTSecret, cfg.JWTRefreshSecret, cookieSecure)
+	h := auth.NewHandler(svc)
 
 	e := echo.New()
 	e.HideBanner = true
@@ -27,11 +35,12 @@ func main() {
 	e.GET("/health", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-	if err := e.Start(":" + port); err != nil && err != http.ErrServerClosed {
+
+	authGroup := e.Group("/auth")
+	authGroup.POST("/register", h.Register)
+
+	addr := ":" + cfg.Port
+	if err := e.Start(addr); err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
 }
