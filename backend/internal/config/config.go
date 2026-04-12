@@ -1,0 +1,47 @@
+package config
+
+import (
+	"os"
+	"strings"
+)
+
+// Load reads configuration from the environment.
+type Config struct {
+	Port               string
+	DatabaseURL        string
+	JWTSecret          string
+	JWTRefreshSecret   string
+	CORSAllowedOrigins []string
+	AWSRegion          string
+	AWSAccessKeyID     string
+	AWSSecretAccessKey string
+	S3Bucket           string
+}
+
+func Load() Config {
+	origins := os.Getenv("CORS_ALLOWED_ORIGINS")
+	var allowed []string
+	if origins != "" {
+		for _, o := range strings.Split(origins, ",") {
+			o = strings.TrimSpace(o)
+			if o != "" {
+				allowed = append(allowed, o)
+			}
+		}
+	}
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	return Config{
+		Port:               port,
+		DatabaseURL:        os.Getenv("DATABASE_URL"),
+		JWTSecret:          os.Getenv("JWT_SECRET"),
+		JWTRefreshSecret:   os.Getenv("JWT_REFRESH_SECRET"),
+		CORSAllowedOrigins: allowed,
+		AWSRegion:          os.Getenv("AWS_REGION"),
+		AWSAccessKeyID:     os.Getenv("AWS_ACCESS_KEY_ID"),
+		AWSSecretAccessKey: os.Getenv("AWS_SECRET_ACCESS_KEY"),
+		S3Bucket:           os.Getenv("AWS_S3_BUCKET"),
+	}
+}
