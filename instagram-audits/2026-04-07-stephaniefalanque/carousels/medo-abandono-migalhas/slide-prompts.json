@@ -1,0 +1,59 @@
+{
+  "profile": "@stephaniefalanque",
+  "theme": "Medo do abandono: por que você aceita migalhas — raiz da dependência emocional",
+  "format": "9:16 vertical, 768x1376",
+  "safe_zone": "Texto principal e marca acima dos 20% inferiores do quadro.",
+  "visual_dna": {
+    "palette": "Magenta/rose #c1345a, preto, off-white/cream, cinza quente, amarelo pontual em fitas/stickers.",
+    "style": "Colagem contemporânea: fitas adesivas (tape), stickers com emoji, polaroid vazia, grão de papel, estrelas. Tom de terapia acessível, não clínico frio.",
+    "brand_lockup": "@stephaniefalanque + Psicóloga de Jovens Adultas no topo; nada crítico na zona inferior 20%."
+  },
+  "slides": [
+    {
+      "index": 1,
+      "arc": "hook",
+      "on_slide_headline": "Por que você aceita migalhas?",
+      "on_slide_sub": "Por trás disso, muitas vezes, mora um medo antigo: o do abandono.",
+      "image_prompt": "IG carousel 9:16, Portuguese. Collage therapy aesthetic: washi tape strips, small heart sticker emoji, empty polaroid frame, magenta accents on cream paper grain. Bold headline 'por que você aceita migalhas?'. Subline about fear of abandonment. Stars. @stephaniefalanque top. No text in bottom 20%."
+    },
+    {
+      "index": 2,
+      "arc": "problem",
+      "on_slide_headline": "Medo do abandono — Quando ficar parece vitória",
+      "on_slide_body": "Mesmo que doa, perder a pessoa ou ficar sozinha pode pesar mais que a frustração do agora.",
+      "image_prompt": "9:16, two-tone paper zone split, pin emoji sticker, warm gray and cream. Label 'Medo do abandono'. Large headline about staying feeling like a win. Body text in Portuguese. Brand top only."
+    },
+    {
+      "index": 3,
+      "arc": "agitation",
+      "on_slide_headline": "Qualquer migalha vira prova",
+      "on_slide_body": "Mensagem seca, plano de última hora… o corpo alivia porque ainda tem alguém ali.",
+      "image_prompt": "Same DNA. Scissors emoji sticker, yellow soft blob accent. Headline in Portuguese about crumbs as proof of not being forgotten. Supporting lines. Collage. Safe zone."
+    },
+    {
+      "index": 4,
+      "arc": "solution",
+      "on_slide_headline": "Dependência emocional — reenquadramento",
+      "on_slide_body": "Não é frescura; é um jeito aprendido de segurança no vínculo. Encerrar ciclos e autoestima entram na história.",
+      "image_prompt": "Diagonal cream split background, star sticker, pill label 'Raiz'. Portuguese reframe of emotional dependency. Magenta italic provocation line. Body about cycles and self-esteem. Top branding."
+    },
+    {
+      "index": 5,
+      "arc": "feature",
+      "on_slide_headline": "Sair do modo migalhas",
+      "on_slide_bullets": [
+        "Honestidade sobre o que você troca por perto",
+        "Encerrar ciclos pequenos",
+        "Fortalecer vínculo consigo + apoio profissional se fizer sentido"
+      ],
+      "image_prompt": "Educational bullet slide, white heart sticker, tape. Three bullets Portuguese. Footer italic note that content does not replace therapy. Warm, hopeful. 9:16, safe zone."
+    },
+    {
+      "index": 6,
+      "arc": "cta",
+      "on_slide_headline": "O que você já tolerou por medo de ficar sozinha?",
+      "on_slide_sub": "Comenta — uma palavra ou uma frase. Salva se ressoou.",
+      "image_prompt": "Closing slide, big question Portuguese, comment CTA, save hint above bottom 20%. Chat bubble sticker, stars, magenta blobs. @stephaniefalanque top. 9:16."
+    }
+  ]
+}

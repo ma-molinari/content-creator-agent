@@ -1,0 +1,81 @@
+{
+  "profile": "@stephaniefalanque",
+  "theme": "Carreira e produtividade — psicologia do trabalho: impostor, burnout vs. cansaço, procrastinação",
+  "format": "9:16 vertical, 768×1376",
+  "safe_zone": "Texto essencial e lockup acima dos ~276px inferiores; numeração 01/06 acima da zona segura.",
+  "visual_dna": {
+    "palette": "Magenta #e02d8c, rosa poeira #c97b95, papel #ebe8e6 / #f2efec, grafite #2e2e2e, branco sobre faixas.",
+    "style": "Colagem contemporânea, grão de papel, faixas magenta com leve rotação e sombra; terapia acessível, não clínica fria.",
+    "brand_lockup": "Topo: @stephaniefalanque // Psicóloga de Jovens Adultas (duas linhas à direita), uppercase, letter-spacing."
+  },
+  "slides": [
+    {
+      "index": 1,
+      "arc": "hook",
+      "on_slide_strings": [
+        "Psicologia do trabalho — 3 padrões que aparecem no expediente",
+        "IMPOSTOR,",
+        "CORPO TRAVADO",
+        "E ADIAMENTO",
+        "Nada disso é \"falta de vontade\" — tem nome e tem caminho."
+      ],
+      "image_prompt": "IG carousel 9:16, 768×1376, Portuguese on-slide copy exact. Subject: hero stack — three magenta tilted strips reading IMPOSTOR / CORPO TRAVADO / E ADIAMENTO; rose-dust strip with exact subline about not being lack of will; white kicker line above about psychology of work and three patterns. Environment: dark moody gradient photo-bg simulation (magenta wash over deep plum), subtle paper noise. Lighting: soft even on type, no blown highlights on letters. Technical: brand lockup top only (@stephaniefalanque // Psicóloga de Jovens Adultas), slide number 01 / 06 above bottom safe zone, zero text in bottom 20%. Style: accessible therapy collage, small star accents optional. Negatives: illegible text, extra logos, stock faces, cluttered bottom."
+    },
+    {
+      "index": 2,
+      "arc": "problem",
+      "on_slide_strings": [
+        "1 · Alta performance",
+        "SÍNDROME DO IMPOSTOR",
+        "SUCESSO \"NÃO COLA\"",
+        "body: fraud feeling, perfectionism, belonging"
+      ],
+      "image_prompt": "9:16 editorial slide, cream paper grain background. Subject: two stacked magenta uppercase strips SÍNDROME DO IMPOSTOR / SUCESSO \"NÃO COLA\"; label 1 · Alta performance small caps top-left; body paragraph in Portuguese exact about fraud feeling and perfectionism. Environment: minimal collage, optional washi tape corner. Lighting: flat soft on paper. Technical: brand bar top dark text, 02 / 06, safe zone. Style: Montserrat-heavy, BRAND magenta. Negatives: bottom text, random people, low contrast gray body."
+    },
+    {
+      "index": 3,
+      "arc": "agitation",
+      "on_slide_strings": [
+        "2 · Pressão e ambiente",
+        "BURNOUT NÃO É",
+        "\"SÓ CANSAÇO\"",
+        "NEM PREGUIÇA",
+        "note box: sleep doesn't restore, clinical attention"
+      ],
+      "image_prompt": "9:16, pink-wash textured gradient (rose/mauve), collage therapy. Subject: three centered magenta strips BURNOUT NÃO É / \"SÓ CANSAÇO\" / NEM PREGUIÇA; dark translucent note card below with exact Portuguese about nervous system and deserving clinical listening not blame. Label 2 · Pressão e ambiente. Technical: @stephaniefalanque top, 03 / 06, no critical content below safe line. Lighting: soft diffuse. Negatives: clinical hospital look, illegible note text, busy stickers covering type."
+    },
+    {
+      "index": 4,
+      "arc": "solution",
+      "on_slide_strings": [
+        "3 · Estudo e home office",
+        "PROCRASTINAR",
+        "É FUGA DO DESCONFORTO",
+        "Hack gentil: 2 minutes, environment, name the fear"
+      ],
+      "image_prompt": "9:16 paper slide. Subject: magenta strips PROCRASTINAR / É FUGA DO DESCONFORTO; body text Portuguese exact on threat and regulation; rose-dust callout block with Hack gentil bullets exact. Label 3 · Estudo e home office. Technical: brand top, 04 / 06, safe zone. Style: warm editorial, slight tape accent optional. Negatives: motivational cliché stock photo, tiny unreadable fonts."
+    },
+    {
+      "index": 5,
+      "arc": "feature",
+      "on_slide_strings": [
+        "Se um desses cards bateu forte",
+        "three bullets: judgment, micro-steps, professional support",
+        "educational disclaimer footer italic"
+      ],
+      "image_prompt": "9:16 cream paper. Subject: uppercase headline Se um desses cards bateu forte; three magenta-bullet list items in Portuguese exact; italic gray footer exact educational disclaimer. Technical: brand bar top, 05 / 06, bullets left-aligned, generous vertical centering in usable band. Negatives: wall of text, decorative clutter."
+    },
+    {
+      "index": 6,
+      "arc": "cta",
+      "on_slide_strings": [
+        "Quero te ouvir",
+        "QUAL DOS 3",
+        "BATEU MAIS",
+        "AÍ PRA VOCÊ?",
+        "footer: comment 1 2 3, LinkedIn Stories, bio link, save"
+      ],
+      "image_prompt": "9:16 closing, pink-wash background. Subject: three magenta CTA strips QUAL DOS 3 / BATEU MAIS / AÍ PRA VOCÊ?; charcoal footer block with white text exact Portuguese CTA for comments, LinkedIn/Stories, bio, save line. Small label Quero te ouvir top-left. Technical: brand top, 06 / 06, footer anchored above bottom safe zone (footer is intentional dark bar). Negatives: duplicate handles, illegible footer, text encroaching into IG UI zone below 276px."
+    }
+  ]
+}

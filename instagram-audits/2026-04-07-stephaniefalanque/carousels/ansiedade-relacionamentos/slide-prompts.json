@@ -1,0 +1,95 @@
+{
+  "profile": "@stephaniefalanque",
+  "theme": "Ansiedade nos relacionamentos — problema → desejo → solução (terapia/TCC), sem promessa de cura; CTA DM e bio",
+  "format": "9:16 vertical, 768×1376",
+  "safe_zone": "Texto essencial e lockup acima dos ~276px inferiores; sem numeração de slides nas imagens (UI nativa do Instagram).",
+  "visual_dna": {
+    "palette": "Magenta #e02d8c, rosa poeira #c97b95, papel #ebe8e6 / #f2efec, grafite #2e2e2e, branco sobre faixas.",
+    "style": "Colagem contemporânea, faixas magenta com leve rotação; terapia acessível; vidro semitransparente em CTAs e notas.",
+    "brand_lockup": "Topo: @stephaniefalanque // Psicóloga de Jovens Adultas (duas linhas à direita), uppercase, letter-spacing."
+  },
+  "slides": [
+    {
+      "index": 1,
+      "arc": "hook",
+      "template": "T1 — foto + faixa + vidro",
+      "on_slide_strings": [
+        "Ansiedade nos relacionamentos — quando a preocupação com o outro ocupa o volante",
+        "A SUA MENTE",
+        "NÃO PARA DE",
+        "PENSAR NELE(A)?",
+        "note-box: antecipa conflito, silêncio, mensagens, padrão de alerta, medo de abandono, nomear com calma"
+      ],
+      "image_prompt": "IG carousel 9:16, 768×1376, Portuguese on-slide copy exact. Subject: white kicker line about relationship anxiety; three magenta tilted strips A SUA MENTE / NÃO PARA DE / PENSAR NELE(A)?; dark translucent glass note below with exact Portuguese paragraph about anticipating conflict, silence, re-reading messages, pattern of alert, fear of not being enough, naming without judgment. Environment: moody photo background (couple holding hands, warm tones) under magenta-to-plum gradient overlay, subtle noise. Lighting: soft even on type. Technical: brand lockup top light (@stephaniefalanque // Psicóloga de Jovens Adultas), no slide counter on image, zero critical text in bottom 18%. Style: accessible therapy editorial, BRAND magenta. Negatives: illegible text, extra logos, cluttered bottom, stock faces as focal distraction over type."
+    },
+    {
+      "index": 2,
+      "arc": "problem",
+      "template": "T5 — papel",
+      "on_slide_strings": [
+        "1 · O que a mente faz",
+        "PENSAMENTOS",
+        "EM LOOP",
+        "ANTECIPANDO O PIOR",
+        "body: rewrite conversations, vigilance, details, anxiety cycle, system learned anticipation as control"
+      ],
+      "image_prompt": "9:16 editorial slide, cream paper #ebe8e6. Subject: three stacked magenta uppercase strips PENSAMENTOS / EM LOOP / ANTECIPANDO O PIOR; small tag 1 · O que a mente faz; body paragraph Portuguese exact about rumination, worst-case rehearsal, hypervigilance, present-moment drain, anxiety loop, not being too much. Technical: brand bar top dark text, no on-image slide counter, safe lower zone. Style: Montserrat, magenta bullets aesthetic via strips. Negatives: black solid panels, tiny fonts, decorative clutter."
+    },
+    {
+      "index": 3,
+      "arc": "agitation",
+      "template": "T5 + pink-wash sobre foto",
+      "on_slide_strings": [
+        "2 · Mensagens e silêncio",
+        "ALERTA MÁXIMO",
+        "NO CELULAR",
+        "note-box: delay in replies, read receipts, insecurity, proof never fills void, bond as tribunal"
+      ],
+      "image_prompt": "9:16, pink-magenta wash over soft couple/hands lifestyle photo (same series coherence as slide 1), collage therapy. Subject: two centered magenta strips ALERTA MÁXIMO / NO CELULAR; dark glass note with exact Portuguese about texting anxiety, online status, interpretation spiral, fear of not being enough, forgetting self-worth. Label 2 · Mensagens e silêncio. Technical: brand bar top light, no slide counter on image, readable note text. Negatives: clinical cold UI, illegible glass text, busy stickers."
+    },
+    {
+      "index": 4,
+      "arc": "desire",
+      "template": "T5 — papel",
+      "on_slide_strings": [
+        "3 · O que você quer de verdade",
+        "PAZ",
+        "CONFIANÇA",
+        "PRESENÇA",
+        "body: stop detective mode, lightness, rhythm of other person not rejection, not annulling self, internal security"
+      ],
+      "image_prompt": "9:16 paper #f2efec. Subject: three magenta strips PAZ / CONFIANÇA / PRESENÇA; tag 3 · O que você quer de verdade; body Portuguese exact about peace, trust, presence, healthy desire vs control. Technical: brand top dark, no slide counter, centered vertical balance in usable band. Negatives: motivational cliché stock, wall of text."
+    },
+    {
+      "index": 5,
+      "arc": "solution",
+      "template": "T5 — papel",
+      "on_slide_strings": [
+        "4 · Terapia como caminho",
+        "ORIGEM",
+        "MANIFESTAÇÃO",
+        "FERRAMENTAS",
+        "body: TCC explore pattern, automatic thoughts, fact vs interpretation, regulation, no magic cure promise, trust process, prioritize self",
+        "footer: Conteúdo educativo — não substitui acompanhamento clínico individual."
+      ],
+      "image_prompt": "9:16 paper. Subject: strips ORIGEM / MANIFESTAÇÃO / FERRAMENTAS; tag 4 · Terapia como caminho; body exact Portuguese on therapy/TCC framing without cure promise; italic gray footer disclaimer exact. Technical: brand bar top, no slide counter, generous spacing. Negatives: medical claims, diagnosis language, illegible footer."
+    },
+    {
+      "index": 6,
+      "arc": "cta",
+      "template": "T5 leve + CTA vidro",
+      "on_slide_strings": [
+        "Quero te ouvir",
+        "E SE ISSO",
+        "RESSOOU",
+        "COM VOCÊ?",
+        "1 Mente no loop · 2 Celular e silêncio · 3 Paz no vínculo · 4 Terapia como apoio",
+        "Me chama no direct 💬",
+        "Comenta 1 a 4, escreve solto ou chama no DM — no seu ritmo.",
+        "Quer ir além? Terapia com calma: link na bio.",
+        "Salva pra quando a ansiedade no relacionamento voltar apertar"
+      ],
+      "image_prompt": "9:16 pink wash over same relationship-toned photo as slide 3, warm editorial. Subject: three magenta CTA strips E SE ISSO / RESSOOU / COM VOCÊ?; centered numeric legend outside glass (1–4 themes exact); bottom dark glass panel with DM lead, comment hint, bio line, save line — Portuguese exact. Tag Quero te ouvir. Technical: brand lockup top light, .final-cta-mid flex gap so strips do not overlap legend; no slide counter on image; safe zone for Instagram UI. Style: BRAND magenta, accessible therapy. Negatives: stacked cramped text in one glass block, extra logos."
+    }
+  ]
+}

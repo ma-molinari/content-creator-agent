@@ -1,0 +1,507 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,600&display=swap');
+
+/* ============================================================
+   DESIGN SYSTEM — burnout-disfuncao-executiva
+   @stephaniefalanque | 768×1376 | Carousel
+   Template mix: T1 (slide 01 photo bg) + T5 (slides 02-05, off-white)
+   ============================================================ */
+
+:root {
+  /* Brand colors */
+  --c-magenta:      #e02d8c;
+  --c-magenta-deep: #c41e7a;
+  --c-rosa-poeira:  #c97b95;
+  --c-rosa-claro:   #dfa8b8;
+  --c-bg-offwhite:  #f2efec;
+  --c-bg-cream:     #ebe8e6;
+
+  /* Text */
+  --c-text-dark:    #1a1a1a;
+  --c-text-body:    #2e2e2e;
+  --c-text-light:   #ffffff;
+  --c-gray-muted:   #6e6865;
+  --c-gray-mid:     #5c5654;
+
+  /* Accent fills (slide-specific) */
+  --c-exhaustion-bg:  #f7e8ee;  /* soft pink — exaustão card */
+  --c-tiredness-bg:   #e8f0f7;  /* soft blue-gray — cansaço card */
+  --c-tdah-bg:        #fdf0f5;  /* pale rose — TDAH panel */
+  --c-burnout-bg:     #f0f5fd;  /* pale blue — Burnout panel */
+
+  /* Glass */
+  --c-glass-bg:     rgba(255, 255, 255, 0.82);
+  --c-glass-border: rgba(201, 123, 149, 0.35);
+
+  /* Typography */
+  --font-main:    'Montserrat', sans-serif;
+  --t-hero:       64px;
+  --t-heading:    46px;
+  --t-subhead:    38px;
+  --t-body:       34px;
+  --t-body-sm:    28px;
+  --t-caption:    24px;
+  --t-lockup:     16px;
+
+  /* Spacing (8px grid) */
+  --space-xs:  8px;
+  --space-sm:  16px;
+  --space-md:  32px;
+  --space-lg:  48px;
+  --space-xl:  64px;
+
+  /* Layout */
+  --safe-bottom:  276px;
+  --safe-top:     120px;
+  --slide-pad:    64px;
+}
+
+/* ============================================================
+   RESET + BODY
+   ============================================================ */
+
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  width: 768px;
+  height: 1376px;
+  overflow: hidden;
+  background-color: var(--c-bg-offwhite);
+  font-family: var(--font-main);
+  color: var(--c-text-body);
+  position: relative;
+}
+
+/* Subtle paper noise texture */
+body::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ============================================================
+   PHOTO BACKGROUNDS (Slide 01 — T1)
+   ============================================================ */
+
+/* Photo: woman rests face in hands — Tsimur Asayonak / Unsplash */
+.photo-bg--burnout {
+  background:
+    linear-gradient(to bottom,
+      rgba(26, 26, 26, 0.55) 0%,
+      rgba(26, 26, 26, 0.88) 100%),
+    url("bg-burnout.jpg") center / cover no-repeat;
+}
+
+/* ============================================================
+   TYPOGRAPHY UTILITIES
+   ============================================================ */
+
+.t-hero {
+  font-size: var(--t-hero);
+  font-weight: 900;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.t-heading {
+  font-size: var(--t-heading);
+  font-weight: 800;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.t-subhead {
+  font-size: var(--t-subhead);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.t-body {
+  font-size: var(--t-body);
+  font-weight: 500;
+  line-height: 1.42;
+}
+
+.t-body-sm {
+  font-size: var(--t-body-sm);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.t-caption {
+  font-size: var(--t-caption);
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.t-kicker {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--c-magenta);
+}
+
+.accent {
+  color: var(--c-magenta);
+}
+
+strong {
+  font-weight: 800;
+  color: var(--c-text-dark);
+}
+
+/* ============================================================
+   BRAND LOCKUP — Variant A (barra topo completa, dark bg)
+   ============================================================ */
+
+.brand-bar {
+  position: absolute;
+  top: 56px;
+  left: var(--slide-pad);
+  right: var(--slide-pad);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: var(--t-lockup);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--c-text-dark);
+  z-index: 10;
+}
+
+.brand-bar .handle {
+  text-transform: uppercase;
+}
+
+.brand-bar .divider {
+  color: var(--c-magenta);
+  font-weight: 900;
+}
+
+.brand-bar .role {
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--c-gray-muted);
+}
+
+/* Light variant — over dark photo backgrounds */
+.brand-bar--light {
+  color: var(--c-text-light);
+}
+
+.brand-bar--light .role {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* ============================================================
+   SLIDE CONTENT AREA (safe zone aware)
+   ============================================================ */
+
+.slide-content {
+  position: absolute;
+  top: var(--safe-top);
+  bottom: var(--safe-bottom);
+  left: var(--slide-pad);
+  right: var(--slide-pad);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-md);
+  z-index: 10;
+}
+
+.slide-content.align-top {
+  justify-content: flex-start;
+  padding-top: var(--space-lg);
+}
+
+/* ============================================================
+   STRIP — faixa magenta rotacionada (assinatura da marca)
+   ============================================================ */
+
+.strip {
+  display: inline-block;
+  background-color: var(--c-magenta);
+  color: var(--c-text-light);
+  font-size: var(--t-heading);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  padding: 10px 24px;
+  transform: rotate(-2deg);
+  box-shadow: 0 4px 16px rgba(224, 45, 140, 0.35);
+  line-height: 1.2;
+}
+
+.strip--alt {
+  transform: rotate(1.5deg);
+  background-color: var(--c-magenta-deep);
+}
+
+/* ============================================================
+   CALLOUT BOX (glass, semi-opaque)
+   ============================================================ */
+
+.callout {
+  background: var(--c-glass-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--c-glass-border);
+  border-radius: 14px;
+  padding: var(--space-md) var(--space-lg);
+  box-shadow: 0 8px 28px rgba(26, 26, 26, 0.07);
+}
+
+.callout--dark {
+  background: rgba(26, 26, 26, 0.68);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.callout--dark .t-body,
+.callout--dark .t-body-sm,
+.callout--dark strong {
+  color: var(--c-text-light);
+}
+
+/* ============================================================
+   COMPARISON CARDS (Slide 02 — cansaço vs exaustão)
+   ============================================================ */
+
+.compare-pair {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.compare-card {
+  border-radius: 14px;
+  padding: 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.compare-card--tired {
+  background-color: var(--c-tiredness-bg);
+  border-left: 5px solid #7aa8c9;
+}
+
+.compare-card--exhaustion {
+  background-color: var(--c-exhaustion-bg);
+  border-left: 5px solid var(--c-magenta);
+}
+
+.compare-card__icon {
+  font-size: 38px;
+  line-height: 1;
+}
+
+.compare-card__label {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--c-text-dark);
+}
+
+.compare-card--tired .compare-card__label {
+  color: #4a7a9b;
+}
+
+.compare-card--exhaustion .compare-card__label {
+  color: var(--c-magenta-deep);
+}
+
+.compare-card__text {
+  font-size: var(--t-body-sm);
+  font-weight: 500;
+  line-height: 1.42;
+  color: var(--c-text-body);
+}
+
+.compare-card__text strong {
+  color: var(--c-text-dark);
+}
+
+/* ============================================================
+   PARALYSIS PANELS (Slides 03-04)
+   ============================================================ */
+
+.paralysis-panel {
+  background: var(--c-glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 14px;
+  border: 1px solid var(--c-glass-border);
+  padding: 28px 32px;
+  box-shadow: 0 6px 24px rgba(26, 26, 26, 0.07);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.paralysis-panel--tdah {
+  border-left: 5px solid var(--c-magenta);
+  background: var(--c-tdah-bg);
+}
+
+.paralysis-panel--burnout {
+  border-left: 5px solid #7a9bcf;
+  background: var(--c-burnout-bg);
+}
+
+.paralysis-panel__tag {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.paralysis-panel--tdah .paralysis-panel__tag {
+  color: var(--c-magenta-deep);
+}
+
+.paralysis-panel--burnout .paralysis-panel__tag {
+  color: #5578a8;
+}
+
+.paralysis-panel__text {
+  font-size: var(--t-body-sm);
+  font-weight: 500;
+  line-height: 1.44;
+  color: var(--c-text-body);
+}
+
+.paralysis-panel__text strong {
+  color: var(--c-text-dark);
+}
+
+/* ============================================================
+   STRATEGY STEPS (Slide 05 — Regra dos 2 minutos)
+   ============================================================ */
+
+.strategy-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.strategy-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  background: var(--c-glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 12px;
+  border: 1px solid var(--c-glass-border);
+  border-left: 5px solid var(--c-magenta);
+  padding: 20px 24px;
+  box-shadow: 0 4px 16px rgba(26, 26, 26, 0.06);
+}
+
+.strategy-step__num {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background-color: var(--c-magenta);
+  color: var(--c-text-light);
+  font-size: 22px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.strategy-step__text {
+  font-size: var(--t-body-sm);
+  font-weight: 500;
+  line-height: 1.42;
+  color: var(--c-text-body);
+}
+
+.strategy-step__text strong {
+  color: var(--c-text-dark);
+}
+
+/* Anchor note below steps */
+.strategy-anchor {
+  background-color: rgba(224, 45, 140, 0.1);
+  border: 1px solid rgba(224, 45, 140, 0.3);
+  border-radius: 10px;
+  padding: 18px 24px;
+  font-size: var(--t-body-sm);
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--c-magenta-deep);
+  text-align: center;
+}
+
+/* ============================================================
+   CTA FOOTER ICONS (Slide 06)
+   ============================================================ */
+
+.cta-footer {
+  position: absolute;
+  bottom: var(--space-xl);
+  left: var(--slide-pad);
+  right: var(--slide-pad);
+  display: flex;
+  justify-content: center;
+  gap: 48px;
+  z-index: 10;
+}
+
+.cta-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.cta-item svg {
+  width: 52px;
+  height: 52px;
+  fill: var(--c-magenta);
+}
+
+.cta-label {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--c-gray-mid);
+  text-transform: uppercase;
+  text-align: center;
+  letter-spacing: 0.05em;
+  line-height: 1.3;
+}
+
+/* ============================================================
+   DISCLAIMER (slide CTA)
+   ============================================================ */
+
+.disclaimer {
+  background: rgba(201, 123, 149, 0.1);
+  border: 1px solid rgba(201, 123, 149, 0.3);
+  border-radius: 10px;
+  padding: 20px 24px;
+  font-size: var(--t-caption);
+  font-style: italic;
+  color: var(--c-gray-muted);
+  text-align: center;
+  line-height: 1.45;
+}
+
+.disclaimer strong {
+  color: var(--c-gray-mid);
+}

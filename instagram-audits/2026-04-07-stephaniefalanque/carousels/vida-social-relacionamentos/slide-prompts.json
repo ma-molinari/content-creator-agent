@@ -1,0 +1,86 @@
+{
+  "profile": "@stephaniefalanque",
+  "theme": "Vida social e relacionamentos — ressaca social, impostor + ansiedade, dizer não como saúde mental, ansiedade em vínculos (rejeição e validação)",
+  "format": "9:16 vertical, 768×1376",
+  "safe_zone": "Texto essencial e lockup acima dos ~276px inferiores; numeração 01/06 acima da zona segura.",
+  "visual_dna": {
+    "palette": "Magenta #e02d8c, rosa poeira #c97b95, papel #ebe8e6 / #f2efec, grafite #2e2e2e, branco sobre faixas.",
+    "style": "Colagem contemporânea, grão de papel, faixas magenta com leve rotação e sombra; terapia acessível, não clínica fria.",
+    "brand_lockup": "Topo: @stephaniefalanque // Psicóloga de Jovens Adultas (duas linhas à direita), uppercase, letter-spacing."
+  },
+  "slides": [
+    {
+      "index": 1,
+      "arc": "hook",
+      "on_slide_strings": [
+        "Vida social e relacionamentos — temas com cara de “só eu penso assim”",
+        "RESSACA SOCIAL,",
+        "MEDO DE NÃO SER BOA",
+        "DIZER “NÃO”,",
+        "VALIDAÇÃO NO LOOP",
+        "Não é frescura nem “draminha” — tem nome, e dá pra olhar com calma."
+      ],
+      "image_prompt": "IG carousel 9:16, 768×1376, Portuguese on-slide copy exact. Subject: hero stack — four magenta tilted strips RESSACA SOCIAL / MEDO DE NÃO SER BOA / DIZER “NÃO” / VALIDAÇÃO NO LOOP; rose-dust strip with exact subline about not being drama; white kicker above about social life and relationships and “only me” feeling. Environment: dark moody gradient photo-bg simulation (magenta wash over deep plum), subtle paper noise. Lighting: soft even on type, no blown highlights on letters. Technical: brand lockup top only (@stephaniefalanque // Psicóloga de Jovens Adultas), slide number 01 / 06 above bottom safe zone, zero text in bottom 20%. Style: accessible therapy collage, optional small star accents. Negatives: illegible text, extra logos, stock faces, cluttered bottom."
+    },
+    {
+      "index": 2,
+      "arc": "problem",
+      "on_slide_strings": [
+        "1 · Corpo e convívio",
+        "RESSACA SOCIAL",
+        "CANSAÇO DEPOIS DO ROLÊ",
+        "body: interaction costs mental energy, limit not antisocial"
+      ],
+      "image_prompt": "9:16 editorial slide, cream paper grain background #ebe8e6. Subject: two stacked magenta uppercase strips RESSACA SOCIAL / CANSAÇO DEPOIS DO ROLÊ; label 1 · Corpo e convívio small caps top-left; body paragraph in Portuguese exact about social exhaustion and physiological emotional limits. Environment: minimal collage, optional washi tape corner. Lighting: flat soft on paper. Technical: brand bar top dark text, 02 / 06, safe zone. Style: Montserrat-heavy, BRAND magenta. Negatives: bottom text, random people, low contrast gray body."
+    },
+    {
+      "index": 3,
+      "arc": "agitation",
+      "on_slide_strings": [
+        "2 · Autoimagem",
+        "“NÃO SOU BOA",
+        "O SUFICIENTE”",
+        "note: impostor + anxiety, hypervigilance in bonds"
+      ],
+      "image_prompt": "9:16, pink-wash textured gradient (rose/mauve), collage therapy. Subject: two centered magenta strips “NÃO SOU BOA / O SUFICIENTE”; dark translucent glass note card below with exact Portuguese about síndrome do impostor, ansiedade, vínculos, presença. Label 2 · Autoimagem. Technical: @stephaniefalanque top bar dark, 03 / 06, no critical content below safe line. Lighting: soft diffuse. Negatives: clinical hospital look, illegible note text, busy stickers covering type."
+    },
+    {
+      "index": 4,
+      "arc": "solution",
+      "on_slide_strings": [
+        "3 · Limites",
+        "DIZER “NÃO”",
+        "É FERRAMENTA DE",
+        "SAÚDE MENTAL",
+        "body + Na prática callout"
+      ],
+      "image_prompt": "9:16 paper slide #f2efec. Subject: three magenta strips DIZER “NÃO” / É FERRAMENTA DE / SAÚDE MENTAL; body text Portuguese exact on capacity and guilt; rose-dust callout with Na prática bullets exact. Label 3 · Limites. Technical: brand top, 04 / 06, safe zone. Style: warm editorial, slight tape accent optional. Negatives: motivational cliché stock photo, tiny unreadable fonts."
+    },
+    {
+      "index": 5,
+      "arc": "feature",
+      "on_slide_strings": [
+        "ANSIEDADE EM RELACIONAMENTOS",
+        "bullets: rejection fear, validation, fact vs interpretation",
+        "educational disclaimer footer italic"
+      ],
+      "image_prompt": "9:16 cream paper. Subject: uppercase headline ANSIEDADE EM RELACIONAMENTOS; three magenta-bullet list items in Portuguese exact; italic gray footer exact educational disclaimer. Technical: brand bar top, 05 / 06, bullets left-aligned, generous vertical centering in usable band. Negatives: wall of text, decorative clutter."
+    },
+    {
+      "index": 6,
+      "arc": "cta",
+      "on_slide_strings": [
+        "Quero te ouvir",
+        "QUAL TEMA",
+        "BATEU MAIS",
+        "AÍ EM VOCÊ?",
+        "1 Ressaca · 2 Impostor · 3 Não · 4 Rejeição",
+        "Me chama no direct",
+        "Comenta 1 a 4, escreve solto ou DM",
+        "Terapia com calma: link na bio",
+        "Salva pra culpa/comparação"
+      ],
+      "image_prompt": "9:16 closing, pink-wash background. Subject: three magenta CTA strips QUAL TEMA / BATEU MAIS / AÍ EM VOCÊ? with clear real vertical gap (not overlapping) to two centered lines of dark text on pink with bold magenta numbers 1–4; frosted glass panel below with white DM headline, short lines, bio, save. Layout: strips and numbered legend share one vertical flow (flex gap), not two absolute layers — no strip paint over legend. Small label Quero te ouvir top-left. Technical: brand top, 06 / 06, above safe zone. Negatives: overlap, illegible text, duplicate handles, text in IG UI zone below 276px."
+    }
+  ]
+}

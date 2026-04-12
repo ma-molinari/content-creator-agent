@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Slide 06 — CTA: Qual mito você já ouviu?</title>
+  <link rel="stylesheet" href="slides.css">
+  <style>
+    /* ── Background — open and airy ── */
+    .blob-a {
+      width: 560px;
+      height: 560px;
+      background: radial-gradient(circle, rgba(193,52,90,0.07) 0%, transparent 68%);
+      top: -80px;
+      right: -100px;
+    }
+
+    .blob-b {
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(193,52,90,0.05) 0%, transparent 70%);
+      bottom: 160px;
+      left: -80px;
+    }
+
+    /* Large decorative star cluster */
+    .s1 { top: 192px; right: 62px;  font-size: 24px; }
+    .s2 { top: 240px; right: 146px; font-size: 14px; opacity: 0.65; }
+    .s3 { top: 258px; right: 100px; font-size: 10px; opacity: 0.5; }
+    .s4 { bottom: 380px; left: var(--pad-x); font-size: 18px; }
+    .s5 { bottom: 420px; left: 110px; font-size: 11px; opacity: 0.6; }
+    .s6 { bottom: 336px; right: 100px; font-size: 13px; opacity: 0.55; }
+
+    /* ── Content wrapper ── */
+    .wrap {
+      position: absolute;
+      top: 148px;
+      left: var(--pad-x);
+      right: var(--pad-x);
+    }
+
+    /* ── Eyebrow ── */
+    .wrap .eyebrow {
+      margin-top: 44px;
+      margin-bottom: 40px;
+    }
+
+    /* ── Big CTA question ── */
+    .cta-question {
+      font-size: 92px;
+      font-weight: 800;
+      line-height: 0.96;
+      color: var(--black);
+      letter-spacing: -0.03em;
+    }
+
+    /* ── Accent line spacer ── */
+    .line-gap {
+      margin: 48px 0 40px;
+    }
+
+    /* ── Subline ── */
+    .subline {
+      font-size: 30px;
+      font-weight: 400;
+      line-height: 1.5;
+      color: var(--dark);
+      max-width: 500px;
+    }
+
+    /* ── Save hint — above safe zone ── */
+    .save-hint {
+      position: absolute;
+      bottom: 330px;
+      left: var(--pad-x);
+      z-index: 20;
+      font-size: 20px;
+      font-weight: 400;
+      font-style: italic;
+      color: var(--gray);
+      letter-spacing: 0.01em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .save-hint::before {
+      content: '↓';
+      font-style: normal;
+      font-size: 18px;
+      color: var(--magenta);
+    }
+
+    /* ── Bottom strip ── */
+    .bottom-strip {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 276px;
+      background: linear-gradient(to top, rgba(193,52,90,0.05) 0%, transparent 100%);
+      z-index: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="slide">
+
+    <div class="blob blob-a"></div>
+    <div class="blob blob-b"></div>
+    <div class="bottom-strip"></div>
+
+    <!-- Brand lockup -->
+    <div class="brand">
+      <span class="brand__handle">@stephaniefalanque</span>
+      <span class="brand__role">Psicóloga de Jovens Adultas</span>
+    </div>
+
+    <!-- Stars -->
+    <i class="star s1">✦</i>
+    <i class="star s2">✦</i>
+    <i class="star s3">✦</i>
+    <i class="star s4">✦</i>
+    <i class="star s5">✦</i>
+    <i class="star s6">✦</i>
+
+    <!-- Content -->
+    <div class="wrap">
+      <div class="eyebrow">
+        <div class="eyebrow__dot"></div>
+        <span class="eyebrow__label">Vamos conversar</span>
+      </div>
+
+      <h1 class="cta-question">
+        Qual mito<br>você já<br>ouviu?
+      </h1>
+
+      <div class="accent-line line-gap"></div>
+
+      <p class="subline">
+        Me conta nos comentários — vamos desmontar juntas.
+      </p>
+    </div>
+
+    <!-- Save hint (above safe zone) -->
+    <div class="save-hint">Salva pra revisitar</div>
+
+    <!-- Slide number -->
+    <div class="slide-num">06 / 06</div>
+
+  </div>
+</body>
+</html>
