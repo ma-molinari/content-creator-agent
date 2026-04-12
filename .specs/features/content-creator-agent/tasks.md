@@ -1,7 +1,7 @@
 # Content Creator Agent — Tasks
 
 **Design**: `.specs/features/content-creator-agent/design.md`
-**Status**: Aprovado | Em execução — **Fase 1 (T1–T8) concluída**; Fase 2+ pendente
+**Status**: Aprovado | Em execução — **Fases 1–3 concluídas** (T1–T23); próximo: Fase 4 (frontend)
 
 ---
 
@@ -551,10 +551,10 @@ file slide.jpg  # deve ser JPEG
 **Requirement**: POST-01
 
 **Done when**:
-- [ ] Cliente LLM configurado com `model: gpt-5.4-mini`, `max_tokens: 4000`
-- [ ] Circuit breaker implementado: 3 tentativas com backoff exponencial
-- [ ] Erro de API OpenAI logado e propagado com mensagem amigável
-- [ ] Timeout configurado por requisição (ex.: 60s)
+- [x] Cliente LLM configurado com `model: gpt-5.4-mini`, `max_tokens: 4000`
+- [x] Circuit breaker implementado: 3 tentativas com backoff exponencial
+- [x] Erro de API OpenAI logado e propagado com mensagem amigável
+- [x] Timeout configurado por requisição (ex.: 60s)
 
 **Verify**:
 ```bash
@@ -575,10 +575,10 @@ cd backend && go test ./internal/agent/... -run TestLLMClient -v
 **Requirement**: POST-01, POST-08
 
 **Done when**:
-- [ ] Prompt do usuário é enriquecido com a estrutura Persona/Contexto/Tarefa/Restrições/Formato
-- [ ] Instrução de sistema inclui regras anti-prompt-injection (proibição de execução de comandos, escape de instruções do usuário)
-- [ ] Input sanitizado antes de ser incluído no prompt (strip de tags HTML, caracteres de controle)
-- [ ] Função exportada: `OptimizePrompt(ctx, userPrompt, userProfile) → (optimizedPrompt string, error)`
+- [x] Prompt do usuário é enriquecido com a estrutura Persona/Contexto/Tarefa/Restrições/Formato
+- [x] Instrução de sistema inclui regras anti-prompt-injection (proibição de execução de comandos, escape de instruções do usuário)
+- [x] Input sanitizado antes de ser incluído no prompt (strip de tags HTML, caracteres de controle)
+- [x] Função exportada: `OptimizePrompt(ctx, userPrompt, userProfile) → (optimizedPrompt string, error)`
 
 **Verify**:
 ```bash
@@ -598,10 +598,10 @@ cd backend && go test ./internal/agent/... -run TestPromptOptimizer -v
 **Requirement**: POST-01, POST-02, SETUP-01, SETUP-02
 
 **Done when**:
-- [ ] Agent lê os arquivos de auditoria do usuário (`BRAND.md`, `AUDIT.md`) para construir o contexto de identidade visual
-- [ ] Se arquivos ausentes: retorna erro com código `SETUP_REQUIRED` antes de chamar o LLM
-- [ ] Resposta do LLM contém arquivos `slide-NN.html` separados por delimitador
-- [ ] Função exportada: `GenerateSlides(ctx, userID, optimizedPrompt) → ([]SlideHTML, error)`
+- [x] Agent lê os arquivos de auditoria do usuário (`BRAND.md`, `AUDIT.md`) para construir o contexto de identidade visual
+- [x] Se arquivos ausentes: retorna erro com código `SETUP_REQUIRED` antes de chamar o LLM
+- [x] Resposta do LLM contém arquivos `slide-NN.html` separados por delimitador
+- [x] Função exportada: `GenerateSlides(ctx, userID, optimizedPrompt) → ([]SlideHTML, error)`
 
 **Verify**:
 ```bash
@@ -622,11 +622,11 @@ cd backend && go test ./internal/agent/... -run TestSlideGenerator -v
 **Requirement**: POST-02, POST-06
 
 **Done when**:
-- [ ] `ExportSlides(ctx, htmlPaths) → ([]string jpegPaths, error)` executa `node scripts/export-slides.js --export --confirm` via `os/exec`
-- [ ] Stderr do processo filho capturado e logado
-- [ ] Em caso de falha: HTML preservado em diretório temporário para re-tentativa; retorna erro descritivo
-- [ ] Output: JPEGs com 768×1376px, qualidade 92
-- [ ] Timeout por exportação configurável (padrão: 120s)
+- [x] `PlaywrightRunner.ExportJPEGs(ctx, carouselDir)` executa `node scripts/export-slides.js --export --confirm` via `os/exec` (pasta com `slide-NN.html`)
+- [x] Stderr do processo filho capturado e logado
+- [x] Em caso de falha: HTML preservado em diretório temporário para re-tentativa; retorna erro descritivo
+- [x] Output: JPEGs com 768×1376px, qualidade 92 (definido pelo script; runner não altera)
+- [x] Timeout por exportação configurável (padrão: 120s)
 
 **Verify**:
 ```bash
@@ -647,14 +647,14 @@ cd backend && go test ./internal/export/... -v
 **Requirement**: POST-01, POST-02, POST-03, POST-05, POST-06, POST-07, POST-08, POST-09, REPROMPT-01, REPROMPT-02
 
 **Done when**:
-- [ ] `POST /chats/:id/messages` com `{ content, attachments? }` processa o prompt e retorna `Message` com `files[]`
-- [ ] Setup ausente retorna `400` com `code: "SETUP_REQUIRED"`
-- [ ] Falha no LLM retorna `503` com mensagem amigável
-- [ ] Falha no Playwright retorna `500` com mensagem amigável
-- [ ] Falha no S3 (após retries) retorna `500`
-- [ ] Para re-prompt: usa `chat_content_resume.summary` quando disponível; histórico completo quando ausente
-- [ ] Rate limiting por `user_id` aplicado (middleware de T8)
-- [ ] Mensagem do usuário e resposta do assistant salvas no banco (`ChatContent` + `ChatContentImage`)
+- [x] `POST /chats/:id/messages` com `{ content, attachments? }` processa o prompt e retorna `Message` com `files[]`
+- [x] Setup ausente retorna `400` com `code: "SETUP_REQUIRED"`
+- [x] Falha no LLM retorna `503` com mensagem amigável
+- [x] Falha no Playwright retorna `500` com mensagem amigável
+- [x] Falha no S3 (após retries) retorna `500`
+- [x] Para re-prompt: usa `chat_content_resume.summary` quando disponível; histórico completo quando ausente
+- [x] Rate limiting por `user_id` aplicado (middleware de T8)
+- [x] Mensagem do usuário e resposta do assistant salvas no banco (`ChatContent` + `ChatContentImage`)
 
 **Verify**:
 ```bash
@@ -677,9 +677,9 @@ curl -X POST http://localhost:8080/chats/$CHAT_ID/messages \
 **Requirement**: SETUP-01, SETUP-02
 
 **Done when**:
-- [ ] `CheckProfileSetup(ctx, userID) → (bool, error)` verifica existência dos arquivos `BRAND.md` e `AUDIT.md` do usuário
-- [ ] Endpoint `GET /setup/status` retorna `{ configured: bool }` para o frontend exibir bloqueio ou acesso
-- [ ] T22 chama esta verificação antes de processar qualquer prompt
+- [x] `CheckProfileSetup(ctx, userID) → (bool, error)` verifica existência dos arquivos `BRAND.md` e `AUDIT.md` do usuário
+- [x] Endpoint `GET /setup/status` retorna `{ configured: bool }` para o frontend exibir bloqueio ou acesso
+- [x] T22 chama esta verificação antes de processar qualquer prompt
 
 **Verify**:
 ```bash

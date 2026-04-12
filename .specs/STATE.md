@@ -19,18 +19,36 @@
 |------|-------------------|--------|
 | **Fase 1 — Base** | T1–T8 (backend foundation) | **Concluída** — ver histórico abaixo |
 | **Fase 2 — Core API** | T9–T17 | **Concluída** — ver histórico abaixo |
-| Fase 3 — Agent + Export | T18–T23 | Pendente |
+| **Fase 3 — Agent + Export** | T18–T23 | **Concluída** — ver histórico abaixo |
 | Fase 4 — Frontend | T24–T33 | Pendente |
 | Fase 5 — Cron | T34–T35 | Pendente |
 | Fase 6 — QA & Deploy | T36–T41 | Pendente |
 
-**Próximo passo sugerido:** iniciar Fase 3 (T18 em diante — agente LLM, export, mensagens), após validar `DATABASE_URL`, secrets JWT e credenciais S3 (`AWS_REGION`, `AWS_S3_BUCKET`) em desenvolvimento.
+**Próximo passo sugerido:** iniciar Fase 4 (T24 em diante — frontend React), com backend já expondo `POST /chats/:id/messages`, `GET /setup/status` e variáveis `OPENAI_API_KEY`, `PROFILE_DATA_ROOT`, `REPO_ROOT` configuradas para testes integrados.
 
 ---
 
 ## Histórico de implementação (contexto futuro)
 
 Entradas cronológicas do que foi efetivamente construído em código frente à spec. *Atualizar este bloco quando fechar fases ou marcos relevantes.*
+
+### 2026-04-12 — Fase 3 (T18–T23) entregue
+
+**Objetivo da spec:** pipeline LLM (Langchain Go) com otimização de prompt, geração de slides HTML/CSS a partir de `AUDIT.md` / `BRAND.md` por usuário, export JPEG via Playwright (`scripts/export-slides.js`), upload S3 e persistência de mensagens; verificação de setup e endpoint de status.
+
+**Implementado em `backend/`:**
+
+- **T18:** `internal/agent/llm.go` — cliente OpenAI via `tmc/langchaingo`, modelo padrão `gpt-5.4-mini`, `max_tokens` 4000, timeout 60s por tentativa, até 3 tentativas com backoff; teste com mock HTTP (`TestLLMClient_MockOpenAI`).
+- **T19:** `internal/agent/prompt_optimizer.go` — `OptimizePrompt`, sanitização (HTML + controles), regras anti–injection; testes de sanitização e estrutura do system prompt.
+- **T20:** `internal/agent/slide_generator.go` — `GenerateSlides`, delimitador `###SLIDE_FILE:...###`, leitura de perfil via `ProfileChecker`; erro `SETUP_REQUIRED` antes do LLM se faltar arquivo.
+- **T21:** `internal/export/playwright_runner.go` — `ExportJPEGs(ctx, carouselDir)` com `node scripts/export-slides.js --export --confirm`, stderr logado, `REPO_ROOT` obrigatório, timeout configurável (`EXPORT_TIMEOUT`, padrão 120s).
+- **T22:** `internal/chat/post_message.go` — orquestração optimize → slides → temp dir → export → S3 → `CreateContentWithImages`; reprompt via `chat_content_resume.summary` ou histórico; `POST /chats/:id/messages` com grupo `LLMByUser` (10/min); resposta com `message` + `files[]`.
+- **T23:** `internal/agent/profile_checker.go` — `CheckProfileSetup` / `LoadProfileText` em `PROFILE_DATA_ROOT/instagram-audits/<user_uuid>/`; `GET /setup/status` → `{ "configured": bool }`.
+- **Config:** `OPENAI_API_KEY`, `OPENAI_MODEL`, `PROFILE_DATA_ROOT`, `REPO_ROOT`, `EXPORT_TIMEOUT` em `internal/config/config.go` e `backend/.env.example`.
+
+**Verificação:** `go test ./internal/agent/...`, `go test ./internal/export/...`, `go test ./internal/chat/...`.
+
+---
 
 ### 2026-04-12 — Fase 2 (T9–T17) entregue
 
@@ -72,7 +90,7 @@ Entradas cronológicas do que foi efetivamente construído em código frente à 
 
 | Feature | Marco | Notas |
 |---------|--------|--------|
-| content-creator-agent | Fase 2 fechada | Core API de chats + S3 + arquivos; próximo: Fase 3 (agente/export) |
+| content-creator-agent | Fase 3 fechada | Agente + export + POST mensagens + setup status; próximo: Fase 4 (frontend) |
 
 ## Decisões registradas
 
@@ -111,5 +129,6 @@ Nenhum.
 - **TDD de referência**: `docs/TDD.md` — arquitetura, modelo de dados, APIs, segurança e plano de implementação.
 - **Stack decidida**: Golang/Echo (backend) + React (frontend) + PostgreSQL + Amazon S3 + Langchain + OpenAI GPT-5.4 Mini.
 - **Código backend atual**: `backend/` — entrypoint `cmd/server/main.go`.
+- **Agent/export (V1):** `OPENAI_API_KEY`, `PROFILE_DATA_ROOT` (`instagram-audits/<user_uuid>/AUDIT.md` + `BRAND.md`), `REPO_ROOT` (raiz do repo com `scripts/export-slides.js`); rotas `POST /chats/:id/messages`, `GET /setup/status`.
 - **Skills existentes a reutilizar**: `create-social-post`, `map-instagram-profile`, `prompt-engineering-meta`, `export-slides.js`.
 - **Abordagem de geração de imagens**: HTML/CSS via LLM → Playwright/Chromium → JPEG (sem DALL-E).
