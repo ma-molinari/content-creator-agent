@@ -3,6 +3,8 @@ package agent
 import (
 	"strings"
 	"testing"
+
+	"content-creator-agent/internal/agent/promptdata"
 )
 
 func TestSanitizeUserInput_HTMLAndControls(t *testing.T) {
@@ -16,7 +18,8 @@ func TestSanitizeUserInput_HTMLAndControls(t *testing.T) {
 
 func TestPromptOptimizer_structureHint(t *testing.T) {
 	t.Parallel()
-	if !strings.Contains(promptOptimizerSystem, "### Persona") {
+	s := promptdata.OptimizerSystemPrompt()
+	if !strings.Contains(s, "### Persona") {
 		t.Fatal("expected persona section in system prompt")
 	}
 }

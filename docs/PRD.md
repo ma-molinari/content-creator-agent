@@ -53,7 +53,17 @@ Previnir falhas de segurança, aplicar ratelimitting na API, sanitizaçao para p
 - Amazon S3
 - Gorm
 - Echo
-- [Langchain](https://github.com/langchain-ai/langchain) + OpenAI GPT-5.4 Mini
+
+### Worker (Processamento)
+
+- Python + LangGraph
+- Playwright (playwright-python)
+- boto3 (Amazon S3)
+- FastAPI (ou Flask) para endpoint de recebimento de jobs
+
+### LLM (geração de conteúdo)
+
+- OpenAI GPT-5.4 Mini (pipeline no worker Python)
 
 ##
 
@@ -69,5 +79,6 @@ Previnir falhas de segurança, aplicar ratelimitting na API, sanitizaçao para p
 - chat_content
 - chat_content_image
 - chat_content_resume
+- jobs (estado assíncrono de processamento; API Go + worker Python)
 
 OBS: os campos das tabelas serão definidos em conjuntos com o Agent/LLM na criação do plano e desenvolvimento.

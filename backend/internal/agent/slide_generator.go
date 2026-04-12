@@ -18,17 +18,6 @@ type SlideHTML struct {
 
 var slideDelimiter = regexp.MustCompile(`(?m)^###SLIDE_FILE:([^\s#]+\.html)###\s*`)
 
-const slideGenSystemPrefix = `You are an expert Instagram carousel designer. Output self-contained HTML slides for a fixed canvas 768×1376px (9:16), with embedded CSS in each file or a shared style block. Follow image-designer rules: minimum type sizes (hero ~58px, heading ~43px, body ~34px, caption ~24px), font-weight ≥500 for body, strong contrast, no slide counter on the image.
-
-Use the brand and audit context provided in the user message to stay aligned with palette, tone, and feed evidence.
-
-Output format (strict):
-- Emit one block per slide.
-- Each block MUST start with a line exactly: ###SLIDE_FILE:slide-NN.html### where NN is zero-padded two digits (slide-01.html, slide-02.html, ...).
-- After that line, output the full HTML document for that slide until the next ###SLIDE_FILE: line or end of output.
-- Do not wrap the HTML in markdown code fences.
-`
-
 // SlideGenerator produces slide HTML from an optimized prompt and profile files.
 type SlideGenerator struct {
 	llm     *LLMClient
@@ -55,7 +44,7 @@ func (g *SlideGenerator) GenerateSlides(ctx context.Context, userID uuid.UUID, o
 	user := "--- Contexto de perfil ---\n" + profileText +
 		"\n\n--- Brief otimizado ---\n" + strings.TrimSpace(optimizedPrompt)
 
-	raw, err := g.llm.Generate(ctx, slideGenSystemPrefix, user)
+	raw, err := g.llm.GenerateFromChatPrompt(ctx, CreateSocialPostsSlideChatPrompt(), map[string]any{"user": user})
 	if err != nil {
 		return nil, err
 	}

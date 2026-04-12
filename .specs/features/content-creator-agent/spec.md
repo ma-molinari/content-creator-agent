@@ -2,6 +2,9 @@
 
 **Referência TDD**: `docs/TDD.md`
 
+**Arquitetura de processamento**: `docs/architecture-go-api-langgraph.md`
+(substitui o desenho monolítico Agent+Export no Go onde conflitar)
+
 **Referências de front-end**: [`docs/layout.md`](../../../docs/layout.md) (estrutura e padrões de UI), [`docs/brand.md`](../../../docs/brand.md) (tokens e marca). Capturas de referência de layout em `docs/ui/`: `version_1.png`, `version_2.png`, `version_3.png`, `auth_1.png`. **Implementação de código** (padrões React/TypeScript, semântica e ARIA, performance, testes): seguir a rule [`engineering-frontend-developer.md`](../../../.cursor/rules/engineering/engineering-frontend-developer.md) — complementa layout e marca (o *o quê* e *como parece* permanecem em `docs/layout.md` e `docs/brand.md`; o *como codificar* interfaces segue a rule).
 
 **Implementação backend (Go)**: seguir [`engineering-backend-architect.md`](../../../.cursor/rules/engineering/engineering-backend-architect.md) (arquitetura de API, persistência, confiabilidade, performance e observabilidade alinhadas ao produto) e [`engineering-security-engineer.md`](../../../.cursor/rules/engineering/engineering-security-engineer.md) (limites de confiança, hardening, SDLC de segurança e práticas OWASP/API). O *o quê* (endpoints, modelos, fluxos) permanece nesta spec e em `docs/TDD.md`; o *como implementar* o servidor e integrações de forma consistente e segura segue essas rules (sem duplicar o conteúdo integral das rules aqui).
@@ -92,7 +95,7 @@ Criadores de conteúdo, social media managers e empreendedores digitais precisam
 
 **User Story**: Como usuário que acabou de se cadastrar, quero ser guiado para configurar meu perfil de Instagram antes de criar posts para que o sistema conheça minha identidade visual.
 
-**Por que P1**: Sem o setup do perfil (`map-instagram-profile`), o Agent Service não possui as diretrizes visuais e de comunicação para gerar posts consistentes.
+**Por que P1**: Sem o setup do perfil (`map-instagram-profile`), o worker de processamento não possui as diretrizes visuais e de comunicação para gerar posts consistentes.
 
 **Acceptance Criteria**:
 
@@ -112,16 +115,16 @@ Criadores de conteúdo, social media managers e empreendedores digitais precisam
 
 **Acceptance Criteria**:
 
-1. WHEN o usuário envia `POST /chats/:id/messages` com prompt válido THEN o sistema SHALL processar via `Prompt Engineering Meta` + skill `create-social-post`, gerar o HTML/CSS dos slides via GPT-5.4 Mini (limite de 4.000 tokens de saída), renderizar cada slide em JPEG (768×1376px, qualidade 92) via Playwright/Chromium headless, fazer upload ao S3 e retornar os links para o frontend
+1. WHEN o usuário envia `POST /chats/:id/messages` com prompt válido THEN a API Go SHALL aceitar a mensagem, persistir a mensagem do usuário, criar um job e retornar **`202 Accepted`** com `jobId`; o serviço Python (LangGraph) SHALL executar o pipeline de geração (perfil → otimização → slides → renderização → S3) e notificar a API Go ao concluir; a API Go SHALL persistir a mensagem do assistente e os artefatos e expor o resultado via `GET /chats/:id` (e URLs assinadas para arquivos)
 2. WHEN o usuário cria o 6º chat THEN o sistema SHALL remover automaticamente o chat mais antigo (incluindo seus arquivos no S3) antes de criar o novo
-3. WHEN o setup inicial (`map-instagram-profile`) está ausente THEN o sistema SHALL retornar erro claro e não processar o prompt
-4. WHEN a OpenAI API está indisponível THEN o sistema SHALL retornar mensagem de erro amigável sem crash e aplicar retry com backoff exponencial
-5. WHEN o Playwright/Chromium falha no export THEN o sistema SHALL capturar o erro, preservar o HTML gerado e retornar mensagem amigável ao usuário
-6. WHEN o upload ao S3 falha THEN o sistema SHALL fazer retry automático com backoff; se falhar após retries, a transação não conclui
-7. WHEN o sistema recebe input do usuário THEN o sistema SHALL sanitizar o conteúdo e aplicar instrução de sistema restritiva no agente para prevenção de prompt injection
-8. WHEN a requisição ao LLM excede o rate limit por usuário THEN o sistema SHALL retornar `429 Too Many Requests`
+3. WHEN o setup inicial (`map-instagram-profile`) está ausente THEN o sistema SHALL retornar erro claro e não despachar o job
+4. WHEN a OpenAI API está indisponível ou falha durante o processamento THEN o worker Python SHALL aplicar retry/backoff e marcar o job como falha com mensagem amigável; a API Go SHALL expor o status do job (`failed`) e o frontend SHALL poder consultá-lo
+5. WHEN o Playwright/Chromium ou o pipeline de renderização falha no worker Python THEN o worker SHALL registrar o erro e notificar a API Go com falha; a API Go SHALL propagar o status `failed` do job (sem exigir que o Go execute Playwright)
+6. WHEN o upload ao S3 falha no worker THEN o worker SHALL aplicar retry automático com backoff; se falhar após retries, o job SHALL falhar e o estado SHALL ser refletido na API Go
+7. WHEN o sistema recebe input do usuário THEN a API Go SHALL sanitizar o conteúdo antes de despachar o job; o worker SHALL aplicar instruções restritivas no pipeline LLM para prevenção de prompt injection
+8. WHEN a criação de job ou endpoints relacionados ao processamento excedem o rate limit por usuário THEN o sistema SHALL retornar `429 Too Many Requests`
 
-**Independent Test**: Enviar prompt → verificar JPEG gerado no S3 → verificar resposta com `downloadUrl` → fazer download do arquivo.
+**Independent Test**: Enviar prompt → receber `202` + `jobId` → após conclusão (polling de status ou `GET /chats/:id`) verificar JPEGs no S3 e `downloadUrl` → fazer download do arquivo.
 
 ---
 
@@ -197,7 +200,7 @@ Criadores de conteúdo, social media managers e empreendedores digitais precisam
 - WHEN email enviado para `/auth/register` tem formato inválido THEN o sistema SHALL retornar `400 Bad Request`
 - WHEN o payload de `POST /chats/:id/messages` excede o tamanho permitido THEN o sistema SHALL retornar `413 Payload Too Large`
 - WHEN o usuário tenta acessar `/chats/:id` de chat deletado THEN o sistema SHALL retornar `404 Not Found`
-- WHEN o Chromium não está instalado no ambiente de deploy THEN o sistema SHALL falhar com mensagem de erro claro no log e retornar `503 Service Unavailable` ao usuário
+- WHEN o Chromium não está instalado no ambiente do **worker Python** THEN o worker SHALL falhar o job com mensagem clara nos logs; a API Go SHALL expor status `failed` para esse job (a falha não é tratada como `503` síncrono na rota de mensagem, que já respondeu `202`)
 - WHEN há mais de 20 tentativas de login falhas por IP em 5 minutos THEN o sistema SHALL bloquear temporariamente o IP
 - WHEN o download de zip é solicitado para chat sem arquivos THEN o sistema SHALL retornar `404 Not Found`
 - WHEN `POST /chats` é chamado e o usuário já tem 5 chats THEN o sistema SHALL deletar o mais antigo antes de criar o novo (sem erro para o usuário)
@@ -219,13 +222,15 @@ Criadores de conteúdo, social media managers e empreendedores digitais precisam
 | AUTH-09 | P1: Recuperação — securityKey incorreta → 403 | Tasks | Pending |
 | SETUP-01 | P1: Bloqueio de criação sem map-instagram-profile | Tasks | Pending |
 | SETUP-02 | P1: Liberação com map-instagram-profile presente | Tasks | Pending |
-| POST-01 | P1: Geração via Prompt Engineering Meta + create-social-post | Tasks | Pending |
-| POST-02 | P1: Renderização HTML → JPEG via Playwright | Tasks | Pending |
-| POST-03 | P1: Upload dos JPEGs ao S3 | Tasks | Pending |
+| POST-01 | P1: Pipeline LangGraph: load_profile → optimize → generate_slides | Tasks | Pending |
+| POST-02 | P1: Renderização JPEG no worker Python (Playwright) | Tasks | Pending |
+| POST-03 | P1: Upload S3 + callback de conclusão ao Go | Tasks | Pending |
 | POST-04 | P1: Remoção automática do chat mais antigo ao atingir limite | Tasks | Pending |
-| POST-05 | P1: Fallback de erro amigável — OpenAI indisponível | Tasks | Pending |
-| POST-06 | P1: Fallback de erro amigável — Playwright crash | Tasks | Pending |
-| POST-07 | P1: Retry com backoff — falha no S3 | Tasks | Pending |
+| POST-05 | P1: OpenAI indisponível — tratamento no worker; Go expõe status do job | Tasks | Pending |
+| POST-06 | P1: Falha Playwright/render — worker; Go propaga status `failed` | Tasks | Pending |
+| POST-07 | P1: Retry com backoff — falha no S3 (worker) | Tasks | Pending |
+| POST-10 | P1: Contrato Go↔Python: jobId, idempotência, auth de serviço | Tasks | Pending |
+| POST-11 | P1: Go: endpoint interno `POST /internal/jobs/:id/complete` | Tasks | Pending |
 | POST-08 | P1: Sanitização de input + prevenção de prompt injection | Tasks | Pending |
 | POST-09 | P1: Rate limiting por usuário para endpoints LLM | Tasks | Pending |
 | HIST-01 | P1: Listagem dos últimos 5 chats | Tasks | Pending |
@@ -240,7 +245,7 @@ Criadores de conteúdo, social media managers e empreendedores digitais precisam
 | CRON-01 | P2: Sumarização diária de chats elegíveis | Tasks | Pending |
 | CRON-02 | P2: Ignorar chats sem conteúdo novo | Tasks | Pending |
 
-**Cobertura:** 31 total, 31 mapeados para tasks, 0 unmapped
+**Cobertura:** 33 total, 33 mapeados para tasks, 0 unmapped
 
 ---
 

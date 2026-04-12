@@ -1,6 +1,6 @@
 # API HTTP (Echo). Copie .env.example para .env e ajuste variáveis.
 # Migrations: usa `go run` (alinhado a go.mod); não exige `migrate` no PATH.
-.PHONY: help run build test tidy fmt vet clean migrate migrate-up migrate-down migrate-version
+.PHONY: help run build test tidy fmt vet clean migrate migrate-up migrate-down migrate-version prompts-sync
 
 BIN_DIR := bin
 SERVER_BIN := $(BIN_DIR)/server
@@ -16,6 +16,7 @@ help:
 	@echo "  make fmt     — go fmt ./..."
 	@echo "  make vet     — go vet ./..."
 	@echo "  make clean   — remove $(BIN_DIR)/"
+	@echo "  make prompts-sync — copia rules/skills do .cursor/ para internal/agent/promptdata/ (strip frontmatter)"
 	@echo ""
 	@echo "Migrations (golang-migrate via go run; carrega .env se existir):"
 	@echo "  make migrate / migrate-up  — aplica migrations (up)"
@@ -69,3 +70,7 @@ vet:
 
 clean:
 	rm -rf $(BIN_DIR)
+
+# Após alterar `.cursor/skills/` ou `.cursor/rules/` usados pelo carrossel, execute a partir da raiz do repo ou:
+prompts-sync:
+	@bash ../scripts/sync-promptdata.sh

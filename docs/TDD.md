@@ -508,6 +508,8 @@ chat_content_resume
 | Node.js + Fastify | Ecossistema AI muito rico, async nativo, grande comunidade | Maior consumo de memória, menor performance em I/O intensivo | Descartado — Golang atende melhor os requisitos |
 | Python + FastAPI | Ecossistema AI mais maduro (LangChain nativo), muitas bibliotecas | Menor performance, tipagem dinâmica pode gerar bugs silenciosos | Considerado para o Agent Service; descartado em favor de manter stack único |
 
+> **Revisão 2026-04-12:** a arquitetura evoluiu para **dois serviços** — Go permanece como API REST (CRUD, auth, jobs, callbacks) e **Python + LangGraph** assume o pipeline de geração de conteúdo no diretório `worker/`. Ver `docs/architecture-go-api-langgraph.md`.
+
 ### Banco de Dados
 
 | Opção | Prós | Contras | Decisão |

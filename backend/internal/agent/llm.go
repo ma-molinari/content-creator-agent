@@ -11,6 +11,7 @@ import (
 
 	"github.com/tmc/langchaingo/llms"
 	"github.com/tmc/langchaingo/llms/openai"
+	"github.com/tmc/langchaingo/prompts"
 )
 
 const (
@@ -22,6 +23,14 @@ const (
 // LLMClient wraps the Langchain OpenAI model with retries and timeouts.
 type LLMClient struct {
 	model llms.Model
+}
+
+// Model exposes the underlying langchaingo model for advanced chains (e.g. chains.LLMChain).
+func (c *LLMClient) Model() llms.Model {
+	if c == nil {
+		return nil
+	}
+	return c.model
 }
 
 // NewLLMClient builds an OpenAI-backed client. apiKey must be non-empty for live calls.
@@ -63,24 +72,40 @@ func isRetryableLLMError(err error) bool {
 
 // Generate runs a chat completion with system + user messages, bounded output tokens.
 func (c *LLMClient) Generate(ctx context.Context, systemPrompt, userPrompt string) (string, error) {
+	msgs := []llms.MessageContent{
+		llms.TextParts(llms.ChatMessageTypeSystem, systemPrompt),
+		llms.TextParts(llms.ChatMessageTypeHuman, userPrompt),
+	}
+	return c.GenerateChat(ctx, msgs)
+}
+
+// GenerateFromChatPrompt renders a langchaingo ChatPromptTemplate (rules + variables) and calls GenerateChat.
+// Use this to mirror Cursor-style @ rules: compose system/human via templates instead of raw string concat.
+func (c *LLMClient) GenerateFromChatPrompt(ctx context.Context, tmpl prompts.ChatPromptTemplate, values map[string]any) (string, error) {
+	pv, err := tmpl.FormatPrompt(values)
+	if err != nil {
+		return "", fmt.Errorf("agent: format chat prompt: %w", err)
+	}
+	msgs, err := chatMessagesToMessageContents(pv.Messages())
+	if err != nil {
+		return "", err
+	}
+	return c.GenerateChat(ctx, msgs)
+}
+
+// GenerateChat sends a message list to the model (system / human / tool roles preserved).
+func (c *LLMClient) GenerateChat(ctx context.Context, messages []llms.MessageContent) (string, error) {
 	if c == nil || c.model == nil {
 		return "", errors.New("agent: llm not configured")
 	}
-	msgs := []llms.MessageContent{
-		{
-			Role:  llms.ChatMessageTypeSystem,
-			Parts: []llms.ContentPart{llms.TextContent{Text: systemPrompt}},
-		},
-		{
-			Role:  llms.ChatMessageTypeHuman,
-			Parts: []llms.ContentPart{llms.TextContent{Text: userPrompt}},
-		},
+	if len(messages) == 0 {
+		return "", errors.New("agent: no messages")
 	}
 
 	var lastErr error
 	for attempt := 0; attempt < llmMaxAttempts; attempt++ {
 		reqCtx, cancel := context.WithTimeout(ctx, llmRequestTimeout)
-		resp, err := c.model.GenerateContent(reqCtx, msgs,
+		resp, err := c.model.GenerateContent(reqCtx, messages,
 			llms.WithMaxTokens(llmMaxOutTokens),
 		)
 		cancel()
@@ -116,4 +141,41 @@ func (c *LLMClient) Generate(ctx context.Context, systemPrompt, userPrompt strin
 		lastErr = errors.New("agent: unknown llm failure")
 	}
 	return "", lastErr
+}
+
+func chatMessagesToMessageContents(chat []llms.ChatMessage) ([]llms.MessageContent, error) {
+	out := make([]llms.MessageContent, 0, len(chat))
+	for _, m := range chat {
+		mc, err := chatMessageToMessageContent(m)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, mc)
+	}
+	return out, nil
+}
+
+func chatMessageToMessageContent(m llms.ChatMessage) (llms.MessageContent, error) {
+	switch msg := m.(type) {
+	case llms.SystemChatMessage:
+		return llms.TextParts(llms.ChatMessageTypeSystem, msg.Content), nil
+	case llms.HumanChatMessage:
+		return llms.TextParts(llms.ChatMessageTypeHuman, msg.Content), nil
+	case llms.AIChatMessage:
+		return llms.TextParts(llms.ChatMessageTypeAI, msg.Content), nil
+	case llms.GenericChatMessage:
+		return llms.TextParts(llms.ChatMessageTypeGeneric, msg.Content), nil
+	case llms.ToolChatMessage:
+		return llms.MessageContent{
+			Role:  llms.ChatMessageTypeTool,
+			Parts: []llms.ContentPart{llms.TextPart(msg.Content)},
+		}, nil
+	case llms.FunctionChatMessage:
+		return llms.MessageContent{
+			Role:  llms.ChatMessageTypeFunction,
+			Parts: []llms.ContentPart{llms.TextPart(msg.Content)},
+		}, nil
+	default:
+		return llms.MessageContent{}, fmt.Errorf("agent: unsupported chat message type %T", m)
+	}
 }
