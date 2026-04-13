@@ -18,14 +18,14 @@
 
 | Fase | Escopo (tasks.md) | Estado |
 |------|-------------------|--------|
-| **Fase 1 — Go API limpa** | T1–T14 | **Em progresso** — núcleo async implementado (jobs, `POST /chats/:id/messages` → 202 + `jobId`, callback `POST /internal/jobs/:id/complete`, `GET .../jobs/:jobId/status`, config `WORKER_*`, `PROFILE_DATA_ROOT`); pacotes legados removidos (`internal/agent`, `internal/export`); sem `backend/promptdata/` (prompts em `.cursor/`; worker consumirá dali ou paths configuráveis). |
-| **Fase 2 — Worker Python LangGraph** | TP1–TP11 | **Pendente** |
-| **Fase 3 — Integração** | TI1–TI3 | **Pendente** |
+| **Fase 1 — Go API limpa** | T1–T14 | **Em progresso** — núcleo async implementado (jobs, `POST /chats/:id/messages` → 202 + `jobId`, callback `POST /internal/jobs/:id/complete`, `GET .../jobs/:jobId/status`, config `WORKER_*`, `PROFILE_DATA_ROOT`); pacotes legados removidos (`internal/agent`, `internal/export`); sem `backend/promptdata/` (prompts canónicos em `.cursor/`; runtime do worker usa `worker/prompts/*.md` portados). |
+| **Fase 2 — Worker Python LangGraph** | TP1–TP11 | **Concluída (código)** — `worker/` com FastAPI (`POST /jobs`, `GET /health`), LangGraph (load_profile → optimize → generate_slides → parse_validate com retry → render_to_jpeg → upload_assets → finalize), prompts em `worker/prompts/`, Dockerfile Python 3.12 + Playwright Chromium, `pyproject.toml` + `.env.example`. |
+| **Fase 3 — Integração** | TI1–TI3 | **Concluída (código)** — `docker-compose.yml` na raiz (postgres + api + worker, rede `app-net`, healthchecks, `WORKER_*` / `GO_API_URL` / volume `tests/e2e/testdata/profile` → `PROFILE_DATA_ROOT`); **TI1** testes Go com tag `integration` (`backend/integration/`, Postgres real via `INTEGRATION_DATABASE_URL`, mock worker `httptest` + callback `POST /internal/jobs/:id/complete`, `make test-integration`); **TI2** E2E `pytest` + `httpx` (`tests/e2e/`, `make e2e` no root); **TI3** cenários de falha (callback erro, dispatch 500, callback sem `assistantText`). |
 | Fase 4 — Frontend | T24–T33 | Pendente |
 | Fase 5 — Cron | T34–T35 | Pendente |
 | Fase 6 — QA & Deploy | T36–T41 | Pendente |
 
-**Próximo passo sugerido:** **Fase 2 — Worker Python** (`worker/`) para consumir `POST {WORKER_URL}/jobs` e concluir via `POST /internal/jobs/:id/complete` no Go; em paralelo **integração TI1–TI3** quando o worker expuser contrato estável. Ver `docs/architecture-go-api-langgraph.md` e `design.md` (contrato Go ↔ Python).
+**Próximo passo sugerido:** **Fase 4 — Frontend (T24–T33)** — UI React com polling de `GET /chats/:id/jobs/:jobId/status` e estados de geração; alinhar contratos já estáveis na API. Opcional: fechar revisão T1–T14 vs código e marcar checkboxes no `tasks.md`.
 
 **Nota:** A spec e o `tasks.md` foram reescritos para arquitetura **Go API + worker Python**; validar tarefas T1–T14 contra o código atual e marcar itens fechados no `tasks.md` quando conveniente.
 
@@ -43,6 +43,22 @@ Entradas cronológicas do que foi efetivamente construído em código frente à 
 
 **README:** prompts documentados como vivendo em `.cursor/` para o worker.
 
+### 2026-04-13 — Worker Python (Fase 2, TP1–TP11)
+
+**Implementado em `worker/`:** projeto instalável (`pyproject.toml`, Hatchling), `Dockerfile` (Python 3.12-slim, `uv`, Playwright + Chromium), `.env.example`. Pipeline LangGraph: `load_profile` → `optimize_prompt` (gpt-4o-mini + `prompts/optimize_prompt.md`) → `generate_slides` (`prompts/generate_slides.md`) → `parse_validate` (marcadores `###SLIDE_FILE:` / `###END_SLIDE###`, até 3 tentativas) → `render_to_jpeg` (768×1376, JPEG q=92) → `upload_assets` (S3, backoff 3×) → `finalize` (`httpx` → `POST {GO_API_URL}/internal/jobs/{id}/complete`). FastAPI: `POST /jobs` (202 + `BackgroundTasks` + `graph.ainvoke`), `GET /health`, validação `X-Worker-API-Key`.
+
+**Prompts:** conteúdo operacional em `worker/prompts/*.md` (derivado das regras em `.cursor/`); não há leitura direta de `.cursor/` em runtime na imagem.
+
+### 2026-04-13 — Integração Go ↔ Python (Fase 3, TI1–TI3)
+
+**Infra:** `docker-compose.yml` (Postgres 16, API Go, worker Python) com healthchecks, `WORKER_API_KEY` compartilhada, `GO_API_URL=http://api:8080`, `WORKER_URL=http://worker:8000`, bind mount `tests/e2e/testdata/profile` → `/profile-data` na API. Imagem da API com `wget` para healthcheck.
+
+**TI1:** `backend/integration/` — `go test -tags=integration` (Postgres via `INTEGRATION_DATABASE_URL`), mock worker HTTP que valida `X-Worker-API-Key` e payload `DispatchPayload`, callback assíncrono para o Echo em teste; storage mock para `GetSignedURL`; `testdata/AUDIT.md` + `BRAND.md`; alvo `make test-integration` no `backend/Makefile`.
+
+**TI2:** `tests/e2e/` — `pytest` + `httpx`, `E2E_API_URL` (default `http://localhost:8080`), fixtures criam perfil em disco por `user_id`; `make e2e` no Makefile da raiz (compose up → pytest → down). Requer credenciais reais (`OPENAI_API_KEY`, AWS/S3) no ambiente ao rodar o stack.
+
+**TI3:** `failure_test.go` — erro no callback (`failed` + mensagem), worker retorna 500 no dispatch (502 + job `failed` no DB), callback `{}` sem `assistantText` → 400 no endpoint interno.
+
 ### 2026-04-12 — Reescrita da spec (Go API + LangGraph)
 
 **Objetivo:** Documentar dois serviços — API Go (CRUD, auth, jobs, callback) **sem** `internal/agent/` / `internal/export/` no desenho alvo; processamento em **`worker/`** (Python, LangGraph, Playwright, S3). Contrato: `POST /chats/:id/messages` → `202` + `jobId`; `POST /internal/jobs/:id/complete` no Go.
@@ -56,7 +72,7 @@ Entradas cronológicas do que foi efetivamente construído em código frente à 
 | Feature | Marco | Notas |
 |---------|--------|-------|
 | content-creator-agent | Fase 1 Go (fecho) | Revisar T1–T14 vs código; frontend e cron ainda não cobertos pelas fases 4–5. |
-| content-creator-agent | Fase 2 Worker | Diretório `worker/` e pipeline LangGraph ainda por implementar. |
+| content-creator-agent | Fase 4 Frontend | Contrato e integração backend prontos; iniciar T24+ conforme `tasks.md`. |
 
 ## Decisões registradas
 
@@ -93,6 +109,8 @@ Nenhum.
 | 2026-04-12 | Build Docker do backend legado incluía Playwright + Chromium — na nova arquitetura, Chromium fica no **worker** Python. |
 | 2026-04-12 | Alterar skills em `.cursor/` implica alinhar prompts carregados pelo worker. |
 | 2026-04-13 | Remover `promptdata/` simplifica o repo: uma fonte (`.cursor/`) até o worker definir empacotamento em imagem ou CI. |
+| 2026-04-13 | Prompts de execução do worker ficam em `worker/prompts/` na imagem; alinhar alterações em `.cursor/rules` com cópias/atualizações nessa pasta quando necessário. |
+| 2026-04-13 | Integração: testes Go com tag `integration` exigem Postgres acessível (`INTEGRATION_DATABASE_URL`); E2E com compose exige credenciais LLM/S3 no host — sem isso o worker só sobe healthy; o fluxo completo falha no job. |
 
 ## Contexto de sessão (referência rápida)
 
