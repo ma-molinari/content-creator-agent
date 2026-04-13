@@ -77,7 +77,7 @@ Todo código backend deste produto em `backend/` SHALL seguir a rule **[`enginee
 
 | Componente | Localização | Como Usar |
 |------------|-------------|-----------|
-| Skill `create-social-post` | `.cursor/skills/create-social-posts/SKILL.md` | Portar conteúdo para system prompts do worker Python (equivalente ao que hoje vive em `promptdata/*.md`) |
+| Skill `create-social-post` | `.cursor/skills/create-social-posts/SKILL.md` | Portar conteúdo para system prompts do worker Python (ler diretamente de `.cursor/` ou copiar no build) |
 | Skill `map-instagram-profile` | `.cursor/skills/map-instagram-profile/SKILL.md` | Estrutura de referência para perfil; perfil enviado inline no payload do job (AUDIT/BRAND como strings) ou via URI acordada no contrato |
 | Regra `prompt-engineering-meta` | `.cursor/rules/prompt-engineering-meta.mdc` | Otimização de prompts aplicada no nó `optimize_prompt` do LangGraph |
 

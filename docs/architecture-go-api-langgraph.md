@@ -167,11 +167,11 @@ Propagar `job_id` (e opcionalmente `trace_id`) em logs do Go e traces do LangGra
 
 ## Relação com o código atual
 
-Hoje o repositório implementa o pipeline (otimização → `SlideGenerator` → Playwright → S3) **dentro do processo Go** (`PostMessage`). Esta arquitetura documentada é uma **evolução opcional**: migrar o motor para LangGraph implica extrair esse pipeline para o serviço Python e ajustar o Go para disparo assíncrono + persistência via contrato interno, conforme as seções acima.
+O pipeline de geração (otimização → slides → export → S3) **roda no worker Python**; a API Go apenas persiste a mensagem do usuário, cria o job, despacha ao worker e recebe o callback em `POST /internal/jobs/:id/complete`. Esta documentação descreve o desenho alvo com LangGraph no worker e contratos HTTP com o Go.
 
 ---
 
 ## Referências internas
 
-- Fluxo síncrono atual de mensagens e slides: `backend/internal/chat/post_message.go`, `backend/internal/agent/slide_generator.go`
+- Disparo assíncrono e persistência: `backend/internal/chat/post_message.go`, `backend/internal/jobs/`
 - Decisão de stack no TDD (API Go vs agente): `docs/TDD.md` — seção “Alternativas Consideradas / Backend”

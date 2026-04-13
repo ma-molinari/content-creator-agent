@@ -2,7 +2,7 @@
 
 ## Última atualização
 
-2026-04-12
+2026-04-13
 
 ## Feature em foco
 
@@ -18,16 +18,16 @@
 
 | Fase | Escopo (tasks.md) | Estado |
 |------|-------------------|--------|
-| **Fase 1 — Go API limpa** | T1–T14 | **Pendente** |
+| **Fase 1 — Go API limpa** | T1–T14 | **Em progresso** — núcleo async implementado (jobs, `POST /chats/:id/messages` → 202 + `jobId`, callback `POST /internal/jobs/:id/complete`, `GET .../jobs/:jobId/status`, config `WORKER_*`, `PROFILE_DATA_ROOT`); pacotes legados removidos (`internal/agent`, `internal/export`); sem `backend/promptdata/` (prompts em `.cursor/`; worker consumirá dali ou paths configuráveis). |
 | **Fase 2 — Worker Python LangGraph** | TP1–TP11 | **Pendente** |
 | **Fase 3 — Integração** | TI1–TI3 | **Pendente** |
 | Fase 4 — Frontend | T24–T33 | Pendente |
 | Fase 5 — Cron | T34–T35 | Pendente |
 | Fase 6 — QA & Deploy | T36–T41 | Pendente |
 
-**Próximo passo sugerido:** **Fase 1 — Go API limpa (T1–T14)** em paralelo com **Fase 2 — Python Worker LangGraph (TP1–TP11)** após alinhar contrato e variáveis (`WORKER_URL`, `WORKER_API_KEY`, `GO_API_URL`). Ver `docs/architecture-go-api-langgraph.md`.
+**Próximo passo sugerido:** **Fase 2 — Worker Python** (`worker/`) para consumir `POST {WORKER_URL}/jobs` e concluir via `POST /internal/jobs/:id/complete` no Go; em paralelo **integração TI1–TI3** quando o worker expuser contrato estável. Ver `docs/architecture-go-api-langgraph.md` e `design.md` (contrato Go ↔ Python).
 
-**Nota:** A spec e o `tasks.md` foram reescritos para arquitetura **Go API + worker Python**; o progresso anterior contra T1–T23 monolítico não mapeia 1:1 para as novas tarefas.
+**Nota:** A spec e o `tasks.md` foram reescritos para arquitetura **Go API + worker Python**; validar tarefas T1–T14 contra o código atual e marcar itens fechados no `tasks.md` quando conveniente.
 
 ---
 
@@ -35,13 +35,19 @@
 
 Entradas cronológicas do que foi efetivamente construído em código frente à spec. *Atualizar ao fechar fases.*
 
+### 2026-04-13 — Go API (Fase 1, núcleo)
+
+**Implementado no backend:** modelo e migration `jobs`; `POST /chats/:id/messages` assíncrono (persistência mensagem + job, dispatch HTTP ao worker, status `processing` / `failed`); `POST /internal/jobs/:id/complete` (API key `X-Worker-API-Key`); `GET /chats/:id/jobs/:jobId/status`; `GET /setup/status` sem `ProfileChecker` do agente; cliente HTTP `WORKER_URL` + `WORKER_API_KEY`; Dockerfile da API sem Playwright/Chromium.
+
+**Removido do repo:** `internal/agent/`, `internal/export/`, `backend/promptdata/`, `scripts/sync-promptdata.sh`, alvo `make prompts-sync`. Dependência `langchaingo` retirada do `go.mod`.
+
+**README:** prompts documentados como vivendo em `.cursor/` para o worker.
+
 ### 2026-04-12 — Reescrita da spec (Go API + LangGraph)
 
 **Objetivo:** Documentar dois serviços — API Go (CRUD, auth, jobs, callback) **sem** `internal/agent/` / `internal/export/` no desenho alvo; processamento em **`worker/`** (Python, LangGraph, Playwright, S3). Contrato: `POST /chats/:id/messages` → `202` + `jobId`; `POST /internal/jobs/:id/complete` no Go.
 
 **Documentação atualizada:** `spec.md`, `design.md`, `tasks.md` (reescrito), `STATE.md`, `docs/PRD.md`, `docs/TDD.md`.
-
-**Código legado:** Implementações anteriores de agent/export em Go podem existir no repositório; o plano aprovado é **construção do zero** conforme novas tasks, não continuidade direta de T18–T23.
 
 ---
 
@@ -49,7 +55,8 @@ Entradas cronológicas do que foi efetivamente construído em código frente à 
 
 | Feature | Marco | Notas |
 |---------|--------|-------|
-| content-creator-agent | Plano reescrito | Implementar T1–T14 + TP1–TP11; integração TI1–TI3 |
+| content-creator-agent | Fase 1 Go (fecho) | Revisar T1–T14 vs código; frontend e cron ainda não cobertos pelas fases 4–5. |
+| content-creator-agent | Fase 2 Worker | Diretório `worker/` e pipeline LangGraph ainda por implementar. |
 
 ## Decisões registradas
 
@@ -61,8 +68,8 @@ Entradas cronológicas do que foi efetivamente construído em código frente à 
 | 4 | Geração de slides: GPT-5.4 Mini → HTML/CSS → Playwright → JPEG (768×1376px, qualidade 92) | Sem modelo dedicado de geração de imagem | 2026-04-10 |
 | 5 | Limite de 4.000 tokens de saída por requisição ao LLM | Estimativa conservadora; revisar com dados reais de produção | 2026-04-10 |
 | 6 | Cookie `Secure` em `COOKIE_SECURE` (default true em produção; `false` para HTTP local) | Permite testar login/refresh em dev sem HTTPS | 2026-04-12 |
-| 7 | System prompts do otimizador e do gerador: conteúdo canónico em skills/rules; sincronização para runtime do worker a definir na implementação | Base única `.cursor/` | 2026-04-12 |
-| **8** | **Arquitetura do zero: Go = API/CRUD/jobs (sem agent/export no desenho alvo); Python + LangGraph = motor em `worker/`. Código Go legado T18–T23 não é base obrigatória para o novo plano.** | **`docs/architecture-go-api-langgraph.md`** | **2026-04-12** |
+| 7 | System prompts: canónico em `.cursor/` skills/rules; **sem** cópia `backend/promptdata/` — worker lê `.cursor/` ou paths configuráveis | Evita duplicar sync para o Go | 2026-04-13 |
+| 8 | **Arquitetura do zero: Go = API/CRUD/jobs (sem agent/export no desenho alvo); Python + LangGraph = motor em `worker/`.** | **`docs/architecture-go-api-langgraph.md`** | **2026-04-12** |
 
 ## Bloqueadores ativos
 
@@ -84,7 +91,8 @@ Nenhum.
 | Data | Lição |
 |------|-------|
 | 2026-04-12 | Build Docker do backend legado incluía Playwright + Chromium — na nova arquitetura, Chromium fica no **worker** Python. |
-| 2026-04-12 | Alterar skills em `.cursor/` implica portar/atualizar prompts no worker (não só `make prompts-sync` no Go). |
+| 2026-04-12 | Alterar skills em `.cursor/` implica alinhar prompts carregados pelo worker. |
+| 2026-04-13 | Remover `promptdata/` simplifica o repo: uma fonte (`.cursor/`) até o worker definir empacotamento em imagem ou CI. |
 
 ## Contexto de sessão (referência rápida)
 

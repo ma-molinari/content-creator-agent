@@ -105,7 +105,7 @@ Caminho crítico: T1→T2→T3→T8→T11→T12→TI1→TI2→TI3→Fase6
 | **TP1** | Setup Python: `worker/pyproject.toml` (uv), FastAPI, Dockerfile (Playwright/Chromium), `.env.example` (`OPENAI_API_KEY`, `S3_*`, `GO_API_URL`, `WORKER_API_KEY`) | — |
 | **TP2** | Estado LangGraph (`TypedDict`/Pydantic): `user_id`, `chat_id`, `job_id`, `raw_message`, `profile_text`, `optimized_brief`, `slides_html[]`, `s3_keys[]`, `errors[]` | TP1 |
 | **TP3** | Nó `load_profile`: perfil inline no payload (AUDIT/BRAND como strings) | TP2 |
-| **TP4** | Nó `optimize_prompt`: OpenAI + system prompt do otimizador (portado de `promptdata/` / `.md`) | TP3 |
+| **TP4** | Nó `optimize_prompt`: OpenAI + system prompt do otimizador (portado de `.cursor/` / skills) | TP3 |
 | **TP5** | Nó `generate_slides`: OpenAI + skill de slides; saída com marcadores `###SLIDE_FILE:...###` | TP4 |
 | **TP6** | Nó `parse_validate`: parser dos marcadores; validação HTML mínima; aresta condicional de retry → TP5 (máx. 2x) | TP5 |
 | **TP7** | Nó `render_to_jpeg`: playwright-python headless; 768×1376px, JPEG qualidade 92 | TP6 |
