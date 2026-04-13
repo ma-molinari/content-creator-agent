@@ -1,6 +1,6 @@
 # API HTTP (Echo). Copie .env.example para .env e ajuste variáveis.
 # Migrations: usa `go run` (alinhado a go.mod); não exige `migrate` no PATH.
-.PHONY: help run build test tidy fmt vet clean migrate migrate-up migrate-down migrate-version
+.PHONY: help run build test test-integration tidy fmt vet clean migrate migrate-up migrate-down migrate-version
 
 BIN_DIR := bin
 SERVER_BIN := $(BIN_DIR)/server
@@ -12,6 +12,7 @@ help:
 	@echo "  make run     — sobe o servidor (carrega .env se existir)"
 	@echo "  make build   — compila o binário em $(SERVER_BIN)"
 	@echo "  make test    — go test ./..."
+	@echo "  make test-integration — go test -tags=integration ./integration/... (needs INTEGRATION_DATABASE_URL)"
 	@echo "  make tidy    — go mod tidy"
 	@echo "  make fmt     — go fmt ./..."
 	@echo "  make vet     — go vet ./..."
@@ -57,6 +58,9 @@ $(BIN_DIR):
 
 test:
 	go test ./...
+
+test-integration:
+	go test -tags=integration -v ./integration/...
 
 tidy:
 	go mod tidy

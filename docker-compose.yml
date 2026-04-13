@@ -1,0 +1,81 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: content_creator
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - app-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d content_creator"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      PORT: "8080"
+      DATABASE_URL: postgres://app:app@postgres:5432/content_creator?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-access-secret-change-me}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-jwt-refresh-secret-change-me}
+      COOKIE_SECURE: "false"
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-}
+      PROFILE_DATA_ROOT: /profile-data
+      WORKER_URL: http://worker:8000
+      WORKER_API_KEY: ${WORKER_API_KEY:-dev-worker-shared-key}
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./tests/e2e/testdata/profile:/profile-data:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - app-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 8
+      start_period: 15s
+
+  worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-}
+      GO_API_URL: http://api:8080
+      WORKER_API_KEY: ${WORKER_API_KEY:-dev-worker-shared-key}
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - app-net
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 8
+      start_period: 60s
+
+networks:
+  app-net:
+    driver: bridge
+
+volumes:
+  pgdata:
