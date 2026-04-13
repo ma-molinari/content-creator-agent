@@ -5,13 +5,11 @@ import (
 	"net/http"
 	"time"
 
-	"content-creator-agent/internal/agent"
 	"content-creator-agent/internal/db"
 	"content-creator-agent/internal/middleware"
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
-	"github.com/tmc/langchaingo/llms"
 )
 
 // Handler exposes chat HTTP endpoints.
@@ -216,9 +214,8 @@ type postMessageBody struct {
 	Content string `json:"content"`
 }
 
-type postMessageResponse struct {
-	Message chatContentJSON `json:"message"`
-	Files   []FileListItem  `json:"files"`
+type postMessageAccepted struct {
+	JobID uuid.UUID `json:"jobId"`
 }
 
 // PostMessage handles POST /chats/:id/messages (with LLM rate limit middleware).
@@ -239,27 +236,25 @@ func (h *Handler) PostMessage(c echo.Context) error {
 	if err != nil {
 		return mapPostErr(err)
 	}
-	now := time.Now()
-	msg := chatContentJSON{
-		ID:        res.Assistant.ID,
-		ChatID:    chatID,
-		Role:      string(res.Assistant.Role),
-		Content:   res.Assistant.Content,
-		CreatedAt: now,
-		UpdatedAt: now,
+	return c.JSON(http.StatusAccepted, postMessageAccepted{JobID: res.JobID})
+}
+
+// GetJobStatus handles GET /chats/:id/jobs/:jobId/status.
+func (h *Handler) GetJobStatus(c echo.Context) error {
+	chatID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid chat id")
 	}
-	for _, im := range res.Images {
-		msg.Images = append(msg.Images, chatContentImgJSON{
-			ID:            im.ID,
-			ChatContentID: im.ChatContentID,
-			S3Key:         im.S3Key,
-			URL:           im.URL,
-			SlideNumber:   im.SlideNumber,
-			CreatedAt:     now,
-			UpdatedAt:     now,
-		})
+	jobID, err := uuid.Parse(c.Param("jobId"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid job id")
 	}
-	return c.JSON(http.StatusOK, postMessageResponse{Message: msg, Files: res.Files})
+	uid := middleware.UserID(c)
+	view, err := h.svc.GetJobStatus(c.Request().Context(), uid, chatID, jobID)
+	if err != nil {
+		return mapChatErr(err)
+	}
+	return c.JSON(http.StatusOK, view)
 }
 
 // SetupStatus handles GET /setup/status.
@@ -274,21 +269,17 @@ func (h *Handler) SetupStatus(c echo.Context) error {
 
 func mapPostErr(err error) *echo.HTTPError {
 	switch {
-	case errors.Is(err, agent.ErrSetupRequired):
+	case errors.Is(err, ErrSetupRequired):
 		return echo.NewHTTPError(http.StatusBadRequest, map[string]string{
 			"code":    "SETUP_REQUIRED",
 			"message": "Add AUDIT.md and BRAND.md under instagram-audits/<your-user-id>/ in PROFILE_DATA_ROOT.",
 		})
-	case errors.Is(err, ErrAgentNotConfigured):
-		return echo.NewHTTPError(http.StatusServiceUnavailable, "language features are not configured on this server")
-	case errors.Is(err, ErrExportFailed):
-		return echo.NewHTTPError(http.StatusInternalServerError, "slide export failed; try again later")
-	case errors.Is(err, agent.ErrEmptyPrompt):
+	case errors.Is(err, ErrWorkerNotConfigured):
+		return echo.NewHTTPError(http.StatusServiceUnavailable, "async generation is not configured on this server")
+	case errors.Is(err, ErrWorkerDispatchFailed):
+		return echo.NewHTTPError(http.StatusBadGateway, "could not reach worker; job marked failed")
+	case errors.Is(err, ErrEmptyPrompt):
 		return echo.NewHTTPError(http.StatusBadRequest, "content is empty after sanitization")
-	}
-	var le *llms.Error
-	if errors.As(err, &le) {
-		return echo.NewHTTPError(http.StatusServiceUnavailable, "language model unavailable")
 	}
 	if errors.Is(err, ErrNotFound) || errors.Is(err, ErrForbidden) {
 		return mapChatErr(err)

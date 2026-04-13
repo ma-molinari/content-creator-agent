@@ -184,3 +184,26 @@ func (r *Repository) CreateContentWithImages(ctx context.Context, userContent *d
 		return nil
 	})
 }
+
+// CreateUserMessageAndJob inserts the user message row and a pending job in one transaction.
+func (r *Repository) CreateUserMessageAndJob(ctx context.Context, userContent *db.ChatContent, job *db.Job) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(userContent).Error; err != nil {
+			return err
+		}
+		if err := tx.Create(job).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+// GetJobForChat loads a job when it belongs to the given user and chat.
+func (r *Repository) GetJobForChat(ctx context.Context, userID, chatID, jobID uuid.UUID) (*db.Job, error) {
+	var j db.Job
+	err := r.db.WithContext(ctx).First(&j, "id = ? AND user_id = ? AND chat_id = ?", jobID, userID, chatID).Error
+	if err != nil {
+		return nil, err
+	}
+	return &j, nil
+}

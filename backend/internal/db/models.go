@@ -91,3 +91,26 @@ type ChatContentResume struct {
 }
 
 func (ChatContentResume) TableName() string { return "chat_content_resume" }
+
+// JobStatus is stored as PostgreSQL enum job_status_enum.
+type JobStatus string
+
+const (
+	JobStatusPending    JobStatus = "pending"
+	JobStatusProcessing JobStatus = "processing"
+	JobStatusDone       JobStatus = "done"
+	JobStatusFailed     JobStatus = "failed"
+)
+
+// Job tracks async worker runs for a chat message.
+type Job struct {
+	ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	ChatID    uuid.UUID `gorm:"type:uuid;not null;index"`
+	UserID    uuid.UUID `gorm:"type:uuid;not null;index"`
+	Status    JobStatus `gorm:"type:job_status_enum;not null;default:pending"`
+	ErrorMsg  *string   `gorm:"type:text"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func (Job) TableName() string { return "jobs" }

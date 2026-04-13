@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"content-creator-agent/internal/db"
+	"content-creator-agent/internal/jobs"
 
 	"github.com/google/uuid"
 	"gorm.io/driver/sqlite"
@@ -98,8 +99,9 @@ func testDBWithUser(t *testing.T) (*gorm.DB, *db.User) {
 func TestChatLimit_fourThenFifthNoEviction(t *testing.T) {
 	gdb, u := testDBWithUser(t)
 	repo := NewRepository(gdb)
+	jobsRepo := jobs.NewRepository(gdb)
 	store := &mockStorage{}
-	svc := NewService(repo, store, nil)
+	svc := NewService(repo, jobsRepo, store, "", nil)
 	ctx := context.Background()
 	for range 4 {
 		if _, err := svc.CreateChat(ctx, u.ID, "single"); err != nil {
@@ -127,8 +129,9 @@ func TestChatLimit_fourThenFifthNoEviction(t *testing.T) {
 func TestChatLimit_sixthEvictsOldest(t *testing.T) {
 	gdb, u := testDBWithUser(t)
 	repo := NewRepository(gdb)
+	jobsRepo := jobs.NewRepository(gdb)
 	store := &mockStorage{}
-	svc := NewService(repo, store, nil)
+	svc := NewService(repo, jobsRepo, store, "", nil)
 	ctx := context.Background()
 	var firstID uuid.UUID
 	for i := range 5 {
@@ -165,7 +168,7 @@ func TestChatLimit_sixthEvictsOldest(t *testing.T) {
 func TestChatLimit_oneNoEviction(t *testing.T) {
 	gdb, u := testDBWithUser(t)
 	store := &mockStorage{}
-	svc := NewService(NewRepository(gdb), store, nil)
+	svc := NewService(NewRepository(gdb), jobs.NewRepository(gdb), store, "", nil)
 	ctx := context.Background()
 	if _, err := svc.CreateChat(ctx, u.ID, "carousel"); err != nil {
 		t.Fatal(err)

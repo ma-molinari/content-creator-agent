@@ -1,6 +1,6 @@
 # API HTTP (Echo). Copie .env.example para .env e ajuste variáveis.
 # Migrations: usa `go run` (alinhado a go.mod); não exige `migrate` no PATH.
-.PHONY: help run build test tidy fmt vet clean migrate migrate-up migrate-down migrate-version prompts-sync
+.PHONY: help run build test tidy fmt vet clean migrate migrate-up migrate-down migrate-version
 
 BIN_DIR := bin
 SERVER_BIN := $(BIN_DIR)/server
@@ -16,7 +16,6 @@ help:
 	@echo "  make fmt     — go fmt ./..."
 	@echo "  make vet     — go vet ./..."
 	@echo "  make clean   — remove $(BIN_DIR)/"
-	@echo "  make prompts-sync — copia rules/skills do .cursor/ para internal/agent/promptdata/ (strip frontmatter)"
 	@echo ""
 	@echo "Migrations (golang-migrate via go run; carrega .env se existir):"
 	@echo "  make migrate / migrate-up  — aplica migrations (up)"
@@ -25,7 +24,7 @@ help:
 	@echo ""
 	@echo "Variáveis obrigatórias: DATABASE_URL, JWT_SECRET, JWT_REFRESH_SECRET"
 	@echo "(S3: AWS_REGION, AWS_S3_BUCKET ao subir o servidor.)"
-	@echo "Agent/export: OPENAI_API_KEY, PROFILE_DATA_ROOT, REPO_ROOT; JPEG export precisa Node + Playwright (scripts/export-slides.js)."
+	@echo "Async: WORKER_URL, WORKER_API_KEY; perfil: PROFILE_DATA_ROOT"
 	@echo "Veja .env.example"
 
 run:
@@ -70,7 +69,3 @@ vet:
 
 clean:
 	rm -rf $(BIN_DIR)
-
-# Após alterar `.cursor/skills/` ou `.cursor/rules/` usados pelo carrossel, execute a partir da raiz do repo ou:
-prompts-sync:
-	@bash ../scripts/sync-promptdata.sh

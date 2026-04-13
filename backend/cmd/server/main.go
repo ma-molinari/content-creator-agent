@@ -4,14 +4,12 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"time"
 
-	"content-creator-agent/internal/agent"
 	"content-creator-agent/internal/auth"
 	"content-creator-agent/internal/chat"
 	"content-creator-agent/internal/config"
 	"content-creator-agent/internal/db"
-	"content-creator-agent/internal/export"
+	"content-creator-agent/internal/jobs"
 	appmw "content-creator-agent/internal/middleware"
 	"content-creator-agent/internal/storage"
 
@@ -40,29 +38,15 @@ func main() {
 		log.Fatalf("storage: %v", err)
 	}
 	chatRepo := chat.NewRepository(gdb)
-	exportTimeout := 120 * time.Second
-	if cfg.ExportTimeout != "" {
-		if d, err := time.ParseDuration(cfg.ExportTimeout); err == nil {
-			exportTimeout = d
-		}
+	jobsRepo := jobs.NewRepository(gdb)
+	var worker jobs.WorkerClient
+	if cfg.WorkerURL != "" {
+		worker = jobs.NewHTTPWorkerClient(cfg.WorkerURL, cfg.WorkerAPIKey)
 	}
-	var chatAgent *chat.AgentDeps
-	if cfg.OpenAIAPIKey != "" && cfg.ProfileDataRoot != "" && cfg.RepoRoot != "" {
-		llm, err := agent.NewLLMClient(cfg.OpenAIAPIKey, cfg.OpenAIModel, "", nil)
-		if err != nil {
-			log.Printf("agent: OpenAI client not started: %v", err)
-		} else {
-			pc := agent.NewProfileChecker(cfg.ProfileDataRoot)
-			chatAgent = &chat.AgentDeps{
-				Profile:   pc,
-				Optimizer: agent.NewPromptOptimizer(llm),
-				SlideGen:  agent.NewSlideGenerator(llm, pc),
-				Runner:    export.NewPlaywrightRunner(cfg.RepoRoot, exportTimeout),
-			}
-		}
-	}
-	chatSvc := chat.NewService(chatRepo, stor, chatAgent)
+	chatSvc := chat.NewService(chatRepo, jobsRepo, stor, cfg.ProfileDataRoot, worker)
 	ch := chat.NewHandler(chatSvc)
+
+	jobsH := jobs.NewHandler(&cfg, jobsRepo, gdb, stor)
 
 	e := echo.New()
 	e.HideBanner = true
@@ -100,12 +84,16 @@ func main() {
 	chatLLM := protected.Group("/chats")
 	chatLLM.Use(appmw.LLMByUser())
 	chatLLM.POST("/:id/messages", ch.PostMessage)
+	chatLLM.GET("/:id/jobs/:jobId/status", ch.GetJobStatus)
 
 	llm := protected.Group("/api/llm")
 	llm.Use(appmw.LLMByUser())
 	llm.GET("/ready", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})
+
+	internal := e.Group("/internal")
+	internal.POST("/jobs/:id/complete", jobsH.Complete)
 
 	addr := ":" + cfg.Port
 	if err := e.Start(addr); err != nil && err != http.ErrServerClosed {

@@ -16,14 +16,12 @@ type Config struct {
 	AWSAccessKeyID     string
 	AWSSecretAccessKey string
 	S3Bucket           string
-	OpenAIAPIKey       string
-	OpenAIModel        string
 	// ProfileDataRoot is the server base path; each user has instagram-audits/<user_uuid>/AUDIT.md and BRAND.md.
 	ProfileDataRoot string
-	// RepoRoot is the repository root (contains scripts/export-slides.js).
-	RepoRoot string
-	// ExportTimeout is the maximum time allowed for one Playwright export run.
-	ExportTimeout string
+	// WorkerURL is the base URL of the Python worker (e.g. http://worker:8000).
+	WorkerURL string
+	// WorkerAPIKey is shared between the Go API and the worker for internal calls.
+	WorkerAPIKey string
 }
 
 func Load() Config {
@@ -41,10 +39,6 @@ func Load() Config {
 	if port == "" {
 		port = "8080"
 	}
-	openAIModel := os.Getenv("OPENAI_MODEL")
-	if openAIModel == "" {
-		openAIModel = "gpt-5.4-mini"
-	}
 	return Config{
 		Port:               port,
 		DatabaseURL:        os.Getenv("DATABASE_URL"),
@@ -55,10 +49,8 @@ func Load() Config {
 		AWSAccessKeyID:     os.Getenv("AWS_ACCESS_KEY_ID"),
 		AWSSecretAccessKey: os.Getenv("AWS_SECRET_ACCESS_KEY"),
 		S3Bucket:           os.Getenv("AWS_S3_BUCKET"),
-		OpenAIAPIKey:       os.Getenv("OPENAI_API_KEY"),
-		OpenAIModel:        openAIModel,
 		ProfileDataRoot:    os.Getenv("PROFILE_DATA_ROOT"),
-		RepoRoot:           os.Getenv("REPO_ROOT"),
-		ExportTimeout:      os.Getenv("EXPORT_TIMEOUT"),
+		WorkerURL:          os.Getenv("WORKER_URL"),
+		WorkerAPIKey:       os.Getenv("WORKER_API_KEY"),
 	}
 }
