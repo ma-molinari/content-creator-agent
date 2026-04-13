@@ -11,7 +11,7 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-BACKEND = ROOT / "backend"
+BACKEND = ROOT / "apps" / "api"
 BACKUP = Path("/tmp/cca_backend_backup_for_git_history")
 
 
@@ -25,7 +25,7 @@ def join_lines(lines: list[str]) -> str:
 
 def main() -> None:
     if not BACKEND.is_dir():
-        raise SystemExit("backend/ not found")
+        raise SystemExit("apps/api/ not found")
 
     if BACKUP.exists():
         shutil.rmtree(BACKUP)
@@ -634,7 +634,7 @@ func main() {
 
     for msg, fn in sequence:
         fn()
-        run(["git", "add", "backend"], cwd=ROOT)
+        run(["git", "add", "apps/api"], cwd=ROOT)
         run(["git", "commit", "-m", msg], cwd=ROOT)
 
     print("Done:", len(sequence), "task commits + first commit.")
