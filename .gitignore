@@ -14,3 +14,4 @@ __pycache__/
 
 # Go test compile output (e.g. go test -c)
 *.test
+.local/
