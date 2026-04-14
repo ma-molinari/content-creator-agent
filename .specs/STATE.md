@@ -2,7 +2,7 @@
 
 ## Última atualização
 
-2026-04-13
+2026-04-14
 
 ## Feature em foco
 
@@ -20,14 +20,14 @@
 |------|-------------------|--------|
 | **Fase 1 — Go API limpa** | T1–T14 | **Concluída (código)** — `apps/api/`: Echo, auth (JWT + refresh httpOnly), rate limit, CRUD chats (limite 5 + eviction), S3, arquivos/zip, jobs async (`POST /chats/:id/messages` → 202 + `jobId`), callback interno, polling de status, `GET /setup/status`. **Ressalvas vs tasks.md:** (1) **T9** — `Upload` tem backoff 3×; **`DeleteMany` não** (apenas batch DeleteObjects). (2) Nomes de env: código usa `AWS_REGION` / `AWS_S3_BUCKET` / etc.; o `tasks.md` menciona `S3_*` no texto — equivalente, só nomenclatura. |
 | **Fase 2 — Worker Python LangGraph** | TP1–TP11 | **Concluída (código)** — `apps/worker/`: FastAPI (`POST /jobs`, `GET /health`), LangGraph (load_profile → optimize → generate_slides → parse_validate com retry → render_to_jpeg → upload_assets → finalize), prompts em `apps/worker/prompts/`, Dockerfile + Playwright Chromium, `pyproject.toml` + `.env.example`. **Ressalva:** **TP6** no `tasks.md` fala em retry máximo **2×** para `generate_slides`; o nó `parse_validate` incrementa `retry_count` enquanto `< 3` (pode haver **até 4** execuções de `generate_slides` no pior caso). Ajustar código ou spec se quiser aderência literal. |
-| **Fase 3 — Integração** | TI1–TI3 | **Concluída (código + testes)** — `docker-compose.yml` na raiz (postgres + api + worker, healthchecks, `WORKER_*` / `GO_API_URL` / volume `tests/e2e/testdata/profile` → `PROFILE_DATA_ROOT`). **TI1** — `go test -tags=integration` em `apps/api/integration/` (`INTEGRATION_DATABASE_URL`); mock worker + callback; `make test-integration` em `apps/api/Makefile`. **TI2** — `pytest` + `httpx` em `tests/e2e/`; `make e2e` no Makefile da raiz. **TI3** — `apps/api/integration/failure_test.go` (callback erro → `failed`, dispatch 500 → 502 + job `failed`, callback sem `assistantText` → 400). A parte **“frontend trata”** do `tasks.md` depende da **Fase 4 (T30)** — ainda não há app React no repo. |
-| Fase 4 — Frontend | T24–T33 | Pendente |
+| **Fase 3 — Integração** | TI1–TI3 | **Concluída (código + testes)** — `docker-compose.yml` na raiz (postgres + api + worker, healthchecks, `WORKER_*` / `GO_API_URL` / volume `tests/e2e/testdata/profile` → `PROFILE_DATA_ROOT`). **TI1** — `go test -tags=integration` em `apps/api/integration/` (`INTEGRATION_DATABASE_URL`); mock worker + callback; `make test-integration` em `apps/api/Makefile`. **TI2** — `pytest` + `httpx` em `tests/e2e/`; `make e2e` no Makefile da raiz. **TI3** — `apps/api/integration/failure_test.go` (callback erro → `failed`, dispatch 500 → 502 + job `failed`, callback sem `assistantText` → 400). Tratamento de `failed` no cliente implementado na Fase 4 (T30 — `ChatThread` + `JobStatusIndicator`). |
+| **Fase 4 — Frontend** | T24–T33 | **Concluída (código)** — `apps/web/`: T25 (tokens + AppShell + SidebarRail + drawer mobile `< 768px`), T26 (Login form + POST /auth/login + returnTo), T27 (Register + SecurityKeyModal), T28 (interceptor 401 → POST /auth/refresh → retry → clear + redirect), T29 (Chat: `GET /setup/status` gate + ComposerBar + `POST /chats`), T30 (`POST /chats/:id/messages` + polling 1500ms + estados pending/done/failed + retry), T31 (SlideViewer grid+lightbox+a11y + DownloadButton), T32 (History: `GET /chats` + ChatList + empty state), T33 (re-prompt, download ZIP, delete com AlertDialog, toasts). Módulos API em `src/api/auth.ts` + `src/api/chats.ts`. Toast em `src/lib/toast.ts`. Build prod: 0 erros TypeScript. |
 | Fase 5 — Cron | T34–T35 | Pendente |
 | Fase 6 — QA & Deploy | T36–T41 | Pendente |
 
-**Próximo passo sugerido:** **Fase 4 — Frontend (T24–T33)** — UI React com polling de `GET /chats/:id/jobs/:jobId/status`, estados `pending`/`processing`/`done`/`failed` e UX “gerando…” / erro.
+**Próximo passo sugerido:** **Fase 5** (T34–T35 — cron/agendamento) ou **Fase 6** (QA & deploy). Fases 1–4 concluídas em código.
 
-**Nota:** Monorepo: API Go em **`apps/api/`**, worker em **`apps/worker/`** (não `backend/` nem `worker/` na raiz). Opcional: marcar checkboxes no `tasks.md` ou alinhar T9/TP6 ao texto da spec.
+**Nota:** Monorepo: API Go em **`apps/api/`**, frontend em **`apps/web/`**, worker em **`apps/worker/`** (não `backend/` nem `worker/` na raiz). Opcional: marcar checkboxes no `tasks.md` ou alinhar T9/TP6 ao texto da spec.
 
 ---
 
@@ -59,6 +59,10 @@ Entradas cronológicas do que foi efetivamente construído em código frente à 
 
 **TI3:** `apps/api/integration/failure_test.go` — erro no callback (`failed` + mensagem), worker retorna 500 no dispatch (502 + job `failed` no DB), callback `{}` sem `assistantText` → 400 no endpoint interno. Tratamento no **frontend** para `failed` fica na Fase 4.
 
+### 2026-04-13 — Frontend React (Fase 4 completa — T24–T33)
+
+**Implementado em `apps/web/src/`:** módulos de API (`api/auth.ts`, `api/chats.ts`) com tipos completos; interceptor de response 401 → `POST /auth/refresh` → retry → clear + `window.location.replace('/login')`; Login form (email, senha, toggle visibilidade, validação client-side, returnTo, erro 401 → mensagem localizada); Register form + `SecurityKeyModal` (clipboard API, checkbox obrigatório, redirect para /login); `AppShell` com drawer mobile (< 768px) + botão hamburguer; `SidebarRail` com prop `onClose` para fechar drawer; `ComposerBar` (auto-resize, contador de caracteres, Enter para enviar, Shift+Enter para quebra); `EmptyChatState` com PromptChips; `Chat.tsx` com: `GET /setup/status` gate + banner de aviso, criação inline de chat (`POST /chats`), envio de mensagem (`POST /chats/:id/messages`), polling de job (`GET /chats/:id/jobs/:jobId/status`) com `refetchInterval` adaptativo, estados pending/processing/done/failed, retry, cabeçalho com download ZIP e delete; `ChatThread` com scroll automático + mensagens otimistas; `MessageBubbleUser` e `MessageAssistant` (com `useFiles` para URLs frescos); `JobStatusIndicator` (spinner + label); `SlideViewer` (grid horizontal de thumbnails, lightbox com prev/next + esc + contador, a11y); `DownloadButton`; `History.tsx` (lista ordenada, label de postType, data PT-BR, delete com `AlertDialog`, download ZIP); sistema de toast (`lib/toast.ts` + `ToastContainer`) montado em `App.tsx`. Build prod: 0 erros TypeScript, 151 módulos.
+
 ### 2026-04-12 — Reescrita da spec (Go API + LangGraph)
 
 **Objetivo:** Documentar dois serviços — API Go (CRUD, auth, jobs, callback) **sem** `internal/agent/` / `internal/export/` no desenho alvo; processamento em **`apps/worker/`** (Python, LangGraph, Playwright, S3). Contrato: `POST /chats/:id/messages` → `202` + `jobId`; `POST /internal/jobs/:id/complete` no Go.
@@ -71,7 +75,7 @@ Entradas cronológicas do que foi efetivamente construído em código frente à 
 
 | Feature | Marco | Notas |
 |---------|--------|-------|
-| content-creator-agent | Fase 4 Frontend | Contrato API + integração Go/worker prontos; iniciar T24+ conforme `tasks.md`. |
+| content-creator-agent | Fase 5 / 6 | Fase 4 Frontend concluída. Próximo: Fase 5 (T34–T35 cron) ou Fase 6 (QA & deploy). |
 | content-creator-agent | Opcional | Fechar gaps menores T9 (`DeleteMany` backoff) e TP6 (contagem de retry) se quiser aderência literal ao `tasks.md`. |
 
 ## Decisões registradas
@@ -111,9 +115,10 @@ Nenhum.
 | 2026-04-13 | Remover `promptdata/` simplifica o repo: uma fonte (`.cursor/`) até o worker definir empacotamento em imagem ou CI. |
 | 2026-04-13 | Prompts de execução do worker ficam em `apps/worker/prompts/` na imagem; alinhar alterações em `.cursor/rules` com cópias/atualizações nessa pasta quando necessário. |
 | 2026-04-13 | Integração: testes Go com tag `integration` exigem Postgres acessível (`INTEGRATION_DATABASE_URL`); E2E com compose exige credenciais LLM/S3 no host — sem isso o worker só sobe healthy; o fluxo completo falha no job. |
+| 2026-04-14 | Frontend (Fase 4): imagens dos slides em `GET /chats/:id` têm URLs presignadas que expiram em 1h (geradas no callback do job); para exibir slides sempre com URLs frescos usar `GET /chats/:id/files`. Polling de job status deve usar `staleTime: 0` e `refetchInterval` adaptativo que retorna `false` ao atingir `done`/`failed`. |
 
 ## Contexto de sessão (referência rápida)
 
 - **TDD:** `docs/TDD.md`
-- **Stack alvo:** Go/Echo (`apps/api/`) + React + PostgreSQL + S3 + **Python (LangGraph, FastAPI, Playwright, boto3)** em `apps/worker/`
+- **Stack alvo:** Go/Echo (`apps/api/`) + React/Vite (`apps/web/`) + PostgreSQL + S3 + **Python (LangGraph, FastAPI, Playwright, boto3)** em `apps/worker/`
 - **Contrato:** ver `design.md` — seção **Contrato Go ↔ Python**
