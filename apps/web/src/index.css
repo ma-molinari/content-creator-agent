@@ -1,0 +1,90 @@
+@import 'tailwindcss';
+
+/* Tokens — docs/brand.md (token set unificado) */
+:root {
+  --color-bg-app: #f9fafb;
+  --color-bg-surface: #ffffff;
+  --color-bg-muted: #f3f4f6;
+  --color-border-subtle: #e5e7eb;
+  --color-text-primary: #111827;
+  --color-text-secondary: #6b7280;
+  --color-text-muted: #9ca3af;
+
+  --color-brand-primary: #2563eb;
+  --color-brand-primary-hover: #1d4ed8;
+  --color-focus-ring: rgb(37 99 235 / 0.35);
+
+  --color-cta-emphasis: #111827;
+  --color-cta-emphasis-contrast: #ffffff;
+
+  --color-nav-active-bg: rgb(37 99 235 / 0.12);
+  --color-nav-active-fg: var(--color-brand-primary);
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.05);
+  --shadow-md: 0 10px 15px -3px rgb(0 0 0 / 0.08);
+  --shadow-composer: 0 10px 40px -10px rgb(0 0 0 / 0.12);
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-pill: 9999px;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+
+  --font-sans: ui-sans-serif, system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+
+  --transition-fast: 150ms ease;
+  --transition-normal: 250ms ease;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg-app: #0f1117;
+    --color-bg-surface: #16171d;
+    --color-bg-muted: #1f2028;
+    --color-border-subtle: #2e303a;
+    --color-text-primary: #f3f4f6;
+    --color-text-secondary: #9ca3af;
+    --color-text-muted: #6b7280;
+
+    --color-cta-emphasis: #f9fafb;
+    --color-cta-emphasis-contrast: #111827;
+
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.35);
+    --shadow-md: 0 10px 15px -3px rgb(0 0 0 / 0.35);
+    --shadow-composer: 0 10px 40px -10px rgb(0 0 0 / 0.45);
+
+    color-scheme: dark;
+  }
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  color: var(--color-text-primary);
+  background: var(--color-bg-app);
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100dvh;
+}
