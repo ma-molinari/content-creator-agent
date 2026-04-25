@@ -1,4 +1,4 @@
-"""E2E fixtures: API base URL, auth, profile files on host for PROFILE_DATA_ROOT volume."""
+"""E2E fixtures: API base URL, auth, and profile saved via PUT /profile (DB)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from pathlib import Path
 import httpx
 import pytest
 
-PROFILE_ROOT = Path(__file__).resolve().parent / "testdata" / "profile"
+_TESTDATA = Path(__file__).resolve().parent / "testdata"
 
 
 @pytest.fixture(scope="session")
@@ -43,19 +43,16 @@ def registered_user(e2e_client: httpx.Client) -> dict:
 
 
 @pytest.fixture
-def profile_files(registered_user: dict) -> None:
-    """Create AUDIT.md and BRAND.md under instagram-audits/<user_uuid>/ (host path = compose volume)."""
-    uid = registered_user["user_id"]
-    d = PROFILE_ROOT / "instagram-audits" / uid
-    d.mkdir(parents=True, exist_ok=True)
-    (d / "AUDIT.md").write_text(
-        "# E2E audit\n\nMinimal voice and audience for smoke test.\n",
-        encoding="utf-8",
+def saved_profile(e2e_client: httpx.Client, registered_user: dict) -> None:
+    """Load audit/brand text from testdata and persist with PUT /profile."""
+    audit_text = (_TESTDATA / "AUDIT.md").read_text(encoding="utf-8")
+    brand_text = (_TESTDATA / "BRAND.md").read_text(encoding="utf-8")
+    r = e2e_client.put(
+        "/profile",
+        json={"auditText": audit_text, "brandText": brand_text},
+        headers={"Authorization": f"Bearer {registered_user['token']}"},
     )
-    (d / "BRAND.md").write_text(
-        "# E2E brand\n\nMinimal palette and tone for smoke test.\n",
-        encoding="utf-8",
-    )
+    r.raise_for_status()
 
 
 @pytest.fixture
@@ -67,7 +64,7 @@ def auth_headers(registered_user: dict) -> dict[str, str]:
 def chat_id(
     e2e_client: httpx.Client,
     auth_headers: dict[str, str],
-    profile_files: None,
+    saved_profile: None,
 ) -> str:
     r = e2e_client.post("/chats", json={"postType": "single"}, headers=auth_headers)
     r.raise_for_status()
