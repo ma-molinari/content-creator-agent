@@ -116,15 +116,33 @@ func TestRefresh_InvalidToken(t *testing.T) {
 	require.Equal(t, http.StatusUnauthorized, se.HTTPStatus)
 }
 
-func TestRecoverPassword_WrongKey(t *testing.T) {
+func TestRecoverPassword_WrongKey_NoLeak(t *testing.T) {
 	gdb := testAuthDB(t)
 	repo := NewRepository(gdb)
 	svc := NewService(repo, testJWTAccess, testJWTRefresh, false)
 	_, err := svc.Register(context.Background(), "rec@example.com", "password123")
 	require.NoError(t, err)
 	err = svc.RecoverPassword(context.Background(), "rec@example.com", "wrong-security-key", "newpassword12")
-	require.Error(t, err)
-	var se *ServiceError
-	require.ErrorAs(t, err, &se)
-	require.Equal(t, http.StatusForbidden, se.HTTPStatus)
+	require.NoError(t, err)
+	_, err = svc.Login(context.Background(), "rec@example.com", "password123")
+	require.NoError(t, err)
+}
+
+func TestRecoverPassword_UnknownEmail_SameAsWrongKey(t *testing.T) {
+	repo := NewRepository(testAuthDB(t))
+	svc := NewService(repo, testJWTAccess, testJWTRefresh, false)
+	err := svc.RecoverPassword(context.Background(), "nobody@example.com", "any-key", "newpassword12")
+	require.NoError(t, err)
+}
+
+func TestRecoverPassword_Valid(t *testing.T) {
+	gdb := testAuthDB(t)
+	repo := NewRepository(gdb)
+	svc := NewService(repo, testJWTAccess, testJWTRefresh, false)
+	res, err := svc.Register(context.Background(), "rec2@example.com", "password123")
+	require.NoError(t, err)
+	err = svc.RecoverPassword(context.Background(), "rec2@example.com", res.SecurityKey, "newpassword99")
+	require.NoError(t, err)
+	_, err = svc.Login(context.Background(), "rec2@example.com", "newpassword99")
+	require.NoError(t, err)
 }

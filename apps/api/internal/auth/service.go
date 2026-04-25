@@ -77,6 +77,7 @@ func (s *Service) Register(ctx context.Context, email, password string) (*Regist
 		return nil, err
 	}
 	u := &db.User{
+		ID:              uuid.New(),
 		Email:           email,
 		PasswordHash:    string(passHash),
 		SecurityKeyHash: string(secHash),
@@ -186,10 +187,11 @@ func (s *Service) RecoverPassword(ctx context.Context, email, securityKey, newPa
 		return err
 	}
 	if u == nil {
-		return errStatus(http.StatusNotFound, "user not found")
+		// Same outcome as wrong security key: do not reveal whether the email exists.
+		return nil
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(u.SecurityKeyHash), []byte(securityKey)); err != nil {
-		return errStatus(http.StatusForbidden, "invalid security key")
+		return nil
 	}
 	passHash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcryptCost)
 	if err != nil {

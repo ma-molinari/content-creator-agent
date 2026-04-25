@@ -128,7 +128,7 @@ func TestRefresh_ValidCookie_Returns200(t *testing.T) {
 	require.NotEmpty(t, refreshResp.AccessToken)
 }
 
-func TestRecoverPassword_WrongKey_Returns403(t *testing.T) {
+func TestRecoverPassword_WrongKey_Returns200LikeSuccess(t *testing.T) {
 	env := newTestEnv(t, noopWorker)
 	email := uuid.New().String() + "@integration.test"
 	regBody := map[string]string{"email": email, "password": "password123"}
@@ -155,5 +155,43 @@ func TestRecoverPassword_WrongKey_Returns403(t *testing.T) {
 	res2, err := env.HTTPClient.Do(req2)
 	require.NoError(t, err)
 	defer res2.Body.Close()
-	require.Equal(t, http.StatusForbidden, res2.StatusCode)
+	require.Equal(t, http.StatusOK, res2.StatusCode)
+	var out struct {
+		Success bool `json:"success"`
+	}
+	require.NoError(t, json.NewDecoder(res2.Body).Decode(&out))
+	require.True(t, out.Success)
+
+	loginJSON, err := json.Marshal(map[string]string{"email": email, "password": "password123"})
+	require.NoError(t, err)
+	req3, err := http.NewRequest(http.MethodPost, env.APIURL+"/auth/login", bytes.NewReader(loginJSON))
+	require.NoError(t, err)
+	req3.Header.Set("Content-Type", "application/json")
+	res3, err := env.HTTPClient.Do(req3)
+	require.NoError(t, err)
+	defer res3.Body.Close()
+	require.Equal(t, http.StatusOK, res3.StatusCode)
+}
+
+func TestRecoverPassword_UnknownEmail_Returns200SameBody(t *testing.T) {
+	env := newTestEnv(t, noopWorker)
+	body := map[string]string{
+		"email":       uuid.New().String() + "@integration.test",
+		"securityKey": "any-key",
+		"newPassword": "newpassword12",
+	}
+	b, err := json.Marshal(body)
+	require.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, env.APIURL+"/auth/recover-password", bytes.NewReader(b))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+	res, err := env.HTTPClient.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+	require.Equal(t, http.StatusOK, res.StatusCode)
+	var out struct {
+		Success bool `json:"success"`
+	}
+	require.NoError(t, json.NewDecoder(res.Body).Decode(&out))
+	require.True(t, out.Success)
 }
