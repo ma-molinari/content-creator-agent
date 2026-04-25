@@ -1,84 +1,78 @@
 # Content Creator Agent
 
-Um serviço web com o foco na criação de posts em redes sociais, seguindo as boas praticas e identidade visual já existente do usuário.
+Um serviço web focado na criação de posts em redes sociais, seguindo boas práticas e a identidade visual do usuário.
 
 ## Sobre
 
-O agent será utilizado, para e apenas a criação de posts no instagram, utilizando rules e skills definidas no projeto. Os tipos de posts a serem construidos podem ser "posts single" em um unico arquivo ou o "post carrousel" que é composto por N arquivos/slides.
+O agente destina-se **apenas** à criação de posts no **Instagram**, usando regras e *skills* do repositório (p.ex. `create-social-post`, *Prompt Engineering Meta*). Os formatos suportados são **post single** (um arquivo) e **post carrossel** (N slides).
 
-Os posts são criados seguindo a identidade visual já existente ou definida pelo usuário, não iremos fugir dessa identidade já utilizada, o que pode ser feito são melhorias seguindo os padrões de cores já existentes.
+Os posts respeitam a identidade visual: melhorias são permitidas **dentro** da paleta e do tom já definidos.
 
-As estruturas de pastas, inicialmente serão preenchidas manualmente, porém em uma v2 teremos uma tela de perfil onde o proprio usuario irá poder configurar e anexar seus arquivos e conteudos de referencia seguindo o padrao estabelecido pela skill "map-instagra-profile".
+## Perfil, auditoria e referências (V1)
 
-Será disponibilizada uma tela de cadastro de usuarios, recuperar senha e login.
-O cadastro irá disponibilizar uma chave unica de segurança, onde o usuario deve copiar e guardar em local SEGURO. Em caso de recuperação de senha, essa chave sera necessaria.
+No **V1** o usuário configura o perfil **na aplicação**: textos de **auditoria** e **marca** (e, opcionalmente, até 8 imagens de referência enviadas para o S3) via `GET`/`PUT /profile` e anexos de referência. O *gate* de criação exige `audit_text` e `brand_text` preenchidos (`GET /setup/status`); sem isso, `POST /chats/:id/messages` responde com erro de configuração (ver `docs/ARCHITECTURE.md`).
 
-O acesso ao agent será segmentado por usuario na interface, cada usuario só pode acessar, visualizar e alterar os seus proprios conteudos. O acesso somente será permitido a usuarios atenticados.
+A skill **`map-instagram-profile`** e a pasta `instagram-audits/` descrevem a **estrutura de captura offline** (auditoria por screenshots e ficheiros `AUDIT.md` / `BRAND.md`) que pode alimentar o conteúdo do perfil; é documentação e fluxo de *intake*, não um substituto do armazenamento em base de dados.
 
-Será diponibilizada uma tela principal, com um input de "texto/rich text", onde o usuario pode escrever seu prompt, colar um prompt ja preparado, anexar imagens de exemplo ou para uso em algum post especifico. Também teremos um icone onde o usuario pode visualizar um padrao de escrita de um bom prompt para o melhor resultado possivel. Após os arquivos criados, permitir a visualizacao e download de um arquivo unico ou todos dentro de uma pasta .zip.
+**V2+ (direção):** experiência ainda mais guiada de *onboarding* a partir de capturas, ou automatismos adicionais — ver `docs/STRUCTURE.md`.
 
-Será disponibilizada uma tela onde o usuario pode selecionar 1 das ultimas 5 postagens criadas e realizar o download dos arquivos .jpg ou efetuar novos prompts para alteração do mesmo. Caso o usuario ja possua 5 posts, o mais antigo será removido e adicionado um novo post ou deletar os posts anteriores.
+## Conta e acesso
 
-Todas as informações consideradas pessoais ou criticas, devem ser armazenas utilizando criptografia RSA entre front e back.
+- **Cadastro**, **recuperação de senha** e **login** na interface.
+- No cadastro é mostrada **uma chave de segurança** (a guardar em local seguro); é necessária na recuperação de senha.
+- Acesso **por usuário**: cada um só vê e altera os seus dados e conteúdos. Rotas de negócio exigem autenticação (JWT: *access* em memória no cliente, *refresh* em cookie HttpOnly — ver `docs/CONVENTIONS.md`).
 
-Previnir falhas de segurança, aplicar ratelimitting na API, sanitizaçao para previnir sql injection, padroes para previnir o prompt injection.
+## Experiência principal e histórico
 
-## Fluxo de trabalho
+- **Tela principal** com entrada de texto (e possibilidade de anexar imagens de referência, conforme a UI) e, quando aplicável, apoio a bons padrões de *prompt* (alinhado a *Prompt Engineering Meta* e `create-social-post`).
 
-- De inicio iremos utilizar a skill "map-instagram-profile" para o setup inicial de pastas e preenchimento da estrutura obrigatória para prosseguir com o processo, caso essa etapa nao seja realizada ou os arquivos definidos pela skill sejam inexistentes, parar o processo e informar claramente ao usuario o que deve ser feito e qual o fluxo correto a ser seguido.
+- A geração de slides é **assíncrona**: a API responde `202` com `jobId` e o cliente consulta o estado do trabalho até conclusão; depois há visualização e *download* de ficheiro único ou `.zip` (ver `docs/ARCHITECTURE.md`).
 
-- O usuário poderá escrever promps em uma interface web, semelhantes as ferramentas de mercado como GPT, Claude ou Gemini. Todos os prompts devem passar pelo agent/persona "Prompt Engineering Meta" para adequação do prompt seguindo os padrões de industria para garantir um melhor resultado. Todo prompt deve utilizar ou pelo menos referenciar a skill "create-social-post", a skill é responsavel por contextualizar da melhor maneira os modelos LLms na criação de posts seguindo o design, escrita, identidade visual do usuário.
+- **Histórico:** até **5** chats ativos por usuário; ao criar um 6.º, remove-se o mais antigo (e artefatos S3 associados) ou o usuário pode apagar manualmente. Download em `.jpg` (slides), novas mensagens no mesmo chat para iteração.
 
-- O usuário poderá acessar uma tela de "historico", onde pode selecionar 1 de seus 5 ultimos chats/posts criados, onde pode realizar alguma alteração se necessario e efetuar download dos arquivos ou ate mesmo deletar os posts desejados.
+## Trabalho do agente e sumarização
 
-- Existirá um cron-job que rodará uma vez ao dia, sua funcao é analisar o chat existente e criar um resumo (utilizando o GPT-5.4 mini) para que, caso seja necessário alteração futura, o conteudo reutilizado como contexto seja compacto e gaste menos tokens.
-  O cron-job só irá criar/atualizar o resumo, caso existam alterações recentes no chat, será realizado uma comparação entre a data do conteudo mais recente com a data do resumo.
+- Interface de chat no estilo de produtos de mercado; *prompts* alinhados a *Prompt Engineering Meta* e contextualizados com a skill `create-social-post` (regras em `.cursor/`).
 
-## Technologia
+- **Cron diário** (API Go, `SUMMARIZE_CRON`, predefinido `0 2 * * *` UTC): condensa o histórico de chats com conteúdo novo para reduzir tokens em reutilizações; usa o cliente OpenAI na API (modelo configurado no código, p.ex. `GPT4oMini` no sumarizador). Só corre se `OPENAI_API_KEY` estiver definida.
+
+## Segurança
+
+- **Em trânsito:** TLS (HTTPS) em produção; refresh token em cookie com `COOKIE_SECURE` em HTTPS (`docs/RUNBOOK.md`).
+- **No servidor:** palavras-passe e chave de segurança com *hash* (bcrypt); *rate limiting* na API, sanitização de entrada, boas práticas contra *prompt injection* e *SQL injection* (GORM parametrizado). CORS com origens explícitas.
+- Criptografia **RSA** extra em cliente ↔ API está **prevista** como evolução (`apps/web/src/lib/crypto.ts`); o V1 transporta *password* em JSON sobre HTTPS com *hash* no servidor.
+
+## Tecnologia (alinhada a `docs/STACK.md`)
 
 ### Front-end
 
-- React
-- Tanstack Query
-- Zustand
-- Zod
-- shadcn
-- Tailwind
+- React (Vite), TypeScript, React Router, TanStack Query, Zustand, Zod, Tailwind, axios, *shadcn*-style UI onde aplicável.
 
-##
+### API (back-end)
 
-### Back-end
+- Go, Echo, GORM, PostgreSQL (migrações `golang-migrate` em `apps/api/internal/db/migrations/`), `httptest` e testes de integração com tag `integration`.
+- Amazon S3 (SDK v2) para slides e referências; URLs presignadas (TTL documentado em `docs/INTEGRATIONS.md`).
 
-- Golang
-- Amazon S3
-- Gorm
-- Echo
+### Worker (processamento)
 
-### Worker (Processamento)
+- Python, **FastAPI** + Uvicorn, **LangGraph**, LangChain-OpenAI, **Playwright** (Chromium) para HTML → JPEG, boto3 para S3. *Dispatch* `POST {WORKER_URL}/jobs` e *callback* `POST /internal/jobs/:id/complete` com `X-Worker-API-Key`.
 
-- Python + LangGraph
-- Playwright (playwright-python)
-- boto3 (Amazon S3)
-- FastAPI (ou Flask) para endpoint de recebimento de jobs
+### LLM (geração e suporte)
 
-### LLM (geração de conteúdo)
+- **Worker:** OpenAI — p.ex. `gpt-4o-mini` (geração de blocos HTML de slides), `gpt-4o` (visão / otimização de *brief*), conforme nós em `apps/worker/app/nodes/` e `docs/INTEGRATIONS.md`.
+- **API (sumarização):** OpenAI via `sashabaranov/go-openai`, modelo alinhado ao código do sumarizador.
 
-- OpenAI GPT-5.4 Mini (pipeline no worker Python)
+### Banco e rede
 
-##
+- **PostgreSQL** (16 no Compose).
+- **Redis:** opcional; o *rate limit* V1 é em memória no processo (`docs/CONCERNS.md` — considerar Redis em escala horizontal).
 
-### Banco
+### Tabelas (conceito)
 
-- Postgres
-- Redis (opcional)
+- `users` (incl. `role`), `chats`, `chat_content`, `chat_content_image`, `chat_content_resume`, **`jobs`**, **`user_profiles`**, **`user_profile_references`**.
 
-#### Tabelas
+*Campos e enums:* ver `apps/api/internal/db/models.go` e migrações SQL.
 
-- users
-- chats
-- chat_content
-- chat_content_image
-- chat_content_resume
-- jobs (estado assíncrono de processamento; API Go + worker Python)
+## Documentação de apoio
 
-OBS: os campos das tabelas serão definidos em conjuntos com o Agent/LLM na criação do plano e desenvolvimento.
+- Arquitetura e fluxos: `docs/ARCHITECTURE.md`, `docs/INTEGRATIONS.md`, `docs/STRUCTURE.md`, `docs/RUNBOOK.md`, `docs/TESTING.md`, `docs/ui-guidelines.md`.
