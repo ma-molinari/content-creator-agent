@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -20,6 +19,7 @@ import (
 	"content-creator-agent/internal/db"
 	"content-creator-agent/internal/jobs"
 	appmw "content-creator-agent/internal/middleware"
+	"content-creator-agent/internal/profile"
 	"content-creator-agent/internal/storage"
 
 	"github.com/google/uuid"
@@ -47,7 +47,9 @@ func (mockStorage) GetSignedURL(_ context.Context, key string, _ time.Duration) 
 	return "https://integration.test/presigned/" + key, nil
 }
 
-func (mockStorage) GetObject(_ context.Context, _ string) ([]byte, error) { return []byte{0xff, 0xd8}, nil }
+func (mockStorage) GetObject(_ context.Context, _ string) ([]byte, error) {
+	return []byte{0xff, 0xd8}, nil
+}
 
 func (mockStorage) Delete(_ context.Context, _ string) error { return nil }
 
@@ -57,35 +59,45 @@ var _ storage.StorageService = mockStorage{}
 
 // testEnv holds shared integration test resources.
 type testEnv struct {
-	T           *testing.T
-	APIURL      string
-	DB          *gorm.DB
-	DSN         string
-	ProfileRoot string
-	WorkerKey   string
-	HTTPClient  *http.Client
+	T          *testing.T
+	APIURL     string
+	DB         *gorm.DB
+	DSN        string
+	WorkerKey  string
+	HTTPClient *http.Client
 }
 
-func (e *testEnv) writeProfileFiles(userID uuid.UUID) {
-	t := e.T
-	dir := filepath.Join(e.ProfileRoot, "instagram-audits", userID.String())
-	require.NoError(t, os.MkdirAll(dir, 0o755))
+func (e *testEnv) putTestProfile(t *testing.T, token string) {
+	t.Helper()
 	audit, err := profileTestdata.ReadFile("testdata/AUDIT.md")
 	require.NoError(t, err)
 	brand, err := profileTestdata.ReadFile("testdata/BRAND.md")
 	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "AUDIT.md"), audit, 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "BRAND.md"), brand, 0o644))
+	body := map[string]string{"auditText": string(audit), "brandText": string(brand)}
+	b, err := json.Marshal(body)
+	require.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPut, e.APIURL+"/profile", bytes.NewReader(b))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
+	res, err := e.HTTPClient.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+	require.Equal(t, http.StatusOK, res.StatusCode)
 }
 
-func buildEcho(gdb *gorm.DB, cfg *config.Config, profileRoot string, worker jobs.WorkerClient, stor storage.StorageService) *echo.Echo {
+func buildEcho(gdb *gorm.DB, cfg *config.Config, worker jobs.WorkerClient, stor storage.StorageService) *echo.Echo {
 	repo := auth.NewRepository(gdb)
 	svc := auth.NewService(repo, cfg.JWTSecret, cfg.JWTRefreshSecret, false)
 	h := auth.NewHandler(svc)
 
 	chatRepo := chat.NewRepository(gdb)
 	jobsRepo := jobs.NewRepository(gdb)
-	chatSvc := chat.NewService(chatRepo, jobsRepo, stor, profileRoot, worker)
+	profileRepo := profile.NewRepository(gdb)
+	refRepo := profile.NewReferencesRepository(gdb)
+	profileSvc := profile.NewService(profileRepo, refRepo, stor, 8, 5*1024*1024)
+	profileH := profile.NewHandler(profileSvc)
+	chatSvc := chat.NewService(chatRepo, jobsRepo, stor, profileRepo, profileSvc, worker)
 	ch := chat.NewHandler(chatSvc)
 
 	jobsH := jobs.NewHandler(cfg, jobsRepo, gdb, stor)
@@ -122,6 +134,10 @@ func buildEcho(gdb *gorm.DB, cfg *config.Config, profileRoot string, worker jobs
 	protected.GET("/chats/:id/files", ch.ListFiles)
 	protected.GET("/chats/:id/files/:fileId", ch.GetFile)
 	protected.GET("/setup/status", ch.SetupStatus)
+	protected.GET("/profile", profileH.Get)
+	protected.PUT("/profile", profileH.Save)
+	protected.POST("/profile/references", profileH.PostReference)
+	protected.DELETE("/profile/references/:id", profileH.DeleteReference)
 
 	chatLLM := protected.Group("/chats")
 	chatLLM.Use(appmw.LLMByUser())
@@ -163,6 +179,17 @@ func newWorkerServer(t *testing.T, apiKey string, apiBase *string, h func(w http
 
 func newTestEnv(t *testing.T, workerHandler func(w http.ResponseWriter, r *http.Request, apiBase string)) *testEnv {
 	t.Helper()
+	return newTestEnvCore(t, workerHandler, nil)
+}
+
+// newTestEnvWithCORS is like newTestEnv but sets CORS allowlist for tests that assert CORS headers.
+func newTestEnvWithCORS(t *testing.T, workerHandler func(w http.ResponseWriter, r *http.Request, apiBase string), allowedOrigins []string) *testEnv {
+	t.Helper()
+	return newTestEnvCore(t, workerHandler, allowedOrigins)
+}
+
+func newTestEnvCore(t *testing.T, workerHandler func(w http.ResponseWriter, r *http.Request, apiBase string), allowedOrigins []string) *testEnv {
+	t.Helper()
 	dsn := os.Getenv("INTEGRATION_DATABASE_URL")
 	if dsn == "" {
 		t.Skip("INTEGRATION_DATABASE_URL not set; skip integration tests")
@@ -179,7 +206,6 @@ func newTestEnv(t *testing.T, workerHandler func(w http.ResponseWriter, r *http.
 
 	require.NoError(t, db.RunMigrations(dsn))
 
-	profileRoot := t.TempDir()
 	workerKey := IntegrationWorkerAPIKey
 
 	apiBasePtr := new(string)
@@ -187,25 +213,25 @@ func newTestEnv(t *testing.T, workerHandler func(w http.ResponseWriter, r *http.
 	t.Cleanup(workerSrv.Close)
 
 	cfg := &config.Config{
-		JWTSecret:        testJWTSecret,
-		JWTRefreshSecret: testJWTRefreshSecret,
-		WorkerAPIKey:     workerKey,
+		JWTSecret:          testJWTSecret,
+		JWTRefreshSecret:   testJWTRefreshSecret,
+		WorkerAPIKey:       workerKey,
+		CORSAllowedOrigins: allowedOrigins,
 	}
 	workerClient := jobs.NewHTTPWorkerClient(workerSrv.URL, workerKey)
-	e := buildEcho(gdb, cfg, profileRoot, workerClient, mockStorage{})
+	e := buildEcho(gdb, cfg, workerClient, mockStorage{})
 	apiSrv := httptest.NewServer(e)
 	t.Cleanup(apiSrv.Close)
 
 	*apiBasePtr = apiSrv.URL
 
 	return &testEnv{
-		T:           t,
-		APIURL:      apiSrv.URL,
-		DB:          gdb,
-		DSN:         dsn,
-		ProfileRoot: profileRoot,
-		WorkerKey:   workerKey,
-		HTTPClient:  &http.Client{Timeout: 30 * time.Second},
+		T:          t,
+		APIURL:     apiSrv.URL,
+		DB:         gdb,
+		DSN:        dsn,
+		WorkerKey:  workerKey,
+		HTTPClient: &http.Client{Timeout: 30 * time.Second},
 	}
 }
 

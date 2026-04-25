@@ -50,8 +50,8 @@ func TestJobDispatch_MockWorkerComplete(t *testing.T) {
 		w.WriteHeader(http.StatusAccepted)
 	})
 
-	token, userID := registerAndLogin(t, env)
-	env.writeProfileFiles(userID)
+	token, _ := registerAndLogin(t, env)
+	env.putTestProfile(t, token)
 
 	chatID := createChat(t, env, token)
 	jobID := postMessage(t, env, token, chatID, "Create a carousel about testing.")

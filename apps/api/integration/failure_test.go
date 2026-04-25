@@ -48,8 +48,8 @@ func TestJobDispatch_WorkerCallbackError(t *testing.T) {
 		w.WriteHeader(http.StatusAccepted)
 	})
 
-	token, userID := registerAndLogin(t, env)
-	env.writeProfileFiles(userID)
+	token, _ := registerAndLogin(t, env)
+	env.putTestProfile(t, token)
 	chatID := createChat(t, env, token)
 	jobID := postMessage(t, env, token, chatID, "This should fail at callback.")
 
@@ -64,8 +64,8 @@ func TestJobDispatch_WorkerRejectsDispatch(t *testing.T) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 	})
 
-	token, userID := registerAndLogin(t, env)
-	env.writeProfileFiles(userID)
+	token, _ := registerAndLogin(t, env)
+	env.putTestProfile(t, token)
 	chatID := createChat(t, env, token)
 
 	body := map[string]string{"content": "Dispatch will fail."}
@@ -89,8 +89,8 @@ func TestCallback_MissingAssistantText(t *testing.T) {
 		w.WriteHeader(http.StatusAccepted)
 	})
 
-	token, userID := registerAndLogin(t, env)
-	env.writeProfileFiles(userID)
+	token, _ := registerAndLogin(t, env)
+	env.putTestProfile(t, token)
 	chatID := createChat(t, env, token)
 	jobID := postMessage(t, env, token, chatID, "trigger job for callback test")
 

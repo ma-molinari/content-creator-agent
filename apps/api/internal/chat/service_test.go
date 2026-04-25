@@ -23,7 +23,9 @@ func (m *mockStorage) GetSignedURL(context.Context, string, time.Duration) (stri
 	return "https://example.com/signed", nil
 }
 
-func (m *mockStorage) GetObject(context.Context, string) ([]byte, error) { return []byte{0xff, 0xd8}, nil }
+func (m *mockStorage) GetObject(context.Context, string) ([]byte, error) {
+	return []byte{0xff, 0xd8}, nil
+}
 
 func (m *mockStorage) Delete(context.Context, string) error { return nil }
 
@@ -101,7 +103,7 @@ func TestChatLimit_fourThenFifthNoEviction(t *testing.T) {
 	repo := NewRepository(gdb)
 	jobsRepo := jobs.NewRepository(gdb)
 	store := &mockStorage{}
-	svc := NewService(repo, jobsRepo, store, "", nil)
+	svc := NewService(repo, jobsRepo, store, nil, nil, nil)
 	ctx := context.Background()
 	for range 4 {
 		if _, err := svc.CreateChat(ctx, u.ID, "single"); err != nil {
@@ -131,7 +133,7 @@ func TestChatLimit_sixthEvictsOldest(t *testing.T) {
 	repo := NewRepository(gdb)
 	jobsRepo := jobs.NewRepository(gdb)
 	store := &mockStorage{}
-	svc := NewService(repo, jobsRepo, store, "", nil)
+	svc := NewService(repo, jobsRepo, store, nil, nil, nil)
 	ctx := context.Background()
 	var firstID uuid.UUID
 	for i := range 5 {
@@ -168,7 +170,7 @@ func TestChatLimit_sixthEvictsOldest(t *testing.T) {
 func TestChatLimit_oneNoEviction(t *testing.T) {
 	gdb, u := testDBWithUser(t)
 	store := &mockStorage{}
-	svc := NewService(NewRepository(gdb), jobs.NewRepository(gdb), store, "", nil)
+	svc := NewService(NewRepository(gdb), jobs.NewRepository(gdb), store, nil, nil, nil)
 	ctx := context.Background()
 	if _, err := svc.CreateChat(ctx, u.ID, "carousel"); err != nil {
 		t.Fatal(err)
