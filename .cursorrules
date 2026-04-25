@@ -1,0 +1,305 @@
+# Content Creator Agent — Contexto base para LLMs
+
+Plataforma web para criação de posts Instagram (single e carrossel) com apoio de LLMs,
+respeitando identidade visual e marca do usuário. Monorepo com três serviços independentes
+ligados por Docker Compose e S3.
+
+---
+
+## Arquitetura (resumo)
+
+```
+React SPA (Vite/TS)  ←— HTTPS/REST + JWT —→  Go API (Echo, :8080)
+                                                  │
+                                                  │ POST /jobs (HTTP, X-Worker-API-Key)
+                                                  ▼
+                                            Python Worker (FastAPI + LangGraph + Playwright, :8000)
+                                                  │
+                                                  │ POST /internal/jobs/:id/complete (callback)
+                                                  ▼
+                                            PostgreSQL 16  +  AWS S3
+```
+
+### Serviços
+
+| Serviço | Pasta | Responsabilidade |
+|---------|-------|------------------|
+| **API Go** | `apps/api/` | Auth (JWT dual-token), CRUD chats, perfil, S3 presign/ZIP, dispatch de jobs, callback do worker, cron de sumarização |
+| **Worker Python** | `apps/worker/` | Pipeline LangGraph (perfil → describe refs → optimize prompt → generate HTML slides → parse → Playwright JPEG → upload S3 → finalize callback) |
+| **SPA React** | `apps/web/` | Auth, perfil, chat, poll de jobs, visualização e download de slides |
+
+### Fluxo principal (mensagem → slides)
+
+1. Usuário envia `POST /chats/:id/messages` (precisa de perfil configurado — gate `SETUP_REQUIRED`).
+2. API cria `ChatContent` + `Job{pending}`, despacha `POST /jobs` ao worker, retorna **202** + `jobId`.
+3. Worker executa grafo LangGraph, renderiza HTML→JPEG via Playwright (768×1376), faz upload S3.
+4. Worker chama `POST /internal/jobs/:id/complete` com artifacts (chaves S3) e texto do assistente.
+5. API persiste resposta + imagens em transação, marca `Job{done}`.
+6. Frontend faz poll `GET /chats/:id/jobs/:jobId/status` até terminal, carrega thread atualizada.
+
+---
+
+## Estrutura do repositório
+
+```
+content-creator-agent/
+├── apps/
+│   ├── api/                    # Go REST API
+│   │   ├── cmd/server/main.go  # Wiring, routes, graceful shutdown
+│   │   └── internal/
+│   │       ├── auth/           # handler / service / repository
+│   │       ├── chat/           # CRUD, PostMessage, file download
+│   │       ├── config/         # Env-based Config
+│   │       ├── cron/           # robfig/cron scheduler
+│   │       ├── db/             # GORM models, migrations (001–009), connection
+│   │       ├── httperr/        # Internal() → log + 500
+│   │       ├── jobs/           # Job repo, worker client, complete handler, key validation
+│   │       ├── middleware/     # JWT, CORS, security headers, rate limit
+│   │       ├── profile/        # UserProfile + references
+│   │       ├── storage/        # S3 interface + impl
+│   │       └── summarizer/     # OpenAI client, summarize service
+│   │   └── integration/        # Integration tests (build tag: integration)
+│   │
+│   ├── worker/                 # Python LangGraph Worker
+│   │   ├── app/
+│   │   │   ├── main.py         # FastAPI: POST /jobs, GET /health
+│   │   │   ├── graph.py        # LangGraph StateGraph
+│   │   │   ├── state.py        # AgentState TypedDict
+│   │   │   └── nodes/          # Um ficheiro por nó do grafo
+│   │   └── prompts/            # System prompts markdown
+│   │
+│   └── web/                    # React SPA
+│       └── src/
+│           ├── api/            # axios client + domain modules
+│           ├── components/     # auth, chat, composer, shell, slides, ui
+│           ├── pages/          # Chat, History, Login, Register, ProfileSettings
+│           ├── stores/         # Zustand (auth — in-memory only)
+│           └── router/         # React Router routes
+│
+├── instagram-audits/           # Auditorias offline por cliente (AUDIT.md, BRAND.md)
+├── tests/e2e/                  # Full-stack E2E (pytest + httpx + Docker Compose)
+├── docs/                       # Documentação técnica detalhada
+├── .specs/                     # Feature specs (create-spec-driven workflow)
+├── docker-compose.yml          # Dev stack
+└── docker-compose.prod.yml     # Prod overlay
+```
+
+---
+
+## Stack (versões principais)
+
+### Go API
+- Go (ver `go.mod`), Echo v4, GORM + pgx/v5, golang-migrate, golang-jwt/v5, bcrypt
+- ulule/limiter (rate limit em memória), robfig/cron, aws-sdk-go-v2, sashabaranov/go-openai
+
+### Python Worker
+- Python ≥3.9, FastAPI + Uvicorn, LangGraph ≥0.2, LangChain-OpenAI ≥0.2
+- Playwright (Chromium headless), boto3, httpx, pydantic-settings
+
+### React SPA
+- React 19, TypeScript, Vite 8, React Router v7, TanStack Query v5
+- Zustand v5, axios, Tailwind CSS v4
+
+### Infraestrutura
+- PostgreSQL 16, AWS S3, Docker Compose, OpenAI API (gpt-4o-mini, gpt-4o)
+
+---
+
+## Padrões de código essenciais
+
+### Go — triplo handler / service / repository
+Cada domínio em `internal/` segue:
+- `handler.go` — bind request, chama service, mapeia erros para HTTP
+- `service.go` — lógica de negócio, orquestra repos e clientes
+- `repository.go` — queries GORM, retorna structs tipados
+
+Erros: repo traduz `ErrRecordNotFound`→`nil`; service retorna sentinels (`ErrNotFound`, `ErrForbidden`); handler mapeia para `echo.HTTPError` via `mapXxxErr()`.
+
+### Python — nós LangGraph
+Cada nó é uma função em `app/nodes/` que recebe `AgentState` e retorna `dict` de atualizações.
+Erros acumulados em `state["errors"]`, não lançados. Logging com `node=<name> job_id=<id>`.
+
+### React — separação de estado
+- Server state: TanStack Query
+- Client global: Zustand (token em memória, nunca localStorage)
+- Local: useState/useReducer
+- Import alias: `@/` → `src/`
+
+### Auth
+- Access token: HS256, 15min, Bearer header
+- Refresh token: HS256, 7d, HttpOnly cookie
+- Interceptor axios faz refresh silencioso em 401
+
+---
+
+## Modelo de dados (tabelas)
+
+| Tabela | Propósito |
+|--------|-----------|
+| `users` | Credenciais, role, security key hash |
+| `chats` | Por usuário, post_type (single/carousel), título |
+| `chat_content` | Mensagens (role: user/assistant) |
+| `chat_content_image` | s3_key, url (presign), slide_number |
+| `chat_content_resume` | Resumos gerados pelo cron |
+| `jobs` | Status (pending/processing/done/failed), error_msg |
+| `user_profiles` | audit_text, brand_text |
+| `user_profile_references` | Chaves S3 de imagens de referência |
+
+PKs: UUID com `gen_random_uuid()`. Enums PostgreSQL nativos.
+Migrações SQL em `apps/api/internal/db/migrations/` (001–009).
+Modelos GORM em `apps/api/internal/db/models.go`.
+
+---
+
+## Rotas HTTP (resumo)
+
+**Público:** `GET /health`
+
+**Auth (rate limit IP):** `POST /auth/register`, `login`, `refresh`, `recover-password`
+
+**Protegido (JWT):**
+- `GET /me`
+- `GET|POST /chats`, `GET|DELETE /chats/:id`
+- `GET /chats/:id/files`, `.../files/:fileId`, `.../files/download`
+- `GET /setup/status`
+- `GET|PUT /profile`
+- `POST /profile/references`, `DELETE /profile/references/:id`
+
+**LLM (rate limit por usuário):**
+- `POST /chats/:id/messages` → **202** + `jobId`
+- `GET /chats/:id/jobs/:jobId/status`
+- `GET /api/llm/ready`
+
+**Interno (X-Worker-API-Key):** `POST /internal/jobs/:id/complete`
+
+---
+
+## Regras de negócio importantes
+
+- **Setup gate:** perfil precisa de `audit_text` e `brand_text` preenchidos antes de enviar mensagens.
+- **Limite de chats:** máx 5 por usuário; ao criar o 6.º, o mais antigo é removido (com artefatos S3).
+- **Slides:** LLM gera HTML com blocos delimitados, Playwright exporta JPEG 768×1376, qualidade 92.
+- **Sumarização:** cron diário (padrão `0 2 * * *` UTC), só se `OPENAI_API_KEY` estiver definida.
+- **Referências de design:** até 8 imagens (5MB cada) no S3, usadas pelo worker para contextualizar geração.
+
+---
+
+## Testes
+
+| Camada | Comando | Detalhes |
+|--------|---------|----------|
+| Unit Go | `cd apps/api && make test` | SQLite in-memory, testify |
+| Integration Go | `cd apps/api && make test-integration` | Postgres real, tag `integration`, mock worker/S3 |
+| E2E full-stack | `make e2e` (raiz) | Docker Compose + pytest + httpx, LLM e S3 reais |
+| Screenshots web | `cd apps/web && npm run screenshots` | Playwright |
+
+---
+
+## Preocupações técnicas conhecidas (dívida)
+
+Prioridades resumidas (detalhe completo em `docs/CONCERNS.md`):
+
+| # | Severidade | Tema |
+|---|-----------|------|
+| 1 | HIGH | Rate limit em memória — quebra em múltiplas réplicas |
+| 2 | HIGH | URLs S3 presign expiram (1h) mas ficam na BD |
+| 3 | HIGH | Jobs podem ficar presos em `processing` eternamente |
+| 4 | HIGH | Refresh token sem rotação nem revogação server-side |
+| 5 | MEDIUM | `go.mod` declara Go 1.25 (não existe) |
+| 6 | MEDIUM | Sem paginação em listagem de chats/mensagens |
+| 7 | MEDIUM | Sumarizador no mesmo processo pode pressionar DB pool |
+| 8 | MEDIUM | `llm.invoke` síncrono bloqueia event loop do worker |
+| 9 | LOW | Validação S3 key só no callback de jobs |
+| 10 | LOW | Sem CI/CD no repositório |
+| 11 | LOW | `dist/` commitado no web |
+
+---
+
+## Variáveis de ambiente obrigatórias (produção)
+
+| Variável | Serviço | Notas |
+|----------|---------|-------|
+| `DATABASE_URL` | API | Postgres com SSL |
+| `JWT_SECRET`, `JWT_REFRESH_SECRET` | API | Strings longas aleatórias |
+| `WORKER_API_KEY` | API + Worker | Mesmo valor |
+| `WORKER_URL` | API | Ex: `http://worker:8000` |
+| `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_S3_BUCKET` | API + Worker | S3 |
+| `COOKIE_SECURE` | API | `true` em HTTPS |
+| `OPENAI_API_KEY` | API + Worker | Obrigatório no worker; opcional na API (habilita cron) |
+
+---
+
+## Regras e skills do repositório
+
+### Hierarquia de instruções
+- **Dominante (prevalece):** regras ou skills que definem fluxo, gates e entregáveis.
+- **Apoio (paralelo):** `prompt-engineering-meta.mdc` — checklist (Persona, Contexto, Tarefa, Restrições, Formato) e perguntas em vez de assumir premissas, sem contradizer a regra ou skill dominante.
+
+### Regras (`.cursor/rules/`)
+- `prompt-engineering-meta.mdc` — **always apply**, camada de apoio transversal
+- `engineering/` — backend-architect, frontend-developer, code-reviewer, security-engineer
+- `design/` — ui-designer, ux-architect, brand-guardian, image-prompt-engineer
+- `marketing/` — content-creator, instagram-curator, carousel-growth-engine
+- `social-media/` — instagram-feed, instagram-stories, image-designer, blog-seo, blog-post
+
+### Skills (`.cursor/skills/`)
+- `create-social-posts` — gates posts Instagram com intake obrigatório antes de copy/slides
+- `create-spec-driven` — workflow adaptativo: Specify → Design → Tasks → Execute
+- `create-technical-design-doc` — TDD interativo com seções obrigatórias/opcionais
+- `map-codebase` — análise de estrutura antes de features
+- `map-instagram-profile` — layout de auditoria para capturas offline
+
+---
+
+## Guia de documentação — quando carregar cada `docs/` no contexto
+
+A pasta `docs/` contém documentação técnica detalhada. **Não carregue todos de uma vez.**
+Use a tabela abaixo para decidir qual documento adicionar ao contexto conforme a tarefa.
+
+### Referência rápida
+
+| Documento | Linhas | Carregue quando… |
+|-----------|--------|-------------------|
+| `docs/PRD.md` | ~79 | Precisa entender o **produto**, escopo V1, regras de negócio, limites, ou responder "o que o sistema faz e para quem" |
+| `docs/TDD.md` | ~228 | Precisa de **visão técnica completa**: fluxos, modelo de dados, rotas, riscos, decisões de design — é o doc agregador |
+| `docs/ARCHITECTURE.md` | ~130 | Vai trabalhar em **padrões de código**, entender **fluxos de dados** entre serviços, ou modificar a comunicação API↔Worker |
+| `docs/STRUCTURE.md` | ~200 | Precisa **navegar o código**: localizar ficheiros, entender onde vive cada feature, ou criar novos módulos |
+| `docs/STACK.md` | ~72 | Precisa de **versões exatas** de libs/frameworks, ou vai adicionar/atualizar dependências |
+| `docs/INTEGRATIONS.md` | ~135 | Vai mexer em **integrações externas**: S3, OpenAI, contratos HTTP entre serviços, Playwright, Docker Compose |
+| `docs/CONVENTIONS.md` | ~175 | Vai **escrever código** e precisa seguir naming, imports, error handling, padrões por linguagem (Go, Python, TS) |
+| `docs/CONCERNS.md` | ~120 | Vai corrigir **bugs ou dívida técnica**, precisa saber riscos conhecidos, ou está avaliando impacto de mudanças |
+| `docs/TESTING.md` | ~135 | Vai **escrever ou rodar testes**, precisa de comandos, setup do ambiente de teste, ou entender a estratégia de teste |
+| `docs/RUNBOOK.md` | ~75 | Vai fazer **deploy, operar ou diagnosticar** a aplicação em produção (envs, health, logs, migrations) |
+| `docs/ui-guidelines.md` | ~300 | Vai trabalhar no **frontend**: layout, tokens CSS, componentes, marca, tipografia, cores, sombras |
+
+### Combinações comuns
+
+| Tarefa | Documentos recomendados |
+|--------|------------------------|
+| Implementar feature nova (full-stack) | `STRUCTURE.md` + `CONVENTIONS.md` + `ARCHITECTURE.md` |
+| Corrigir bug no worker | `ARCHITECTURE.md` + `INTEGRATIONS.md` + `CONCERNS.md` |
+| Criar/alterar endpoint na API Go | `CONVENTIONS.md` + `ARCHITECTURE.md` |
+| Alterar UI / criar componente React | `ui-guidelines.md` + `CONVENTIONS.md` |
+| Adicionar/atualizar teste | `TESTING.md` + `CONVENTIONS.md` |
+| Deploy ou operação | `RUNBOOK.md` |
+| Avaliar viabilidade técnica | `TDD.md` + `CONCERNS.md` |
+| Entender o produto / escrever spec | `PRD.md` + `TDD.md` |
+| Mexer em S3, OpenAI ou Docker | `INTEGRATIONS.md` |
+| Atualizar dependência / versão | `STACK.md` |
+| Adicionar novo domínio/módulo ao Go | `STRUCTURE.md` + `CONVENTIONS.md` + `ARCHITECTURE.md` |
+
+### Regra geral
+
+1. **Este `.cursorrules` já dá contexto suficiente** para tarefas pequenas e perguntas rápidas.
+2. Carregue **1–3 docs** específicos conforme a tabela acima quando a tarefa exigir detalhe.
+3. **Nunca carregue todos os 11 docs** de uma vez — ultrapassa 1500 linhas e polui a janela de contexto.
+4. Se precisar de visão ampla sem detalhe, use `TDD.md` (é o agregador, com links cruzados).
+5. Para navegar o código rapidamente, `STRUCTURE.md` é o mapa.
+
+---
+
+## Idioma
+
+- Documentação e commits: **português** (pt-BR).
+- Código (variáveis, funções, comentários técnicos): **inglês**.
+- Mensagens de erro para o usuário final: seguir o idioma da UI (pt-BR no V1).
