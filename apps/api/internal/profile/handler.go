@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	"content-creator-agent/internal/httperr"
 	"content-creator-agent/internal/middleware"
 
 	"github.com/google/uuid"
@@ -32,7 +33,7 @@ func (h *Handler) Get(c echo.Context) error {
 	uid := middleware.UserID(c)
 	v, err := h.svc.GetProfile(c.Request().Context(), uid)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httperr.Internal("[profile] get", err)
 	}
 	return c.JSON(http.StatusOK, v)
 }
@@ -45,11 +46,11 @@ func (h *Handler) Save(c echo.Context) error {
 	}
 	uid := middleware.UserID(c)
 	if err := h.svc.SaveProfile(c.Request().Context(), uid, body.AuditText, body.BrandText); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httperr.Internal("[profile] save", err)
 	}
 	v, err := h.svc.GetProfile(c.Request().Context(), uid)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httperr.Internal("[profile] get after save", err)
 	}
 	return c.JSON(http.StatusOK, v)
 }
@@ -70,7 +71,7 @@ func (h *Handler) PostReference(c echo.Context) error {
 	maxB := h.svc.MaxReferenceBytes()
 	data, err := io.ReadAll(io.LimitReader(f, maxB+1))
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httperr.Internal("[profile] read upload", err)
 	}
 	ct := ""
 	if v := mimeHeader["Content-Type"]; len(v) > 0 {
@@ -81,11 +82,11 @@ func (h *Handler) PostReference(c echo.Context) error {
 		return nil
 	}
 	if ferr != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, ferr.Error())
+		return httperr.Internal("[profile] upload reference", ferr)
 	}
 	v, err := h.svc.GetProfile(c.Request().Context(), uid)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httperr.Internal("[profile] get after upload", err)
 	}
 	return c.JSON(http.StatusOK, v)
 }
@@ -102,7 +103,7 @@ func (h *Handler) DeleteReference(c echo.Context) error {
 		return nil
 	}
 	if ferr != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, ferr.Error())
+		return httperr.Internal("[profile] delete reference", ferr)
 	}
 	return c.NoContent(http.StatusNoContent)
 }

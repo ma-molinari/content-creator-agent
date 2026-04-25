@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"content-creator-agent/internal/db"
+	"content-creator-agent/internal/httperr"
 	"content-creator-agent/internal/middleware"
 
 	"github.com/google/uuid"
@@ -91,7 +92,7 @@ func (h *Handler) ListChats(c echo.Context) error {
 	uid := middleware.UserID(c)
 	list, err := h.svc.ListChats(c.Request().Context(), uid)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httperr.Internal("[chat] list chats", err)
 	}
 	out := make([]chatJSON, 0, len(list))
 	for i := range list {
@@ -116,7 +117,7 @@ func (h *Handler) CreateChat(c echo.Context) error {
 		if errors.Is(err, ErrBadPostType) {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid postType")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httperr.Internal("[chat] create chat", err)
 	}
 	return c.JSON(http.StatusCreated, chatToJSON(chat))
 }
@@ -206,7 +207,7 @@ func mapChatErr(err error) *echo.HTTPError {
 	case errors.Is(err, ErrForbidden):
 		return echo.NewHTTPError(http.StatusForbidden, "forbidden")
 	default:
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httperr.Internal("[chat] mapChatErr", err)
 	}
 }
 
@@ -262,7 +263,7 @@ func (h *Handler) SetupStatus(c echo.Context) error {
 	uid := middleware.UserID(c)
 	ok, err := h.svc.IsProfileConfigured(c.Request().Context(), uid)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httperr.Internal("[chat] setup status", err)
 	}
 	return c.JSON(http.StatusOK, map[string]bool{"configured": ok})
 }
@@ -284,5 +285,5 @@ func mapPostErr(err error) *echo.HTTPError {
 	if errors.Is(err, ErrNotFound) || errors.Is(err, ErrForbidden) {
 		return mapChatErr(err)
 	}
-	return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	return httperr.Internal("[chat] post message", err)
 }
