@@ -84,6 +84,41 @@ func TestJobDispatch_WorkerRejectsDispatch(t *testing.T) {
 	require.Equal(t, "failed", status)
 }
 
+func TestCallback_InvalidS3Key_Returns400(t *testing.T) {
+	env := newTestEnv(t, func(w http.ResponseWriter, _ *http.Request, _ string) {
+		w.WriteHeader(http.StatusAccepted)
+	})
+
+	token, _ := registerAndLogin(t, env)
+	env.putTestProfile(t, token)
+	chatID := createChat(t, env, token)
+	jobID := postMessage(t, env, token, chatID, "trigger job for invalid s3 key test")
+
+	cb := map[string]any{
+		"assistantText": "should not persist",
+		"artifacts": []map[string]any{
+			{"s3Key": "integration/evil/../other-job/slide1.jpg", "slideNumber": 1},
+		},
+	}
+	b, err := json.Marshal(cb)
+	require.NoError(t, err)
+	req, err := http.NewRequest(
+		http.MethodPost,
+		env.APIURL+"/internal/jobs/"+jobID.String()+"/complete",
+		bytes.NewReader(b),
+	)
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Worker-API-Key", IntegrationWorkerAPIKey)
+	res, err := env.HTTPClient.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+	require.Equal(t, http.StatusBadRequest, res.StatusCode)
+
+	status, _ := getJobStatus(t, env, token, chatID, jobID)
+	require.NotEqual(t, "done", status)
+}
+
 func TestCallback_MissingAssistantText(t *testing.T) {
 	env := newTestEnv(t, func(w http.ResponseWriter, _ *http.Request, _ string) {
 		w.WriteHeader(http.StatusAccepted)

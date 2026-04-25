@@ -22,7 +22,7 @@ func TestJobDispatch_MockWorkerComplete(t *testing.T) {
 			cb := map[string]any{
 				"assistantText": "Integration assistant reply",
 				"artifacts": []map[string]any{
-					{"s3Key": "integration/test/slide1.jpg", "slideNumber": 1},
+					{"s3Key": "slides/" + p.JobID.String() + "/slide1.jpg", "slideNumber": 1},
 				},
 			}
 			b, err := json.Marshal(cb)
@@ -86,7 +86,7 @@ func TestJobDispatch_MockWorkerComplete(t *testing.T) {
 		foundAssistant = true
 		require.Contains(t, c.Content, "Integration assistant reply")
 		require.NotEmpty(t, c.Images)
-		require.Equal(t, "integration/test/slide1.jpg", c.Images[0].S3Key)
+		require.Equal(t, "slides/"+jobID.String()+"/slide1.jpg", c.Images[0].S3Key)
 	}
 	require.True(t, foundAssistant, "expected assistant message with image")
 }

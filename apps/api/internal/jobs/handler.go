@@ -8,6 +8,7 @@ import (
 
 	"content-creator-agent/internal/config"
 	"content-creator-agent/internal/db"
+	"content-creator-agent/internal/httperr"
 	"content-creator-agent/internal/storage"
 
 	"github.com/google/uuid"
@@ -60,12 +61,12 @@ func (h *Handler) Complete(c echo.Context) error {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "job not found")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return httperr.Internal("[jobs] complete get job", err)
 	}
 	if body.Error != nil && strings.TrimSpace(*body.Error) != "" {
 		msg := strings.TrimSpace(*body.Error)
 		if err := h.repo.UpdateStatus(ctx, jobID, db.JobStatusFailed, &msg); err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+			return httperr.Internal("[jobs] complete update failed status", err)
 		}
 		log.Printf("[jobs] complete job_id=%s status=failed error=%s", jobID, msg)
 		return c.NoContent(http.StatusNoContent)
@@ -86,7 +87,10 @@ func (h *Handler) Complete(c echo.Context) error {
 		if errors.Is(err, gorm.ErrInvalidData) {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid artifact")
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		if errors.Is(err, ErrInvalidSlideS3Key) {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid s3Key")
+		}
+		return httperr.Internal("[jobs] complete persist", err)
 	}
 	log.Printf("[jobs] complete job_id=%s status=done", jobID)
 	return c.NoContent(http.StatusNoContent)

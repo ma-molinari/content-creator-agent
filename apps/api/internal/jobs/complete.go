@@ -37,6 +37,9 @@ func CompleteAssistantReply(ctx context.Context, gdb *gorm.DB, job *db.Job, assi
 			if key == "" {
 				return gorm.ErrInvalidData
 			}
+			if err := validateSlideArtifactKey(job.ID, key); err != nil {
+				return err
+			}
 			url, err := store.GetSignedURL(ctx, key, signedURLExpiry)
 			if err != nil {
 				return err
