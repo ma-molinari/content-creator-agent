@@ -37,7 +37,7 @@ flowchart TD
 
 ## Documentação de UI e marca (front-end)
 
-Antes de implementar telas, ler **[`docs/layout.md`](../../../docs/layout.md)** (estrutura, hierarquia, componentes sugeridos, UX/a11y) e **[`docs/brand.md`](../../../docs/brand.md)** (tokens CSS, tipografia, sombras, resolução de conflitos entre referências).
+Antes de implementar telas, ler **[`docs/ui-guidelines.md`](../../../docs/ui-guidelines.md)** — secções *Layout e padrões de UI* (estrutura, hierarquia, componentes sugeridos, UX/a11y) e *Marca e design tokens* (CSS, tipografia, sombras, resolução de conflitos entre referências).
 
 | Screenshot | Caminho | O que extrair para este produto |
 |------------|---------|----------------------------------|
@@ -46,17 +46,17 @@ Antes de implementar telas, ler **[`docs/layout.md`](../../../docs/layout.md)** 
 | Aplot AI (app denso) | `docs/ui/version_3.png` | Sidebar com busca/histórico, top bar com ações, feature cards, modos no composer, sombras suaves |
 | CoLabs (auth) | `docs/ui/auth_1.png` | Auth em colunas: formulário claro + painel marketing escuro, inputs e CTA full-width |
 
-**Governança:** papéis **UI Designer** e **UX Architect** → `docs/layout.md`; **Brand Guardian** → `docs/brand.md`. Complemento opcional: [`.cursor/rules/design/design-brand-guardian.md`](../../../.cursor/rules/design/design-brand-guardian.md).
+**Governança:** papéis **UI Designer** e **UX Architect** → secção *Layout e padrões de UI* em `docs/ui-guidelines.md`; **Brand Guardian** → secção *Marca e design tokens* no mesmo ficheiro. Complemento opcional: [`.cursor/rules/design/design-brand-guardian.md`](../../../.cursor/rules/design/design-brand-guardian.md).
 
-**Implementação:** mapear cores, raios, sombras e tipografia ao bloco `:root` recomendado em `docs/brand.md` (Tailwind `theme.extend` ou variáveis CSS). Estrutura de shell (sidebar/main), thread, empty state e **ComposerBar** por slots seguem `docs/layout.md`. Estados de carregamento, erro e vazio alinham-se ao handoff em `docs/layout.md` (“Handoff para implementação”).
+**Implementação:** mapear cores, raios, sombras e tipografia ao bloco `:root` recomendado em `docs/ui-guidelines.md` (Tailwind `theme.extend` ou variáveis CSS). Estrutura de shell (sidebar/main), thread, empty state e **ComposerBar** por slots seguem a secção de layout no mesmo documento. Estados de carregamento, erro e vazio alinham-se ao handoff em *Handoff para implementação* em `docs/ui-guidelines.md`.
 
 **Nota:** os **JPEGs dos slides** gerados pelo worker Python são o *output* editorial; a *casca* da aplicação (login, chat, histórico) segue as referências acima — não confundir preview de slide com o shell do app.
 
 ### Engenharia de implementação (React)
 
-Todo código front-end deste produto SHALL seguir a rule **[`engineering-frontend-developer.md`](../../../.cursor/rules/engineering/engineering-frontend-developer.md)** além de `docs/layout.md` e `docs/brand.md`. Ela é o guia normativo de **padronização e construção de código** (não substitui decisões de UI/marca já documentadas).
+Todo código front-end deste produto SHALL seguir a rule **[`engineering-frontend-developer.md`](../../../.cursor/rules/engineering/engineering-frontend-developer.md)** além de [`docs/ui-guidelines.md`](../../../docs/ui-guidelines.md). Ela é o guia normativo de **padronização e construção de código** (não substitui decisões de UI/marca já documentadas).
 
-- TypeScript e componentes com props tipadas; estrutura de pastas e nomes alinhados ao inventário de `docs/layout.md` quando aplicável.
+- TypeScript e componentes com props tipadas; estrutura de pastas e nomes alinhados ao inventário de componentes em `docs/ui-guidelines.md` quando aplicável.
 - HTML semântico; ARIA e rótulos onde necessário; navegação por teclado e compatibilidade com leitores de tela (alvo WCAG 2.1 AA).
 - Layout mobile-first; estados de carregamento, erro e vazio consistentes e acessíveis; feedback de erro sem expor detalhes técnicos.
 - Performance: code splitting / lazy loading quando fizer sentido; atenção a bundle e assets; alinhamento às práticas da rule (Core Web Vitals quando mensurável).
@@ -174,7 +174,7 @@ Todo código backend deste produto em `backend/` SHALL seguir a rule **[`enginee
 - **Localização**: `frontend/`
 - **Stack**: React + Vite + Zustand (auth state) + React Query (server state) + TailwindCSS
 - **Padrões de implementação**: [`engineering-frontend-developer.md`](../../../.cursor/rules/engineering/engineering-frontend-developer.md) — referência única para qualidade de código front-end (acessibilidade, performance, testes, padrões de componente).
-- **UI e tema**: `tailwind.config` / CSS global deve refletir o token set de [`docs/brand.md`](../../../docs/brand.md). Layout (AppShell, rail, área principal, composer) e nomes de componentes podem seguir o inventário sugerido em [`docs/layout.md`](../../../docs/layout.md) (ex.: `ComposerBar`, `EmptyChatState`); a árvore abaixo permanece a referência mínima de pastas — renomear ou decompor conforme esse inventário quando útil.
+- **UI e tema**: `tailwind.config` / CSS global deve refletir o token set e o layout em [`docs/ui-guidelines.md`](../../../docs/ui-guidelines.md) (AppShell, rail, área principal, composer; ex.: `ComposerBar`, `EmptyChatState`); a árvore abaixo permanece a referência mínima de pastas — renomear ou decompor conforme esse inventário quando útil.
 - **Estrutura**:
   ```
   frontend/

@@ -2,10 +2,9 @@
 
 **Referência TDD**: `docs/TDD.md`
 
-**Arquitetura de processamento**: `docs/architecture-go-api-langgraph.md`
-(substitui o desenho monolítico Agent+Export no Go onde conflitar)
+**Arquitetura de processamento**: [`docs/ARCHITECTURE.md`](../../../docs/ARCHITECTURE.md) (API Go, worker Python LangGraph, jobs assíncronos; ver também [`docs/INTEGRATIONS.md`](../../../docs/INTEGRATIONS.md))
 
-**Referências de front-end**: [`docs/layout.md`](../../../docs/layout.md) (estrutura e padrões de UI), [`docs/brand.md`](../../../docs/brand.md) (tokens e marca). Capturas de referência de layout em `docs/ui/`: `version_1.png`, `version_2.png`, `version_3.png`, `auth_1.png`. **Implementação de código** (padrões React/TypeScript, semântica e ARIA, performance, testes): seguir a rule [`engineering-frontend-developer.md`](../../../.cursor/rules/engineering/engineering-frontend-developer.md) — complementa layout e marca (o *o quê* e *como parece* permanecem em `docs/layout.md` e `docs/brand.md`; o *como codificar* interfaces segue a rule).
+**Referências de front-end**: [`docs/ui-guidelines.md`](../../../docs/ui-guidelines.md) (estrutura, padrões de UI, tokens e marca). Capturas de referência em `docs/ui/`: `version_1.png`, `version_2.png`, `version_3.png`, `auth_1.png`. **Implementação de código** (padrões React/TypeScript, semântica e ARIA, performance, testes): seguir a rule [`engineering-frontend-developer.md`](../../../.cursor/rules/engineering/engineering-frontend-developer.md) — complementa layout e marca (o *o quê* e *como parece* permanecem em `docs/ui-guidelines.md`; o *como codificar* interfaces segue a rule).
 
 **Implementação backend (Go)**: seguir [`engineering-backend-architect.md`](../../../.cursor/rules/engineering/engineering-backend-architect.md) (arquitetura de API, persistência, confiabilidade, performance e observabilidade alinhadas ao produto) e [`engineering-security-engineer.md`](../../../.cursor/rules/engineering/engineering-security-engineer.md) (limites de confiança, hardening, SDLC de segurança e práticas OWASP/API). O *o quê* (endpoints, modelos, fluxos) permanece nesta spec e em `docs/TDD.md`; o *como implementar* o servidor e integrações de forma consistente e segura segue essas rules (sem duplicar o conteúdo integral das rules aqui).
 

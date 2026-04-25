@@ -1,6 +1,6 @@
 @import 'tailwindcss';
 
-/* Tokens — docs/brand.md (token set unificado) */
+/* Tokens — docs/ui-guidelines.md (token set unificado) */
 :root {
   --color-bg-app: #f9fafb;
   --color-bg-surface: #ffffff;
