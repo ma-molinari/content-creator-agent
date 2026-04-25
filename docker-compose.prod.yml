@@ -1,0 +1,16 @@
+# Production-oriented overrides. Use with:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build --wait
+services:
+  postgres:
+    restart: unless-stopped
+
+  api:
+    restart: unless-stopped
+    environment:
+      COOKIE_SECURE: "${COOKIE_SECURE:-true}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY}"
+      SUMMARIZE_CRON: "${SUMMARIZE_CRON:-0 2 * * *}"
+
+  worker:
+    restart: unless-stopped
+

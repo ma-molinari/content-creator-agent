@@ -25,7 +25,7 @@ help:
 	@echo ""
 	@echo "Variáveis obrigatórias: DATABASE_URL, JWT_SECRET, JWT_REFRESH_SECRET"
 	@echo "(S3: AWS_REGION, AWS_S3_BUCKET ao subir o servidor.)"
-	@echo "Async: WORKER_URL, WORKER_API_KEY; perfil: PROFILE_DATA_ROOT"
+	@echo "Async: WORKER_URL, WORKER_API_KEY; perfil: PUT /profile (BD)"
 	@echo "Veja .env.example"
 
 run:

@@ -20,23 +20,18 @@ services:
     build:
       context: ./apps/api
       dockerfile: Dockerfile
+    # Valores de apps/api/.env entram no container; não use ${VAR:-} aqui para AWS/JWT —
+    # isso só lê o .env da raiz do projeto e string vazia sobrescreve o env_file.
+    env_file:
+      - path: ./apps/api/.env
+        required: false
     environment:
       PORT: "8080"
       DATABASE_URL: postgres://app:app@postgres:5432/content_creator?sslmode=disable
-      JWT_SECRET: ${JWT_SECRET:-dev-jwt-access-secret-change-me}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-jwt-refresh-secret-change-me}
       COOKIE_SECURE: "false"
-      AWS_REGION: ${AWS_REGION:-us-east-1}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
-      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-}
-      PROFILE_DATA_ROOT: /profile-data
       WORKER_URL: http://worker:8000
-      WORKER_API_KEY: ${WORKER_API_KEY:-dev-worker-shared-key}
     ports:
       - "8080:8080"
-    volumes:
-      - ./tests/e2e/testdata/profile:/profile-data:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -53,14 +48,11 @@ services:
     build:
       context: ./apps/worker
       dockerfile: Dockerfile
+    env_file:
+      - path: ./apps/worker/.env
+        required: false
     environment:
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      AWS_REGION: ${AWS_REGION:-us-east-1}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
-      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-}
       GO_API_URL: http://api:8080
-      WORKER_API_KEY: ${WORKER_API_KEY:-dev-worker-shared-key}
     depends_on:
       api:
         condition: service_healthy
