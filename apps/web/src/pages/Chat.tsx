@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 
 import { api } from '@/api/client'
@@ -43,7 +43,7 @@ export default function Chat() {
         qc.invalidateQueries({ queryKey: ['chats', activeJob.chatId] })
         qc.invalidateQueries({ queryKey: ['files', activeJob.chatId] })
       }
-      setActiveJob(null)
+      queueMicrotask(() => setActiveJob(null))
     }
   }, [currentStatus, activeJob, qc])
 
@@ -68,7 +68,6 @@ export default function Chat() {
 
       setActiveJob({ chatId, jobId: data.jobId, pendingText: text })
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [id, navigate, qc],
   )
 
@@ -112,7 +111,14 @@ export default function Chat() {
       <div className="flex flex-1 flex-col overflow-hidden">
         {!setupConfigured && (
           <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-6 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
-            Perfil não configurado. Contate o administrador para habilitar a geração de posts.
+            Perfil não configurado.{' '}
+            <Link
+              to="/profile"
+              className="font-medium underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-200"
+            >
+              Abrir configuração do perfil
+            </Link>{' '}
+            para colar AUDIT e BRAND e habilitar a geração de posts.
           </div>
         )}
 

@@ -8,6 +8,7 @@ const Login = lazy(() => import('@/pages/Login'))
 const Register = lazy(() => import('@/pages/Register'))
 const Chat = lazy(() => import('@/pages/Chat'))
 const History = lazy(() => import('@/pages/History'))
+const ProfileSettings = lazy(() => import('@/pages/ProfileSettings'))
 
 function RouteFallback() {
   return (
@@ -29,6 +30,7 @@ export function AppRouter() {
               <Route path="/" element={<Chat />} />
               <Route path="/chat/:id" element={<Chat />} />
               <Route path="/history" element={<History />} />
+              <Route path="/profile" element={<ProfileSettings />} />
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

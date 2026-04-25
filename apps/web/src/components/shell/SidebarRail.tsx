@@ -28,6 +28,7 @@ export function SidebarRail({ onClose }: Props) {
       <nav className="flex flex-1 flex-col gap-1 px-3 py-2">
         <NavItem to="/" icon={<IconHome />} label="Início" end />
         <NavItem to="/history" icon={<IconHistory />} label="Histórico" />
+        <NavItem to="/profile" icon={<IconUser />} label="Perfil" />
       </nav>
       <div className="border-t border-[var(--color-border-subtle)] p-3">
         <div
@@ -59,6 +60,20 @@ function IconHistory() {
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
       <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
       <path d="M12 7v6l4 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function IconUser() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.5" />
+      <path
+        d="M5.5 20.5v-.5c0-3 2.5-5.5 6.5-5.5s6.5 2.5 6.5 5.5v.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
     </svg>
   )
 }

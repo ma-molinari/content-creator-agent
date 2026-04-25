@@ -1,13 +1,12 @@
 const CHIPS = [
-  'Crie um carrossel sobre produtividade para Instagram',
-  'Post único sobre lançamento de produto',
-  'Carrossel com dicas de finanças pessoais',
-  'Post motivacional para segunda-feira',
-]
+  "Crie um carrossel sobre produtividade para Instagram",
+  "Post único sobre lançamento de produto",
+  "Post motivacional para segunda-feira",
+];
 
 type Props = {
-  onChipClick?: (text: string) => void
-}
+  onChipClick?: (text: string) => void;
+};
 
 export function EmptyChatState({ onChipClick }: Props) {
   return (
@@ -19,8 +18,8 @@ export function EmptyChatState({ onChipClick }: Props) {
         Como posso ajudar?
       </h1>
       <p className="mt-2 max-w-sm text-sm text-[var(--color-text-secondary)]">
-        Descreva o post ou carrossel que você quer criar. Use uma das sugestões abaixo ou escreva
-        sua própria ideia.
+        Descreva o post ou carrossel que você quer criar. Use uma das sugestões
+        abaixo ou escreva sua própria ideia.
       </p>
 
       {onChipClick && (
@@ -38,7 +37,7 @@ export function EmptyChatState({ onChipClick }: Props) {
         </div>
       )}
     </div>
-  )
+  );
 }
 
 function IconSparkles() {
@@ -70,5 +69,5 @@ function IconSparkles() {
         strokeLinejoin="round"
       />
     </svg>
-  )
+  );
 }
