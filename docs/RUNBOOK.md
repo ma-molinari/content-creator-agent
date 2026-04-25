@@ -9,9 +9,11 @@
 | `WORKER_API_KEY` | API + Worker | Mesmo valor em ambos |
 | `WORKER_URL` | API | Base URL do worker (ex.: `http://worker:8000`) |
 | `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_S3_BUCKET` | API + Worker | Necessários para uploads e ZIP |
-| `COOKIE_SECURE` | API | `true` em HTTPS (override de dev com `false`) |
+| `COOKIE_SECURE` | API | `true` em HTTPS (override de dev com `false`); ver `docker-compose.prod.yml` |
 | `OPENAI_API_KEY` | API | Opcional; se definido, habilita cron de sumarização |
 | `SUMMARIZE_CRON` | API | Cron em UTC (padrão `0 2 * * *`) |
+
+**Segurança operacional:** não escrever `WORKER_API_KEY` nem outros segredos em logs ou tickets. Rotacionar `WORKER_API_KEY` após suspeita de fuga. Endpoints `POST /internal/*` devem ficar apenas em rede privada (VPN, mesh interno, security group), não expostos à internet pública. Objetos de slides no S3 usam sempre chaves `slides/{job_id}/…` (UUID do job); o callback do worker só aceita chaves com esse prefixo.
 
 Veja também `apps/api/.env.example` e `apps/worker/.env.example`.
 
