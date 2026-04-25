@@ -23,7 +23,7 @@ const (
 type ChatContentRole string
 
 const (
-	ChatContentRoleUser       ChatContentRole = "user"
+	ChatContentRoleUser      ChatContentRole = "user"
 	ChatContentRoleAssistant ChatContentRole = "assistant"
 )
 
@@ -47,7 +47,7 @@ type Chat struct {
 	Title     *string   `gorm:"size:255"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	Contents  []ChatContent `gorm:"foreignKey:ChatID"`
+	Contents  []ChatContent      `gorm:"foreignKey:ChatID"`
 	Resume    *ChatContentResume `gorm:"foreignKey:ChatID"`
 }
 
@@ -67,12 +67,12 @@ type ChatContent struct {
 func (ChatContent) TableName() string { return "chat_content" }
 
 type ChatContentImage struct {
-	ID            uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	ChatContentID uuid.UUID `gorm:"type:uuid;not null;index"`
+	ID            uuid.UUID   `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	ChatContentID uuid.UUID   `gorm:"type:uuid;not null;index"`
 	ChatContent   ChatContent `gorm:"constraint:OnDelete:CASCADE"`
-	S3Key         string    `gorm:"column:s3_key;size:512;not null"`
-	URL           string    `gorm:"size:1024;not null"`
-	SlideNumber   int       `gorm:"column:slide_number;not null"`
+	S3Key         string      `gorm:"column:s3_key;size:512;not null"`
+	URL           string      `gorm:"size:1024;not null"`
+	SlideNumber   int         `gorm:"column:slide_number;not null"`
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }
@@ -80,14 +80,14 @@ type ChatContentImage struct {
 func (ChatContentImage) TableName() string { return "chat_content_image" }
 
 type ChatContentResume struct {
-	ID             uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	ChatID         uuid.UUID  `gorm:"type:uuid;not null;uniqueIndex"`
-	Chat           Chat       `gorm:"constraint:OnDelete:CASCADE"`
-	Summary        *string    `gorm:"type:text"`
-	LastContentAt  *time.Time `gorm:"column:last_content_at"`
-	SummarizedAt   *time.Time `gorm:"column:summarized_at"`
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID            uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	ChatID        uuid.UUID  `gorm:"type:uuid;not null;uniqueIndex"`
+	Chat          Chat       `gorm:"constraint:OnDelete:CASCADE"`
+	Summary       *string    `gorm:"type:text"`
+	LastContentAt *time.Time `gorm:"column:last_content_at"`
+	SummarizedAt  *time.Time `gorm:"column:summarized_at"`
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 func (ChatContentResume) TableName() string { return "chat_content_resume" }
@@ -114,3 +114,27 @@ type Job struct {
 }
 
 func (Job) TableName() string { return "jobs" }
+
+type UserProfile struct {
+	ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	UserID    uuid.UUID `gorm:"type:uuid;not null;uniqueIndex"`
+	User      User      `gorm:"constraint:OnDelete:CASCADE"`
+	AuditText string    `gorm:"column:audit_text;not null;default:''"`
+	BrandText string    `gorm:"column:brand_text;not null;default:''"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func (UserProfile) TableName() string { return "user_profiles" }
+
+// UserProfileReference is an optional design reference image (S3) for a user profile.
+type UserProfileReference struct {
+	ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	UserID    uuid.UUID `gorm:"type:uuid;not null;index"`
+	User      User      `gorm:"constraint:OnDelete:CASCADE"`
+	S3Key     string    `gorm:"column:s3_key;size:512;not null"`
+	SortOrder int       `gorm:"column:sort_order;not null;default:0"`
+	CreatedAt time.Time
+}
+
+func (UserProfileReference) TableName() string { return "user_profile_references" }

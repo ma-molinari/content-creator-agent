@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"strings"
 
@@ -66,6 +67,7 @@ func (h *Handler) Complete(c echo.Context) error {
 		if err := h.repo.UpdateStatus(ctx, jobID, db.JobStatusFailed, &msg); err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}
+		log.Printf("[jobs] complete job_id=%s status=failed error=%s", jobID, msg)
 		return c.NoContent(http.StatusNoContent)
 	}
 	if body.AssistantText == nil || strings.TrimSpace(*body.AssistantText) == "" {
@@ -86,5 +88,6 @@ func (h *Handler) Complete(c echo.Context) error {
 		}
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+	log.Printf("[jobs] complete job_id=%s status=done", jobID)
 	return c.NoContent(http.StatusNoContent)
 }

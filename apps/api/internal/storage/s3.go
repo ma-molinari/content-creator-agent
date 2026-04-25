@@ -26,8 +26,8 @@ type StorageService interface {
 
 // S3Service implements StorageService against AWS S3.
 type S3Service struct {
-	bucket string
-	client *s3.Client
+	bucket  string
+	client  *s3.Client
 	presign *s3.PresignClient
 }
 

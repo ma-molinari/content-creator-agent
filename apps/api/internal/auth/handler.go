@@ -89,9 +89,9 @@ func (h *Handler) Refresh(c echo.Context) error {
 }
 
 type recoverBody struct {
-	Email        string `json:"email"`
-	SecurityKey  string `json:"securityKey"`
-	NewPassword  string `json:"newPassword"`
+	Email       string `json:"email"`
+	SecurityKey string `json:"securityKey"`
+	NewPassword string `json:"newPassword"`
 }
 
 type recoverResponse struct {

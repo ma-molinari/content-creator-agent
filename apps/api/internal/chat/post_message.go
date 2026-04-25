@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"log"
 	"regexp"
 	"strings"
 	"unicode"
@@ -58,6 +59,13 @@ func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, raw
 	if err != nil {
 		return nil, err
 	}
+	var refKeys []string
+	if s.profileSvc != nil {
+		refKeys, err = s.profileSvc.ListReferenceS3Keys(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+	}
 	body := SanitizeUserInput(rawBody)
 	if body == "" {
 		return nil, ErrEmptyPrompt
@@ -82,19 +90,21 @@ func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, raw
 		return nil, err
 	}
 	payload := jobs.DispatchPayload{
-		JobID:           job.ID,
-		UserID:          userID,
-		ChatID:          chatID,
-		RawMessage:      body,
-		AuditText:       auditText,
-		BrandText:       brandText,
-		RepromptContext: history,
+		JobID:             job.ID,
+		UserID:            userID,
+		ChatID:            chatID,
+		RawMessage:        body,
+		AuditText:         auditText,
+		BrandText:         brandText,
+		RepromptContext:   history,
+		ReferenceS3Keys:   refKeys,
 	}
 	if err := s.worker.DispatchJob(ctx, payload); err != nil {
 		msg := err.Error()
 		_ = s.jobsRepo.UpdateStatus(ctx, job.ID, db.JobStatusFailed, &msg)
 		return nil, ErrWorkerDispatchFailed
 	}
+	log.Printf("[jobs] dispatch job_id=%s chat_id=%s user_id=%s", job.ID, chatID, userID)
 	if err := s.jobsRepo.UpdateStatus(ctx, job.ID, db.JobStatusProcessing, nil); err != nil {
 		return nil, err
 	}
@@ -125,9 +135,9 @@ func (s *Service) buildRepromptContext(ctx context.Context, chatID uuid.UUID) (s
 
 // JobStatusView is returned by GET /chats/:id/jobs/:jobId/status.
 type JobStatusView struct {
-	JobID  uuid.UUID  `json:"jobId"`
-	Status string     `json:"status"`
-	Error  *string    `json:"error"`
+	JobID  uuid.UUID `json:"jobId"`
+	Status string    `json:"status"`
+	Error  *string   `json:"error"`
 }
 
 // GetJobStatus returns job status when the user owns the chat.

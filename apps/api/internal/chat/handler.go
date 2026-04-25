@@ -43,13 +43,13 @@ type chatContentJSON struct {
 }
 
 type chatContentImgJSON struct {
-	ID          uuid.UUID `json:"id"`
+	ID            uuid.UUID `json:"id"`
 	ChatContentID uuid.UUID `json:"chatContentId"`
-	S3Key       string    `json:"s3Key"`
-	URL         string    `json:"url"`
-	SlideNumber int       `json:"slideNumber"`
-	CreatedAt   time.Time `json:"createdAt"`
-	UpdatedAt   time.Time `json:"updatedAt"`
+	S3Key         string    `json:"s3Key"`
+	URL           string    `json:"url"`
+	SlideNumber   int       `json:"slideNumber"`
+	CreatedAt     time.Time `json:"createdAt"`
+	UpdatedAt     time.Time `json:"updatedAt"`
 }
 
 func chatToJSON(c *db.Chat) chatJSON {
@@ -272,7 +272,7 @@ func mapPostErr(err error) *echo.HTTPError {
 	case errors.Is(err, ErrSetupRequired):
 		return echo.NewHTTPError(http.StatusBadRequest, map[string]string{
 			"code":    "SETUP_REQUIRED",
-			"message": "Add AUDIT.md and BRAND.md under instagram-audits/<your-user-id>/ in PROFILE_DATA_ROOT.",
+			"message": "Preencha o texto de auditoria e de marca em Perfil (PUT /profile) antes de enviar mensagens. Referências de design usam S3 via a mesma área de perfil.",
 		})
 	case errors.Is(err, ErrWorkerNotConfigured):
 		return echo.NewHTTPError(http.StatusServiceUnavailable, "async generation is not configured on this server")

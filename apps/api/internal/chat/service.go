@@ -10,6 +10,7 @@ import (
 
 	"content-creator-agent/internal/db"
 	"content-creator-agent/internal/jobs"
+	"content-creator-agent/internal/profile"
 	"content-creator-agent/internal/storage"
 
 	"github.com/google/uuid"
@@ -22,7 +23,7 @@ var (
 	ErrNoFiles              = errors.New("chat: no files to zip")
 	ErrBadPostType          = errors.New("chat: invalid post type")
 	ErrWorkerNotConfigured  = errors.New("chat: worker not configured")
-	ErrSetupRequired        = errors.New("chat: profile setup required (AUDIT.md and BRAND.md)")
+	ErrSetupRequired        = errors.New("chat: profile setup required (audit and brand in app)")
 	ErrEmptyPrompt          = errors.New("chat: empty prompt after sanitization")
 	ErrWorkerDispatchFailed = errors.New("chat: worker dispatch failed")
 )
@@ -35,13 +36,17 @@ type Service struct {
 	repo            *Repository
 	jobsRepo        *jobs.Repository
 	store           storage.StorageService
-	profileDataRoot string
-	worker          jobs.WorkerClient
+	profileRepo *profile.Repository
+	profileSvc  *profile.Service
+	worker      jobs.WorkerClient
 }
 
 // NewService constructs a chat service. worker may be nil (message routes unavailable).
-func NewService(repo *Repository, jobsRepo *jobs.Repository, store storage.StorageService, profileDataRoot string, worker jobs.WorkerClient) *Service {
-	return &Service{repo: repo, jobsRepo: jobsRepo, store: store, profileDataRoot: profileDataRoot, worker: worker}
+// profileRepo may be nil (profile checks and message dispatch then behave as setup-required).
+// profileSvc may be nil; when set, its reference S3 keys are sent on job dispatch.
+// Profile copy lives in the database only (PUT /profile); there is no disk fallback.
+func NewService(repo *Repository, jobsRepo *jobs.Repository, store storage.StorageService, profileRepo *profile.Repository, profileSvc *profile.Service, worker jobs.WorkerClient) *Service {
+	return &Service{repo: repo, jobsRepo: jobsRepo, store: store, profileRepo: profileRepo, profileSvc: profileSvc, worker: worker}
 }
 
 // ListChats returns up to 5 chats for the user.

@@ -1,17 +1,24 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"content-creator-agent/internal/auth"
 	"content-creator-agent/internal/chat"
 	"content-creator-agent/internal/config"
+	appcron "content-creator-agent/internal/cron"
 	"content-creator-agent/internal/db"
 	"content-creator-agent/internal/jobs"
 	appmw "content-creator-agent/internal/middleware"
+	"content-creator-agent/internal/profile"
 	"content-creator-agent/internal/storage"
+	"content-creator-agent/internal/summarizer"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -39,14 +46,35 @@ func main() {
 	}
 	chatRepo := chat.NewRepository(gdb)
 	jobsRepo := jobs.NewRepository(gdb)
+	profileRepo := profile.NewRepository(gdb)
+	refRepo := profile.NewReferencesRepository(gdb)
+	profileSvc := profile.NewService(profileRepo, refRepo, stor, cfg.ProfileRefMaxCount, cfg.ProfileRefMaxBytes)
+	profileH := profile.NewHandler(profileSvc)
 	var worker jobs.WorkerClient
 	if cfg.WorkerURL != "" {
 		worker = jobs.NewHTTPWorkerClient(cfg.WorkerURL, cfg.WorkerAPIKey)
 	}
-	chatSvc := chat.NewService(chatRepo, jobsRepo, stor, cfg.ProfileDataRoot, worker)
+	chatSvc := chat.NewService(chatRepo, jobsRepo, stor, profileRepo, profileSvc, worker)
 	ch := chat.NewHandler(chatSvc)
 
 	jobsH := jobs.NewHandler(&cfg, jobsRepo, gdb, stor)
+
+	var sched *appcron.Scheduler
+	if cfg.OpenAIAPIKey != "" {
+		summRepo := summarizer.NewRepository(gdb)
+		summClient := summarizer.NewClient(cfg.OpenAIAPIKey)
+		summSvc := summarizer.NewService(summRepo, summClient)
+		sched = appcron.New()
+		if err := sched.Register(cfg.SummarizeCron, func() {
+			summSvc.Run(context.Background())
+		}); err != nil {
+			log.Fatalf("cron: %v", err)
+		}
+		sched.Start()
+		log.Printf("[summarizer] scheduler started cron=%q (UTC)", cfg.SummarizeCron)
+	} else {
+		log.Print("[summarizer] OPENAI_API_KEY not set; daily summarization cron disabled")
+	}
 
 	e := echo.New()
 	e.HideBanner = true
@@ -80,6 +108,10 @@ func main() {
 	protected.GET("/chats/:id/files", ch.ListFiles)
 	protected.GET("/chats/:id/files/:fileId", ch.GetFile)
 	protected.GET("/setup/status", ch.SetupStatus)
+	protected.GET("/profile", profileH.Get)
+	protected.PUT("/profile", profileH.Save)
+	protected.POST("/profile/references", profileH.PostReference)
+	protected.DELETE("/profile/references/:id", profileH.DeleteReference)
 
 	chatLLM := protected.Group("/chats")
 	chatLLM.Use(appmw.LLMByUser())
@@ -96,7 +128,23 @@ func main() {
 	internal.POST("/jobs/:id/complete", jobsH.Complete)
 
 	addr := ":" + cfg.Port
-	if err := e.Start(addr); err != nil && err != http.ErrServerClosed {
-		log.Fatal(err)
+	go func() {
+		if err := e.Start(addr); err != nil && err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	<-quit
+
+	if sched != nil {
+		log.Print("[summarizer] stopping scheduler")
+		sched.Stop()
+	}
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := e.Shutdown(shutdownCtx); err != nil {
+		log.Fatalf("shutdown: %v", err)
 	}
 }
