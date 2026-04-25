@@ -1,8 +1,11 @@
 """Parse LLM slide markers and validate HTML; drive retry routing."""
 
+import logging
 import re
 
 from app.state import AgentState, SlideItem
+
+logger = logging.getLogger(__name__)
 
 _SLIDE_BLOCK = re.compile(
     r"###SLIDE_FILE:\s*([^\s#]+?)\s*###\s*(.*?)\s*###END_SLIDE###",
@@ -32,6 +35,7 @@ def _valid_slide(item: SlideItem) -> bool:
 
 
 def parse_validate(state: AgentState) -> dict:
+    logger.info("node=parse_validate job_id=%s", state.get("job_id"))
     raw = state.get("raw_slide_output") or ""
     parsed = _parse_slides(raw)
     valid: list[SlideItem] = [s for s in parsed if _valid_slide(s)]

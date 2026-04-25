@@ -2,6 +2,7 @@
 
 from langgraph.graph import END, StateGraph
 
+from app.nodes.describe_references import describe_references
 from app.nodes.finalize import finalize
 from app.nodes.generate_slides import generate_slides
 from app.nodes.load_profile import load_profile
@@ -15,6 +16,7 @@ from app.state import AgentState
 def build_graph():
     builder = StateGraph(AgentState)
     builder.add_node("load_profile", load_profile)
+    builder.add_node("describe_references", describe_references)
     builder.add_node("optimize_prompt", optimize_prompt)
     builder.add_node("generate_slides", generate_slides)
     builder.add_node("parse_validate", parse_validate)
@@ -23,7 +25,8 @@ def build_graph():
     builder.add_node("finalize", finalize)
 
     builder.set_entry_point("load_profile")
-    builder.add_edge("load_profile", "optimize_prompt")
+    builder.add_edge("load_profile", "describe_references")
+    builder.add_edge("describe_references", "optimize_prompt")
     builder.add_edge("optimize_prompt", "generate_slides")
     builder.add_edge("generate_slides", "parse_validate")
     builder.add_conditional_edges(

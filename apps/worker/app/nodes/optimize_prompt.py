@@ -1,10 +1,14 @@
 """Optimize user message into a structured brief using the LLM."""
 
+import logging
+
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
 from app.config import PROMPTS_DIR, get_settings
 from app.state import AgentState
+
+logger = logging.getLogger(__name__)
 
 
 def _read_optimize_prompt() -> str:
@@ -13,6 +17,7 @@ def _read_optimize_prompt() -> str:
 
 
 def optimize_prompt(state: AgentState) -> dict:
+    logger.info("node=optimize_prompt job_id=%s", state.get("job_id"))
     settings = get_settings()
     system = _read_optimize_prompt()
     profile = state.get("profile_text") or ""

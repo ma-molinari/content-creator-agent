@@ -1,9 +1,13 @@
 """POST job completion to Go API."""
 
+import logging
+
 import httpx
 
 from app.config import get_settings
 from app.state import AgentState
+
+logger = logging.getLogger(__name__)
 
 
 def _summarize_errors(errors: list[str]) -> str:
@@ -22,6 +26,7 @@ def _build_assistant_text(state: AgentState) -> str:
 
 
 async def finalize(state: AgentState) -> dict:
+    logger.info("node=finalize job_id=%s", state.get("job_id"))
     settings = get_settings()
     job_id = state.get("job_id") or ""
     errors = list(state.get("errors") or [])

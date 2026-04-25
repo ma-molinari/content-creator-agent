@@ -1,5 +1,6 @@
 """Upload rendered JPEGs to S3 with exponential backoff."""
 
+import logging
 import re
 import time
 from typing import Optional
@@ -9,6 +10,8 @@ from botocore.exceptions import BotoCoreError, ClientError
 
 from app.config import get_settings
 from app.state import AgentState, ArtifactRef
+
+logger = logging.getLogger(__name__)
 
 _MAX_ATTEMPTS = 3
 
@@ -43,6 +46,7 @@ def _upload_with_retry(client, bucket: str, key: str, body: bytes) -> None:
 
 
 def upload_assets(state: AgentState) -> dict:
+    logger.info("node=upload_assets job_id=%s", state.get("job_id"))
     settings = get_settings()
     job_id = state.get("job_id") or ""
     rendered = state.get("rendered_slides") or []

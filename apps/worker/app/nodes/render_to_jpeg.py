@@ -1,8 +1,12 @@
 """Render each slide HTML to JPEG bytes with Playwright."""
 
+import logging
+
 from playwright.async_api import async_playwright
 
 from app.state import AgentState, RenderedSlide
+
+logger = logging.getLogger(__name__)
 
 _VIEWPORT = {"width": 768, "height": 1376}
 _JPEG_QUALITY = 92
@@ -10,6 +14,7 @@ _TIMEOUT_MS = 60_000
 
 
 async def render_to_jpeg(state: AgentState) -> dict:
+    logger.info("node=render_to_jpeg job_id=%s", state.get("job_id"))
     slides = state.get("slides_html") or []
     errors = list(state.get("errors") or [])
     rendered: list[RenderedSlide] = []

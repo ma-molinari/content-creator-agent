@@ -1,10 +1,14 @@
 """Generate carousel HTML via LLM using delimited slide blocks."""
 
+import logging
+
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
 from app.config import PROMPTS_DIR, get_settings
 from app.state import AgentState
+
+logger = logging.getLogger(__name__)
 
 
 def _read_generate_prompt() -> str:
@@ -13,6 +17,7 @@ def _read_generate_prompt() -> str:
 
 
 def generate_slides(state: AgentState) -> dict:
+    logger.info("node=generate_slides job_id=%s", state.get("job_id"))
     settings = get_settings()
     system = _read_generate_prompt()
     profile = state.get("profile_text") or ""

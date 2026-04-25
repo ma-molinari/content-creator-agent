@@ -26,6 +26,7 @@ class DispatchPayload(BaseModel):
     audit_text: str = ""
     brand_text: str = ""
     reprompt_context: str = ""
+    reference_s3_keys: list[str] | None = None
 
 
 def _initial_state(payload: DispatchPayload) -> AgentState:
@@ -37,6 +38,7 @@ def _initial_state(payload: DispatchPayload) -> AgentState:
         "audit_text": payload.audit_text,
         "brand_text": payload.brand_text,
         "reprompt_context": payload.reprompt_context or "",
+        "reference_s3_keys": list(payload.reference_s3_keys or []),
         "profile_text": "",
         "optimized_brief": "",
         "raw_slide_output": "",

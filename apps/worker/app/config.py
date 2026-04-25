@@ -29,6 +29,8 @@ class Settings(BaseSettings):
         description="Base URL of Go API, e.g. http://api:8080",
     )
     worker_api_key: str = Field(..., min_length=1)
+    # Vision model for optional design reference images in describe_references.
+    reference_vision_model: str = Field(default="gpt-4o-mini", min_length=1)
 
 
 @lru_cache

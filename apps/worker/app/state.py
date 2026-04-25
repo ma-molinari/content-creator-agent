@@ -38,3 +38,5 @@ class AgentState(TypedDict):
     errors: list[str]
     # Optional user-facing caption / summary for chat (set in finalize)
     assistant_text: NotRequired[str]
+    # S3 object keys (design ref images) resolved by the API; empty = skip vision step
+    reference_s3_keys: NotRequired[list[str]]
