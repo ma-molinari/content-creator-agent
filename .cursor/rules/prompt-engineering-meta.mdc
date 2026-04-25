@@ -1,18 +1,32 @@
 ---
-name: Prompt Engineering Meta
-description: Framework de engenharia de prompts — clareza, perguntas antes de assumir, e estruturação (Persona, Contexto, Tarefa, Restrições, Formato). Idioma pt-BR.
+name: Meta-prompt — engenharia de prompts
+description: Camada de apoio transversal — checklist (Persona, Contexto, Tarefa, Restrições, Formato), perguntas em vez de assumir, estruturação de prompt. Não substitui regras ou skills de fluxo obrigatório; compõe com elas. Idioma pt-BR.
 alwaysApply: true
 ---
 
 # Meta-prompt — engenharia de prompts
 
-## Quando esta regra se sobrepõe
+## Hierarquia e papel de apoio
 
-Se outra regra deste projeto ou um **Skill** (ex.: social posts, spec-driven) já define fluxo obrigatório, **siga essa regra/skill primeiro**. Use o framework abaixo para lacunas genéricas, pedidos vagos ou quando o usuário pedir explicitamente para **otimizar/estruturar um prompt**.
+- **Dominante (prevalece):** uma regra deste repositório ou um **Skill** (ex.: create-social-posts, create-spec-driven) que define fases, gates, critério de pronto e entregável. Siga o fluxo e as restrições do dominante.
+- **Apoio (esta regra):** use o framework abaixo para **não inventar** premissas, para alinhar Persona, Contexto, Tarefa, Restrições e **Formato** *dentro* do que o dominante permitir (intake, specify, pedidos vagos, ou quando o utilizador pedir **otimizar/estruturar um prompt**). Não contradizer o gate nem saltar fases.
+- **Onde batem:** se o dominante exige *só* perguntas ou bloquear entregáveis até cumprir condições, o “não entregue a final” cumpre **isso** primeiro; o apoio reforça perguntas **alinhadas** ao gate, não atalhos.
+
+```mermaid
+flowchart TD
+  userInput[Entrada do utilizador]
+  dominant[Regra ou Skill dominante]
+  meta[Apoio prompt-engineering-meta]
+  out[Resposta]
+  userInput --> dominant
+  userInput --> meta
+  dominant -->|define fluxo e entregável| out
+  meta -->|clareza perguntas estrutura| out
+```
 
 ## Verificação rápida (antes de entregar trabalho substancial)
 
-Confirme mentalmente (ou corrija com perguntas) se o pedido tem o suficiente sobre:
+Com skill ou regra dominante ativa, a verificação aplica-se **no espaço** que a skill deixa (não contornar o gate). Caso contrário, confirme mentalmente (ou corrija com perguntas) se o pedido tem o suficiente sobre:
 
 | Elemento       | Pergunta-guia                                         |
 | -------------- | ----------------------------------------------------- |
@@ -26,9 +40,9 @@ Confirme mentalmente (ou corrija com perguntas) se o pedido tem o suficiente sob
 
 ## Flipped interaction (obrigatório quando vago)
 
-Se o prompt for **ambíguo**, **incompleto** ou faltar **contexto crítico** para um bom resultado:
+Se o prompt for **ambíguo**, **incompleto** ou faltar **contexto crítico** para um bom resultado — respeitando o dominante, se houver (ex. gate da skill antes de copy ou slides finais):
 
-1. **Não** entregue de imediato a versão “final” do artefato (nem o prompt otimizado, se for esse o pedido).
+1. **Não** entregue de imediato a versão “final” do artefato (nem o prompt otimizado, se for esse o pedido) **quando o dominante também o proíbe**; nesse caso, siga o gate.
 2. Faça **perguntas específicas e numeradas** (objetivo, público, tom, exemplos desejados, formato, restrições).
 
 ## Arquitetura do prompt (quando for para produzir/otimizar um prompt)

@@ -3,6 +3,8 @@ name: create-spec-driven
 description: Adaptive feature workflow with 4 phases - Specify, Design, Tasks, Execute. Auto-sizes depth by complexity. Atomic tasks with verification criteria, dependency mapping, parallel execution plan, requirement traceability, and atomic commits (Conventional Commits). Stack-agnostic. Includes gray area discussion, persistent state management, codebase concerns tracking, and context window monitoring. Use when planning features (requirements, design, task breakdown), implementing with verification and atomic commits, validating completed work, or tracking decisions and concerns. Triggers on "specify feature", "discuss feature", "design feature", "create tasks", "break into tasks", "implement", "execute", "validate", "verify work", "record decision", "document concerns", "find tech debt". Do NOT use for project initialization, roadmap planning, or codebase mapping.
 ---
 
+Estruturação e clareza de pedidos: use **`.cursor/rules/prompt-engineering-meta.mdc`** como camada de *apoio* (Persona, Contexto, Tarefa, Restrições, Formato) sem contrariar o fluxo abaixo.
+
 # Feature Workflow
 
 Plan and implement features with precision. Granular tasks. Clear dependencies. Parallel execution. Zero ceremony.

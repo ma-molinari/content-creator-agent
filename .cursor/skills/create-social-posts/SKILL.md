@@ -13,6 +13,8 @@ description: >-
   layout, explicit JPG export consent) is in Phases A–E in SKILL.md.
 ---
 
+Estruturação e clareza de pedidos: use **`.cursor/rules/prompt-engineering-meta.mdc`** como camada de *apoio* (Persona, Contexto, Tarefa, Restrições, Formato) **sem** saltar as Phases A–E nem o gate de contexto abaixo.
+
 # Context-gated marketing content (post + carrossel + Stories)
 
 Orchestrate **Instagram post** (copy-first), **Instagram carousel** (repo: HTML/CSS under `instagram-audits/`), and **Instagram Stories** (copy-first, structured per frame; 9:16) workflows. **Do not** deliver final copy or slides until mandatory context is satisfied.
