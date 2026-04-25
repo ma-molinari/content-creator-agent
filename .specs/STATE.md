@@ -2,7 +2,7 @@
 
 ## Última atualização
 
-2026-04-14
+2026-04-13
 
 ## Feature em foco
 
@@ -20,12 +20,12 @@
 |------|-------------------|--------|
 | **Fase 1 — Go API limpa** | T1–T14 | **Concluída (código)** — `apps/api/`: Echo, auth (JWT + refresh httpOnly), rate limit, CRUD chats (limite 5 + eviction), S3, arquivos/zip, jobs async (`POST /chats/:id/messages` → 202 + `jobId`), callback interno, polling de status, `GET /setup/status`. **Ressalvas vs tasks.md:** (1) **T9** — `Upload` tem backoff 3×; **`DeleteMany` não** (apenas batch DeleteObjects). (2) Nomes de env: código usa `AWS_REGION` / `AWS_S3_BUCKET` / etc.; o `tasks.md` menciona `S3_*` no texto — equivalente, só nomenclatura. |
 | **Fase 2 — Worker Python LangGraph** | TP1–TP11 | **Concluída (código)** — `apps/worker/`: FastAPI (`POST /jobs`, `GET /health`), LangGraph (load_profile → optimize → generate_slides → parse_validate com retry → render_to_jpeg → upload_assets → finalize), prompts em `apps/worker/prompts/`, Dockerfile + Playwright Chromium, `pyproject.toml` + `.env.example`. **Ressalva:** **TP6** no `tasks.md` fala em retry máximo **2×** para `generate_slides`; o nó `parse_validate` incrementa `retry_count` enquanto `< 3` (pode haver **até 4** execuções de `generate_slides` no pior caso). Ajustar código ou spec se quiser aderência literal. |
-| **Fase 3 — Integração** | TI1–TI3 | **Concluída (código + testes)** — `docker-compose.yml` na raiz (postgres + api + worker, healthchecks, `WORKER_*` / `GO_API_URL` / volume `tests/e2e/testdata/profile` → `PROFILE_DATA_ROOT`). **TI1** — `go test -tags=integration` em `apps/api/integration/` (`INTEGRATION_DATABASE_URL`); mock worker + callback; `make test-integration` em `apps/api/Makefile`. **TI2** — `pytest` + `httpx` em `tests/e2e/`; `make e2e` no Makefile da raiz. **TI3** — `apps/api/integration/failure_test.go` (callback erro → `failed`, dispatch 500 → 502 + job `failed`, callback sem `assistantText` → 400). Tratamento de `failed` no cliente implementado na Fase 4 (T30 — `ChatThread` + `JobStatusIndicator`). |
+| **Fase 3 — Integração** | TI1–TI3 | **Concluída (código + testes)** — `docker-compose.yml` na raiz (postgres + api + worker, healthchecks, `WORKER_*` / `GO_API_URL`; sem volume de perfil em disco). **TI1** — `go test -tags=integration` em `apps/api/integration/` (`INTEGRATION_DATABASE_URL`); mock worker + callback; perfil de teste via `PUT /profile`; `make test-integration` em `apps/api/Makefile`. **TI2** — `pytest` + `httpx` em `tests/e2e/`; `make e2e` no Makefile da raiz. **TI3** — `apps/api/integration/failure_test.go` (callback erro → `failed`, dispatch 500 → 502 + job `failed`, callback sem `assistantText` → 400). Tratamento de `failed` no cliente implementado na Fase 4 (T30 — `ChatThread` + `JobStatusIndicator`). |
 | **Fase 4 — Frontend** | T24–T33 | **Concluída (código)** — `apps/web/`: T25 (tokens + AppShell + SidebarRail + drawer mobile `< 768px`), T26 (Login form + POST /auth/login + returnTo), T27 (Register + SecurityKeyModal), T28 (interceptor 401 → POST /auth/refresh → retry → clear + redirect), T29 (Chat: `GET /setup/status` gate + ComposerBar + `POST /chats`), T30 (`POST /chats/:id/messages` + polling 1500ms + estados pending/done/failed + retry), T31 (SlideViewer grid+lightbox+a11y + DownloadButton), T32 (History: `GET /chats` + ChatList + empty state), T33 (re-prompt, download ZIP, delete com AlertDialog, toasts). Módulos API em `src/api/auth.ts` + `src/api/chats.ts`. Toast em `src/lib/toast.ts`. Build prod: 0 erros TypeScript. |
-| Fase 5 — Cron | T34–T35 | Pendente |
-| Fase 6 — QA & Deploy | T36–T41 | Pendente |
+| **Fase 5 — Cron** | T34–T35 | **Concluída (código)** — `apps/api/`: `github.com/robfig/cron/v3` (UTC), job registrado só se `OPENAI_API_KEY` estiver definida; `SUMMARIZE_CRON` (default `0 2 * * *`). Pacotes `internal/cron` (scheduler), `internal/summarizer` (repo: elegibilidade SQL + upsert `chat_content_resume`, cliente `go-openai` **gpt-4o-mini**, `Run` com timeout 5 min + logs). `cmd/server`: Echo em goroutine; SIGINT/SIGTERM → `scheduler.Stop()` → `Shutdown`. Env documentados em `apps/api/.env.example`. **Ressalva vs tasks.md:** o texto da tabela fala em **GPT-5.4 Mini** para T35; a implementação segue o plano técnico com **gpt-4o-mini** (equivalente à intenção “modelo compacto para resumo”). |
+| **Fase 6 — QA & Deploy** | T36–T41 | **Concluída (código)** — **T36:** testes unitários Go em `apps/api/` — `internal/auth/service_test.go`, `internal/jobs/repository_test.go`, `internal/summarizer/service_test.go` (interfaces `SummarizerRepository` / `SummarizerClient` em `summarizer/service.go`), `internal/config/config_test.go` (`SUMMARIZE_CRON` default). **T37:** `integration/auth_test.go`, `chat_crud_test.go`, `security_test.go`; `helpers_test.go` com `newTestEnvWithCORS` para CORS. **T38:** Playwright em `apps/web/e2e/` — `auth.spec.ts`, `chat.spec.ts`, `history.spec.ts` (API mockada via `page.route('**/api/**')`). **T39:** `docker-compose.prod.yml` (restart, `COOKIE_SECURE` / `OPENAI_API_KEY` / `SUMMARIZE_CRON`, sem volume de perfil em disco); `Makefile` — `prod-up` / `prod-down`. **T40:** `.github/workflows/ci.yml` — jobs `unit`, `integration` (Postgres service), `playwright`; job `e2e-compose` com `if: false` até segredos LLM/S3 no repo. **T41:** logs `job_id` em `jobs/handler.go`, `chat/post_message.go`, nós `apps/worker/app/nodes/*.py`; `docs/RUNBOOK.md`; nota de CI em `apps/api/.env.example`. **Ressalvas:** integração Go precisa de Postgres acessível em `INTEGRATION_DATABASE_URL` (compose base não expõe Postgres no host; CI usa serviço). E2E Python (`make e2e`) continua a exigir credenciais reais no stack. |
 
-**Próximo passo sugerido:** **Fase 5** (T34–T35 — cron/agendamento) ou **Fase 6** (QA & deploy). Fases 1–4 concluídas em código.
+**Próximo passo sugerido:** habilitar o job `e2e-compose` no CI quando `OPENAI_API_KEY` e AWS estiverem nos segredos do repositório; opcional: expor Postgres no host para `make test-integration` local ou usar apenas CI. Manter `tasks.md` / checkboxes alinhados se desejar rastreio formal.
 
 **Nota:** Monorepo: API Go em **`apps/api/`**, frontend em **`apps/web/`**, worker em **`apps/worker/`** (não `backend/` nem `worker/` na raiz). Opcional: marcar checkboxes no `tasks.md` ou alinhar T9/TP6 ao texto da spec.
 
@@ -51,17 +51,25 @@ Entradas cronológicas do que foi efetivamente construído em código frente à 
 
 ### 2026-04-13 — Integração Go ↔ Python (Fase 3, TI1–TI3)
 
-**Infra:** `docker-compose.yml` (Postgres 16, API Go, worker Python) com healthchecks, `WORKER_API_KEY` compartilhada, `GO_API_URL=http://api:8080`, `WORKER_URL=http://worker:8000`, bind mount `tests/e2e/testdata/profile` → `/profile-data` na API. Imagem da API com `wget` para healthcheck.
+**Infra:** `docker-compose.yml` (Postgres 16, API Go, worker Python) com healthchecks, `WORKER_API_KEY` compartilhada, `GO_API_URL=http://api:8080`, `WORKER_URL=http://worker:8000` (perfil só em BD via `PUT /profile`). Imagem da API com `wget` para healthcheck.
 
 **TI1:** `apps/api/integration/` — `go test -tags=integration` (Postgres via `INTEGRATION_DATABASE_URL`), mock worker HTTP que valida `X-Worker-API-Key` e payload `DispatchPayload`, callback assíncrono para o Echo em teste; storage mock para `GetSignedURL`; `testdata/AUDIT.md` + `BRAND.md`; alvo `make test-integration` em `apps/api/Makefile`.
 
-**TI2:** `tests/e2e/` — `pytest` + `httpx`, `E2E_API_URL` (default `http://localhost:8080`), fixtures criam perfil em disco por `user_id`; `make e2e` no Makefile da raiz (compose up → pytest → down). Requer credenciais reais (`OPENAI_API_KEY`, AWS/S3) no ambiente ao rodar o stack.
+**TI2:** `tests/e2e/` — `pytest` + `httpx`, `E2E_API_URL` (default `http://localhost:8080`), fixture grava perfil com `PUT /profile` (textos lidos de `tests/e2e/testdata/*.md`); `make e2e` no Makefile da raiz (compose up → pytest → down). Requer credenciais reais (`OPENAI_API_KEY`, AWS/S3) no ambiente ao rodar o stack.
 
 **TI3:** `apps/api/integration/failure_test.go` — erro no callback (`failed` + mensagem), worker retorna 500 no dispatch (502 + job `failed` no DB), callback `{}` sem `assistantText` → 400 no endpoint interno. Tratamento no **frontend** para `failed` fica na Fase 4.
 
 ### 2026-04-13 — Frontend React (Fase 4 completa — T24–T33)
 
 **Implementado em `apps/web/src/`:** módulos de API (`api/auth.ts`, `api/chats.ts`) com tipos completos; interceptor de response 401 → `POST /auth/refresh` → retry → clear + `window.location.replace('/login')`; Login form (email, senha, toggle visibilidade, validação client-side, returnTo, erro 401 → mensagem localizada); Register form + `SecurityKeyModal` (clipboard API, checkbox obrigatório, redirect para /login); `AppShell` com drawer mobile (< 768px) + botão hamburguer; `SidebarRail` com prop `onClose` para fechar drawer; `ComposerBar` (auto-resize, contador de caracteres, Enter para enviar, Shift+Enter para quebra); `EmptyChatState` com PromptChips; `Chat.tsx` com: `GET /setup/status` gate + banner de aviso, criação inline de chat (`POST /chats`), envio de mensagem (`POST /chats/:id/messages`), polling de job (`GET /chats/:id/jobs/:jobId/status`) com `refetchInterval` adaptativo, estados pending/processing/done/failed, retry, cabeçalho com download ZIP e delete; `ChatThread` com scroll automático + mensagens otimistas; `MessageBubbleUser` e `MessageAssistant` (com `useFiles` para URLs frescos); `JobStatusIndicator` (spinner + label); `SlideViewer` (grid horizontal de thumbnails, lightbox com prev/next + esc + contador, a11y); `DownloadButton`; `History.tsx` (lista ordenada, label de postType, data PT-BR, delete com `AlertDialog`, download ZIP); sistema de toast (`lib/toast.ts` + `ToastContainer`) montado em `App.tsx`. Build prod: 0 erros TypeScript, 151 módulos.
+
+### 2026-04-13 — Cron e sumarização (Fase 5 — T34–T35)
+
+**Implementado em `apps/api/`:** dependências `github.com/robfig/cron/v3` e `github.com/sashabaranov/go-openai`. Config: `OPENAI_API_KEY`, `SUMMARIZE_CRON` (default `0 2 * * *`, UTC). `internal/cron/scheduler.go` — wrapper com `Start`/`Stop`. `internal/summarizer/` — `repository.go` (chats elegíveis via `chat_content` + `chat_content_resume`, conteúdo ordenado, upsert em `chat_id`), `openai.go` (completions **gpt-4o-mini**), `service.go` (`Run` com `context.WithTimeout` 5 min, erro por chat isolado, logs `[summarizer]` / `[WARN]` se exceder budget). `cmd/server/main.go` — job só se `OPENAI_API_KEY` ≠ ""; shutdown gracioso (signal → `scheduler.Stop()` → `Echo.Shutdown`). `.env.example` atualizado.
+
+### 2026-04-13 — QA & Deploy (Fase 6 — T36–T41)
+
+**Testes Go:** novos `*_test.go` em `internal/auth`, `internal/jobs`, `internal/summarizer`, `internal/config`; integração ampliada em `apps/api/integration/` (auth, CRUD chat + eviction, segurança + CORS). **Frontend:** E2E Playwright com rotas mockadas (`e2e/auth.spec.ts`, `e2e/chat.spec.ts`, `e2e/history.spec.ts`). **Deploy:** `docker-compose.prod.yml` + alvos `prod-up` / `prod-down` no Makefile da raiz (sem volume de perfil em disco). **CI:** `.github/workflows/ci.yml` (unit + integration + playwright; E2E compose desligado por padrão). **Operação:** `docs/RUNBOOK.md`; correlação de logs por `job_id` na API e no worker (nós LangGraph). **Nota E2E:** em `/login`, preencher senha com `#password` (evita colisão de `getByLabel('Senha')` com o botão “Mostrar senha”); em `/history`, navegar pelo link da sidebar (evita perder token em memória com `page.goto` full reload).
 
 ### 2026-04-12 — Reescrita da spec (Go API + LangGraph)
 
@@ -75,7 +83,7 @@ Entradas cronológicas do que foi efetivamente construído em código frente à 
 
 | Feature | Marco | Notas |
 |---------|--------|-------|
-| content-creator-agent | Fase 5 / 6 | Fase 4 Frontend concluída. Próximo: Fase 5 (T34–T35 cron) ou Fase 6 (QA & deploy). |
+| content-creator-agent | Pós–Fase 6 | Fases 1–6 concluídas em código. Opcional: ativar E2E compose no CI (`e2e-compose`), marcar tasks no `tasks.md`. |
 | content-creator-agent | Opcional | Fechar gaps menores T9 (`DeleteMany` backoff) e TP6 (contagem de retry) se quiser aderência literal ao `tasks.md`. |
 
 ## Decisões registradas
@@ -116,6 +124,8 @@ Nenhum.
 | 2026-04-13 | Prompts de execução do worker ficam em `apps/worker/prompts/` na imagem; alinhar alterações em `.cursor/rules` com cópias/atualizações nessa pasta quando necessário. |
 | 2026-04-13 | Integração: testes Go com tag `integration` exigem Postgres acessível (`INTEGRATION_DATABASE_URL`); E2E com compose exige credenciais LLM/S3 no host — sem isso o worker só sobe healthy; o fluxo completo falha no job. |
 | 2026-04-14 | Frontend (Fase 4): imagens dos slides em `GET /chats/:id` têm URLs presignadas que expiram em 1h (geradas no callback do job); para exibir slides sempre com URLs frescos usar `GET /chats/:id/files`. Polling de job status deve usar `staleTime: 0` e `refetchInterval` adaptativo que retorna `false` ao atingir `done`/`failed`. |
+| 2026-04-13 | Cron de sumarização não roda sem `OPENAI_API_KEY` (evita falhas silenciosas em dev); expressões cron são em **UTC** — alinhar `SUMMARIZE_CRON` ao fuso desejado ou documentar para operação. |
+| 2026-04-13 | Fase 6: Playwright com API mockada cobre fluxos críticos sem backend; testes de integração Go dependem de Postgres acessível (`INTEGRATION_DATABASE_URL`). Perfil de aplicação em BD (`PUT /profile`); compose sem `PROFILE_DATA_ROOT`. |
 
 ## Contexto de sessão (referência rápida)
 
