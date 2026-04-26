@@ -125,7 +125,7 @@ Erros acumulados em `state["errors"]`, não lançados. Logging com `node=<name> 
 - Import alias: `@/` → `src/`
 
 ### Auth
-- Access token: HS256, 15min, Bearer header
+- Access token: HS256, 4h, Bearer header
 - Refresh token: HS256, 7d, HttpOnly cookie
 - Interceptor axios faz refresh silencioso em 401
 

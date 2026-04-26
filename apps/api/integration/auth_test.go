@@ -128,6 +128,50 @@ func TestRefresh_ValidCookie_Returns200(t *testing.T) {
 	require.NotEmpty(t, refreshResp.AccessToken)
 }
 
+func TestLogout_ClearsCookie_ThenRefreshUnauthorized(t *testing.T) {
+	env := newTestEnv(t, noopWorker)
+	jar, err := cookiejar.New(nil)
+	require.NoError(t, err)
+	client := &http.Client{Jar: jar, Timeout: env.HTTPClient.Timeout}
+
+	email := uuid.New().String() + "@integration.test"
+	regBody := map[string]string{"email": email, "password": "password123"}
+	regJSON, err := json.Marshal(regBody)
+	require.NoError(t, err)
+	req, err := http.NewRequest(http.MethodPost, env.APIURL+"/auth/register", bytes.NewReader(regJSON))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+	res, err := client.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+	require.Equal(t, http.StatusCreated, res.StatusCode)
+
+	loginBody := map[string]string{"email": email, "password": "password123"}
+	loginJSON, err := json.Marshal(loginBody)
+	require.NoError(t, err)
+	req2, err := http.NewRequest(http.MethodPost, env.APIURL+"/auth/login", bytes.NewReader(loginJSON))
+	require.NoError(t, err)
+	req2.Header.Set("Content-Type", "application/json")
+	res2, err := client.Do(req2)
+	require.NoError(t, err)
+	defer res2.Body.Close()
+	require.Equal(t, http.StatusOK, res2.StatusCode)
+
+	reqLogout, err := http.NewRequest(http.MethodPost, env.APIURL+"/auth/logout", nil)
+	require.NoError(t, err)
+	resLogout, err := client.Do(reqLogout)
+	require.NoError(t, err)
+	defer resLogout.Body.Close()
+	require.Equal(t, http.StatusNoContent, resLogout.StatusCode)
+
+	reqRefresh, err := http.NewRequest(http.MethodPost, env.APIURL+"/auth/refresh", nil)
+	require.NoError(t, err)
+	resRefresh, err := client.Do(reqRefresh)
+	require.NoError(t, err)
+	defer resRefresh.Body.Close()
+	require.Equal(t, http.StatusUnauthorized, resRefresh.StatusCode)
+}
+
 func TestRecoverPassword_WrongKey_Returns200LikeSuccess(t *testing.T) {
 	env := newTestEnv(t, noopWorker)
 	email := uuid.New().String() + "@integration.test"

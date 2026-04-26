@@ -15,9 +15,13 @@ import (
 )
 
 const (
-	bcryptCost      = 12
-	accessTokenTTL  = 15 * time.Minute
-	refreshTokenTTL = 7 * 24 * time.Hour
+	bcryptCost = 12
+	// AccessTokenTTL is the signed JWT duration returned on login and refresh.
+	AccessTokenTTL = 4 * time.Hour
+	// RefreshTokenTTL is the signed refresh JWT and Set-Cookie MaxAge.
+	RefreshTokenTTL = 7 * 24 * time.Hour
+	accessTokenTTL  = AccessTokenTTL
+	refreshTokenTTL = RefreshTokenTTL
 )
 
 // ServiceError carries an HTTP status for handlers.

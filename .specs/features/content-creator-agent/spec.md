@@ -64,7 +64,7 @@ Criadores de conteúdo, social media managers e empreendedores digitais precisam
 
 **Acceptance Criteria**:
 
-1. WHEN o usuário envia `POST /auth/login` com credenciais válidas THEN o sistema SHALL retornar `accessToken` (JWT, 15 min, em memória) e definir cookie `httpOnly + Secure + SameSite=Strict` com `refreshToken` (7 dias)
+1. WHEN o usuário envia `POST /auth/login` com credenciais válidas THEN o sistema SHALL retornar `accessToken` (JWT, 4 h, em memória) e definir cookie `httpOnly + Secure + SameSite=Strict` com `refreshToken` (7 dias)
 2. WHEN o usuário envia `POST /auth/login` com senha incorreta THEN o sistema SHALL retornar `401 Unauthorized`
 3. WHEN o frontend detecta access token expirado THEN o sistema SHALL chamar `POST /auth/refresh` automaticamente e renovar o `accessToken` sem interrupção para o usuário
 4. WHEN o `refreshToken` é inválido ou expirado THEN o sistema SHALL retornar `401` e o frontend SHALL redirecionar para login

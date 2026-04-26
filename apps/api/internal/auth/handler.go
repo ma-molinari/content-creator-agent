@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v4"
 )
@@ -62,7 +63,7 @@ func (h *Handler) Login(c echo.Context) error {
 		Name:     refreshCookieName,
 		Value:    res.RefreshToken,
 		Path:     "/",
-		MaxAge:   7 * 24 * 3600,
+		MaxAge:   int(RefreshTokenTTL / time.Second),
 		HttpOnly: true,
 		Secure:   h.svc.CookieSecure(),
 		SameSite: http.SameSiteStrictMode,
@@ -86,6 +87,20 @@ func (h *Handler) Refresh(c echo.Context) error {
 		return mapAuthError(err)
 	}
 	return c.JSON(http.StatusOK, refreshResponse{AccessToken: access})
+}
+
+func (h *Handler) Logout(c echo.Context) error {
+	cookie := &http.Cookie{
+		Name:     refreshCookieName,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   h.svc.CookieSecure(),
+		SameSite: http.SameSiteStrictMode,
+	}
+	c.SetCookie(cookie)
+	return c.NoContent(http.StatusNoContent)
 }
 
 type recoverBody struct {

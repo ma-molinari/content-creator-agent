@@ -78,7 +78,7 @@ load_profile → describe_references → optimize_prompt → generate_slides
 
 **Location:** `apps/api/internal/auth/`, `apps/api/internal/middleware/jwt.go`
 **Purpose:** short-lived access token + long-lived refresh token held in HttpOnly cookie.
-- Access token: HS256, 15 min, sent as `Authorization: Bearer` header
+- Access token: HS256, 4 h, sent as `Authorization: Bearer` header
 - Refresh token: HS256, 7 days, set as HttpOnly cookie on login
 - Middleware `appmw.JWT()` validates the access token on every protected route
 - Frontend `axios` interceptor silently refreshes on 401 and retries the failed request via a pending queue

@@ -106,6 +106,7 @@ func main() {
 	authGroup.Use(appmw.AuthByIP())
 	authGroup.POST("/register", h.Register)
 	authGroup.POST("/login", h.Login)
+	authGroup.POST("/logout", h.Logout)
 	authGroup.POST("/refresh", h.Refresh)
 	authGroup.POST("/recover-password", h.RecoverPassword)
 
