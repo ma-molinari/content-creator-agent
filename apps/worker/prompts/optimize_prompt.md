@@ -39,9 +39,12 @@ Exemplo de estrutura:
 - `## Proposta de valor / gancho`
 - `## Estrutura sugerida dos slides` (quantidade, função de cada bloco)
 - `## CTAs e hashtags` (se aplicável)
+- `## Direção de layout (feed móvel)` (opcional; alinha com o gerador 768×1376)
 - `## Restrições e não fazer`
 - `## Perguntas em aberto` (opcional; só se necessário, itens numerados)
 
 Seja acionável e específico. O próximo passo gera **HTML** por slide: **prefira** descrever a direção visual em texto (mood, paleta, composição, tipografia) para o gerador alinhar com AUDIT/BRAND.
+
+**Feed móvel (768px fixo, sem responsividade real):** o brief **não** deve pedir “duas colunas lado a lado com muito texto” nem composições tipo *desktop editorial* (revista de duas colunas de parágrafo). Prefira **blocos e *feature boxes* em sequência vertical**; se mencionar CTA, selos, pills ou badges, deixe explícita **margem** em relação à borda inferior (coerente com a zona segura do gerador), para não forçar elementos colados ao rodapé.
 
 **Fotografia no slide:** o gerador de HTML **decide sozinho** quando incluir fotos do **Unsplash** (`https://images.unsplash.com/...`), alinhado ao conteúdo — **não** é necessário que este brief **peça** imagens para o pipeline usar fotografia. O Unsplash é só **canal de mídia** no slide — **não** substitui nem inventa o que deveria vir de **AUDIT** e **BRAND**. **Não** sugira outros bancos, marketplaces de stock genéricos nem URLs de fotografia fora do Unsplash. Se o usuário ou a marca **não** quiserem fotos (ou quiserem limitar temas), registre em `## Restrições e não fazer` (ex.: carrossel só tipográfico, sem rostos, só abstrato) para o gerador obedecer.
