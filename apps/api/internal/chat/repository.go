@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"content-creator-agent/internal/db"
 
@@ -114,13 +115,14 @@ func (r *Repository) DeleteChat(ctx context.Context, chatID uuid.UUID) error {
 	return nil
 }
 
-// ListImagesForChat returns all images for a chat ordered by slide number.
+// ListImagesForChat returns all images for a chat: chronological assistant turns,
+// then slide order within each turn (by chat_content.created_at, id, slide_number).
 func (r *Repository) ListImagesForChat(ctx context.Context, chatID uuid.UUID) ([]db.ChatContentImage, error) {
 	var imgs []db.ChatContentImage
 	err := r.db.WithContext(ctx).
 		Joins("JOIN chat_content ON chat_content.id = chat_content_image.chat_content_id").
 		Where("chat_content.chat_id = ?", chatID).
-		Order("chat_content_image.slide_number ASC").
+		Order("chat_content.created_at ASC, chat_content.id ASC, chat_content_image.slide_number ASC").
 		Find(&imgs).Error
 	return imgs, err
 }
@@ -186,13 +188,26 @@ func (r *Repository) CreateContentWithImages(ctx context.Context, userContent *d
 }
 
 // CreateUserMessageAndJob inserts the user message row and a pending job in one transaction.
-func (r *Repository) CreateUserMessageAndJob(ctx context.Context, userContent *db.ChatContent, job *db.Job) error {
+// When setTitle is non-empty, updates the chat title only if it is still unset (NULL or blank).
+func (r *Repository) CreateUserMessageAndJob(ctx context.Context, userContent *db.ChatContent, job *db.Job, setTitle *string) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(userContent).Error; err != nil {
 			return err
 		}
 		if err := tx.Create(job).Error; err != nil {
 			return err
+		}
+		if setTitle != nil {
+			preview := strings.TrimSpace(*setTitle)
+			if preview != "" {
+				res := tx.Model(&db.Chat{}).
+					Where("id = ?", userContent.ChatID).
+					Where("(title IS NULL OR TRIM(COALESCE(title, '')) = '')").
+					Update("title", preview)
+				if res.Error != nil {
+					return res.Error
+				}
+			}
 		}
 		return nil
 	})

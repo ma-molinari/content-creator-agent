@@ -150,7 +150,7 @@ func (s *Service) ListFiles(ctx context.Context, userID, chatID uuid.UUID) ([]Fi
 		}
 		out = append(out, FileListItem{
 			ID:          img.ID,
-			FileName:    fmt.Sprintf("slide-%d.jpg", img.SlideNumber),
+			FileName:    imageArchiveFileName(img),
 			MimeType:    "image/jpeg",
 			DownloadURL: url,
 		})
@@ -178,8 +178,7 @@ func (s *Service) BuildChatZip(ctx context.Context, userID, chatID uuid.UUID) ([
 			_ = zw.Close()
 			return nil, "", err
 		}
-		name := fmt.Sprintf("slide-%d.jpg", img.SlideNumber)
-		w, err := zw.Create(name)
+		w, err := zw.Create(imageArchiveFileName(img))
 		if err != nil {
 			_ = zw.Close()
 			return nil, "", err
@@ -218,16 +217,28 @@ func (s *Service) GetImageJPEG(ctx context.Context, userID, chatID, fileID uuid.
 	return s.store.GetObject(ctx, img.S3Key)
 }
 
-func (s *Service) assertChatOwner(ctx context.Context, userID, chatID uuid.UUID) error {
+// getChatIfOwner loads the chat when it exists and belongs to userID.
+func (s *Service) getChatIfOwner(ctx context.Context, userID, chatID uuid.UUID) (*db.Chat, error) {
 	c, err := s.repo.GetByID(ctx, chatID)
 	if ErrRecordNotFound(err) {
-		return ErrNotFound
+		return nil, ErrNotFound
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if c.UserID != userID {
-		return ErrForbidden
+		return nil, ErrForbidden
 	}
-	return nil
+	return c, nil
+}
+
+func (s *Service) assertChatOwner(ctx context.Context, userID, chatID uuid.UUID) error {
+	_, err := s.getChatIfOwner(ctx, userID, chatID)
+	return err
+}
+
+// imageArchiveFileName is the path used in ZIPs and ListFiles: one folder per assistant
+// message (chat_content id) so slide numbers can repeat across turns without collision.
+func imageArchiveFileName(img db.ChatContentImage) string {
+	return fmt.Sprintf("%s/slide-%d.jpg", img.ChatContentID.String(), img.SlideNumber)
 }

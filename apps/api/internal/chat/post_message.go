@@ -45,7 +45,8 @@ func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, raw
 	if s.worker == nil {
 		return nil, ErrWorkerNotConfigured
 	}
-	if err := s.assertChatOwner(ctx, userID, chatID); err != nil {
+	chatRow, err := s.getChatIfOwner(ctx, userID, chatID)
+	if err != nil {
 		return nil, err
 	}
 	ok, err := s.IsProfileConfigured(ctx, userID)
@@ -86,7 +87,13 @@ func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, raw
 		UserID: userID,
 		Status: db.JobStatusPending,
 	}
-	if err := s.repo.CreateUserMessageAndJob(ctx, userMsg, job); err != nil {
+	var setTitle *string
+	if chatNeedsTitle(chatRow) {
+		if preview := titlePreviewFromBody(body); preview != "" {
+			setTitle = &preview
+		}
+	}
+	if err := s.repo.CreateUserMessageAndJob(ctx, userMsg, job, setTitle); err != nil {
 		return nil, err
 	}
 	payload := jobs.DispatchPayload{
