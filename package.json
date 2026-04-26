@@ -1,11 +1,4 @@
 {
   "name": "content-creator-agent",
-  "private": true,
-  "description": "Carousel HTML export uses Playwright (see scripts/export-slides.js).",
-  "scripts": {
-    "export-slides:validate": "node scripts/export-slides.js --validate"
-  },
-  "devDependencies": {
-    "playwright": "^1.49.0"
-  }
+  "private": true
 }
