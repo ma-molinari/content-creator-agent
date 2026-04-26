@@ -33,9 +33,9 @@ const signedURLExpiry = time.Hour
 
 // Service coordinates chat use cases and storage.
 type Service struct {
-	repo            *Repository
-	jobsRepo        *jobs.Repository
-	store           storage.StorageService
+	repo        *Repository
+	jobsRepo    *jobs.Repository
+	store       storage.StorageService
 	profileRepo *profile.Repository
 	profileSvc  *profile.Service
 	worker      jobs.WorkerClient
@@ -97,7 +97,27 @@ func (s *Service) GetChat(ctx context.Context, userID, chatID uuid.UUID) (*db.Ch
 	if c.UserID != userID {
 		return nil, ErrForbidden
 	}
-	return s.repo.GetByIDWithContents(ctx, chatID)
+	c, err = s.repo.GetByIDWithContents(ctx, chatID)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.refreshContentImageURLs(ctx, c); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+func (s *Service) refreshContentImageURLs(ctx context.Context, c *db.Chat) error {
+	for i := range c.Contents {
+		for j := range c.Contents[i].Images {
+			url, err := s.store.GetSignedURL(ctx, c.Contents[i].Images[j].S3Key, signedURLExpiry)
+			if err != nil {
+				return err
+			}
+			c.Contents[i].Images[j].URL = url
+		}
+	}
+	return nil
 }
 
 // DeleteChat removes S3 objects then the chat row.

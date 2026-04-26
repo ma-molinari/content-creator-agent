@@ -85,3 +85,44 @@ func TestJobRepository_UpdateStatus(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, db.JobStatusDone, got2.Status)
 }
+
+func TestJobRepository_FailStuckProcessingJobs(t *testing.T) {
+	gdb := testJobsDB(t)
+	repo := NewRepository(gdb)
+	ctx := context.Background()
+	old := time.Now().UTC().Add(-2 * time.Hour)
+	recent := time.Now().UTC().Add(-5 * time.Minute)
+
+	stuckID := uuid.New()
+	freshID := uuid.New()
+	require.NoError(t, gdb.Create(&db.Job{
+		ID:        stuckID,
+		ChatID:    uuid.New(),
+		UserID:    uuid.New(),
+		Status:    db.JobStatusProcessing,
+		CreatedAt: old,
+		UpdatedAt: old,
+	}).Error)
+	require.NoError(t, gdb.Create(&db.Job{
+		ID:        freshID,
+		ChatID:    uuid.New(),
+		UserID:    uuid.New(),
+		Status:    db.JobStatusProcessing,
+		CreatedAt: recent,
+		UpdatedAt: recent,
+	}).Error)
+
+	cutoff := time.Now().UTC().Add(-1 * time.Hour)
+	n, err := repo.FailStuckProcessingJobs(ctx, cutoff, StuckJobErrorMsg)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), n)
+
+	var stuck, fresh db.Job
+	require.NoError(t, gdb.First(&stuck, "id = ?", stuckID).Error)
+	require.Equal(t, db.JobStatusFailed, stuck.Status)
+	require.NotNil(t, stuck.ErrorMsg)
+	require.Equal(t, StuckJobErrorMsg, *stuck.ErrorMsg)
+
+	require.NoError(t, gdb.First(&fresh, "id = ?", freshID).Error)
+	require.Equal(t, db.JobStatusProcessing, fresh.Status)
+}

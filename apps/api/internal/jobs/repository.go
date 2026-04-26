@@ -43,3 +43,15 @@ func (r *Repository) UpdateStatus(ctx context.Context, id uuid.UUID, status db.J
 	}
 	return r.db.WithContext(ctx).Model(&db.Job{}).Where("id = ?", id).Updates(updates).Error
 }
+
+// FailStuckProcessingJobs marks processing jobs older than cutoff as failed.
+func (r *Repository) FailStuckProcessingJobs(ctx context.Context, cutoff time.Time, errMsg string) (int64, error) {
+	res := r.db.WithContext(ctx).Model(&db.Job{}).
+		Where("status = ? AND updated_at < ?", db.JobStatusProcessing, cutoff).
+		Updates(map[string]interface{}{
+			"status":     db.JobStatusFailed,
+			"error_msg":  errMsg,
+			"updated_at": time.Now().UTC(),
+		})
+	return res.RowsAffected, res.Error
+}

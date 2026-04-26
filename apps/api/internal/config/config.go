@@ -25,6 +25,10 @@ type Config struct {
 	OpenAIAPIKey string
 	// SummarizeCron is a standard cron expression in UTC (default 02:00 daily).
 	SummarizeCron string
+	// StuckJobCron runs stuck-job cleanup (default every 10 minutes UTC). Empty disables the job.
+	StuckJobCron string
+	// StuckJobProcessingMinutes marks processing jobs as failed when UpdatedAt is older than this (default 45).
+	StuckJobProcessingMinutes int
 	// ProfileRefMaxCount caps optional design reference uploads per user (default 8).
 	ProfileRefMaxCount int
 	// ProfileRefMaxBytes is the max size per reference image in bytes (default 5MB).
@@ -50,6 +54,16 @@ func Load() Config {
 	if summarizeCron == "" {
 		summarizeCron = "0 2 * * *"
 	}
+	stuckJobCron := os.Getenv("STUCK_JOB_CRON")
+	if stuckJobCron == "" {
+		stuckJobCron = "*/10 * * * *"
+	}
+	stuckJobMinutes := 45
+	if v := strings.TrimSpace(os.Getenv("STUCK_JOB_PROCESSING_MINUTES")); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			stuckJobMinutes = n
+		}
+	}
 	profileRefMax := 8
 	if v := strings.TrimSpace(os.Getenv("PROFILE_REF_MAX_COUNT")); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
@@ -63,20 +77,22 @@ func Load() Config {
 		}
 	}
 	return Config{
-		Port:               port,
-		DatabaseURL:        os.Getenv("DATABASE_URL"),
-		JWTSecret:          os.Getenv("JWT_SECRET"),
-		JWTRefreshSecret:   os.Getenv("JWT_REFRESH_SECRET"),
-		CORSAllowedOrigins: allowed,
-		AWSRegion:          os.Getenv("AWS_REGION"),
-		AWSAccessKeyID:     os.Getenv("AWS_ACCESS_KEY_ID"),
-		AWSSecretAccessKey: os.Getenv("AWS_SECRET_ACCESS_KEY"),
-		S3Bucket:           os.Getenv("AWS_S3_BUCKET"),
-		WorkerURL:          os.Getenv("WORKER_URL"),
-		WorkerAPIKey:       os.Getenv("WORKER_API_KEY"),
-		OpenAIAPIKey:       os.Getenv("OPENAI_API_KEY"),
-		SummarizeCron:      summarizeCron,
-		ProfileRefMaxCount: profileRefMax,
-		ProfileRefMaxBytes: profileRefMaxBytes,
+		Port:                      port,
+		DatabaseURL:               os.Getenv("DATABASE_URL"),
+		JWTSecret:                 os.Getenv("JWT_SECRET"),
+		JWTRefreshSecret:          os.Getenv("JWT_REFRESH_SECRET"),
+		CORSAllowedOrigins:        allowed,
+		AWSRegion:                 os.Getenv("AWS_REGION"),
+		AWSAccessKeyID:            os.Getenv("AWS_ACCESS_KEY_ID"),
+		AWSSecretAccessKey:        os.Getenv("AWS_SECRET_ACCESS_KEY"),
+		S3Bucket:                  os.Getenv("AWS_S3_BUCKET"),
+		WorkerURL:                 os.Getenv("WORKER_URL"),
+		WorkerAPIKey:              os.Getenv("WORKER_API_KEY"),
+		OpenAIAPIKey:              os.Getenv("OPENAI_API_KEY"),
+		SummarizeCron:             summarizeCron,
+		StuckJobCron:              stuckJobCron,
+		StuckJobProcessingMinutes: stuckJobMinutes,
+		ProfileRefMaxCount:        profileRefMax,
+		ProfileRefMaxBytes:        profileRefMaxBytes,
 	}
 }

@@ -12,6 +12,8 @@
 | `COOKIE_SECURE` | API | `true` em HTTPS (override de dev com `false`); ver `docker-compose.prod.yml` |
 | `OPENAI_API_KEY` | API | Opcional; se definido, habilita cron de sumarização |
 | `SUMMARIZE_CRON` | API | Cron em UTC (padrão `0 2 * * *`) |
+| `STUCK_JOB_CRON` | API | Opcional; cron UTC para marcar jobs em `processing` há muito tempo como falha (padrão `*/10 * * * *`). Vazio desativa. |
+| `STUCK_JOB_PROCESSING_MINUTES` | API | Idade mínima de `jobs.updated_at` em `processing` para falhar (padrão `45`). Valores baixos podem falhar jobs legítimos lentos. |
 
 **Segurança operacional:** não escrever `WORKER_API_KEY` nem outros segredos em logs ou tickets. Rotacionar `WORKER_API_KEY` após suspeita de fuga. Endpoints `POST /internal/*` devem ficar apenas em rede privada (VPN, mesh interno, security group), não expostos à internet pública. Objetos de slides no S3 usam sempre chaves `slides/{job_id}/…` (UUID do job); o callback do worker só aceita chaves com esse prefixo.
 

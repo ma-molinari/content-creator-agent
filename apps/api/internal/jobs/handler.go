@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"content-creator-agent/internal/config"
-	"content-creator-agent/internal/db"
 	"content-creator-agent/internal/httperr"
 	"content-creator-agent/internal/storage"
 
@@ -56,19 +55,20 @@ func (h *Handler) Complete(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid JSON body")
 	}
 	ctx := c.Request().Context()
-	job, err := h.repo.GetByID(ctx, jobID)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return echo.NewHTTPError(http.StatusNotFound, "job not found")
-		}
-		return httperr.Internal("[jobs] complete get job", err)
-	}
 	if body.Error != nil && strings.TrimSpace(*body.Error) != "" {
 		msg := strings.TrimSpace(*body.Error)
-		if err := h.repo.UpdateStatus(ctx, jobID, db.JobStatusFailed, &msg); err != nil {
-			return httperr.Internal("[jobs] complete update failed status", err)
+		noop, err := ApplyWorkerFailure(ctx, h.gdb, jobID, msg)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return echo.NewHTTPError(http.StatusNotFound, "job not found")
+			}
+			return httperr.Internal("[jobs] complete apply worker failure", err)
 		}
-		log.Printf("[jobs] complete job_id=%s status=failed error=%s", jobID, msg)
+		if noop {
+			log.Printf("[jobs] complete job_id=%s worker error ignored (terminal state)", jobID)
+		} else {
+			log.Printf("[jobs] complete job_id=%s status=failed error=%s", jobID, msg)
+		}
 		return c.NoContent(http.StatusNoContent)
 	}
 	if body.AssistantText == nil || strings.TrimSpace(*body.AssistantText) == "" {
@@ -83,7 +83,17 @@ func (h *Handler) Complete(c echo.Context) error {
 		}
 		artifacts = append(artifacts, ArtifactRef{S3Key: key, SlideNumber: a.SlideNumber})
 	}
-	if err := CompleteAssistantReply(ctx, h.gdb, job, assistantText, artifacts, h.store); err != nil {
+	alreadyDone, err := CompleteAssistantReply(ctx, h.gdb, jobID, assistantText, artifacts, h.store)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return echo.NewHTTPError(http.StatusNotFound, "job not found")
+		}
+		if errors.Is(err, ErrJobCompleteConflict) {
+			return echo.NewHTTPError(http.StatusConflict, "job already failed")
+		}
+		if errors.Is(err, ErrJobNotProcessing) {
+			return echo.NewHTTPError(http.StatusBadRequest, "job not in processing state")
+		}
 		if errors.Is(err, gorm.ErrInvalidData) {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid artifact")
 		}
@@ -92,6 +102,10 @@ func (h *Handler) Complete(c echo.Context) error {
 		}
 		return httperr.Internal("[jobs] complete persist", err)
 	}
-	log.Printf("[jobs] complete job_id=%s status=done", jobID)
+	if alreadyDone {
+		log.Printf("[jobs] complete job_id=%s status=done (idempotent no-op)", jobID)
+	} else {
+		log.Printf("[jobs] complete job_id=%s status=done", jobID)
+	}
 	return c.NoContent(http.StatusNoContent)
 }

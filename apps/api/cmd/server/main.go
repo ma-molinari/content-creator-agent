@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -59,22 +60,37 @@ func main() {
 
 	jobsH := jobs.NewHandler(&cfg, jobsRepo, gdb, stor)
 
-	var sched *appcron.Scheduler
+	sched := appcron.New()
 	if cfg.OpenAIAPIKey != "" {
 		summRepo := summarizer.NewRepository(gdb)
 		summClient := summarizer.NewClient(cfg.OpenAIAPIKey)
 		summSvc := summarizer.NewService(summRepo, summClient)
-		sched = appcron.New()
 		if err := sched.Register(cfg.SummarizeCron, func() {
 			summSvc.Run(context.Background())
 		}); err != nil {
-			log.Fatalf("cron: %v", err)
+			log.Fatalf("cron summarizer: %v", err)
 		}
-		sched.Start()
-		log.Printf("[summarizer] scheduler started cron=%q (UTC)", cfg.SummarizeCron)
+		log.Printf("[summarizer] cron registered expr=%q (UTC)", cfg.SummarizeCron)
 	} else {
 		log.Print("[summarizer] OPENAI_API_KEY not set; daily summarization cron disabled")
 	}
+	if strings.TrimSpace(cfg.StuckJobCron) != "" {
+		maxAge := time.Duration(cfg.StuckJobProcessingMinutes) * time.Minute
+		if err := sched.Register(cfg.StuckJobCron, func() {
+			n, err := jobs.RunStuckJobCleanup(context.Background(), jobsRepo, maxAge)
+			if err != nil {
+				log.Printf("[jobs] stuck cleanup error: %v", err)
+				return
+			}
+			if n > 0 {
+				log.Printf("[jobs] stuck cleanup: marked %d job(s) failed (processing > %d min)", n, cfg.StuckJobProcessingMinutes)
+			}
+		}); err != nil {
+			log.Fatalf("cron stuck jobs: %v", err)
+		}
+		log.Printf("[jobs] stuck-job cleanup registered expr=%q threshold=%dm (UTC)", cfg.StuckJobCron, cfg.StuckJobProcessingMinutes)
+	}
+	sched.Start()
 
 	e := echo.New()
 	e.HideBanner = true
@@ -138,10 +154,8 @@ func main() {
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	<-quit
 
-	if sched != nil {
-		log.Print("[summarizer] stopping scheduler")
-		sched.Stop()
-	}
+	log.Print("[cron] stopping scheduler")
+	sched.Stop()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := e.Shutdown(shutdownCtx); err != nil {

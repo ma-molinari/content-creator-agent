@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -9,18 +10,21 @@ import (
 	"content-creator-agent/internal/jobs"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 type mockStorage struct {
 	deleteManyCalls int
+	signedURLCalls  int
 }
 
 func (m *mockStorage) Upload(context.Context, string, []byte) error { return nil }
 
 func (m *mockStorage) GetSignedURL(context.Context, string, time.Duration) (string, error) {
-	return "https://example.com/signed", nil
+	m.signedURLCalls++
+	return fmt.Sprintf("https://example.com/signed-%d", m.signedURLCalls), nil
 }
 
 func (m *mockStorage) GetObject(context.Context, string) ([]byte, error) {
@@ -78,6 +82,16 @@ func testDBWithUser(t *testing.T) (*gorm.DB, *db.User) {
 			created_at DATETIME,
 			updated_at DATETIME,
 			FOREIGN KEY (chat_content_id) REFERENCES chat_content(id)
+		)`,
+		`CREATE TABLE chat_content_resume (
+			id TEXT PRIMARY KEY,
+			chat_id TEXT NOT NULL UNIQUE,
+			summary TEXT,
+			last_content_at DATETIME,
+			summarized_at DATETIME,
+			created_at DATETIME,
+			updated_at DATETIME,
+			FOREIGN KEY (chat_id) REFERENCES chats(id)
 		)`,
 	}
 	for _, q := range stmts {
@@ -178,4 +192,41 @@ func TestChatLimit_oneNoEviction(t *testing.T) {
 	if store.deleteManyCalls != 0 {
 		t.Fatalf("unexpected eviction")
 	}
+}
+
+func TestGetChat_refreshesPresignedURLsPerImage(t *testing.T) {
+	gdb, u := testDBWithUser(t)
+	store := &mockStorage{}
+	repo := NewRepository(gdb)
+	svc := NewService(repo, jobs.NewRepository(gdb), store, nil, nil, nil)
+	ctx := context.Background()
+
+	c, err := svc.CreateChat(ctx, u.ID, "single")
+	require.NoError(t, err)
+
+	ccID := uuid.New()
+	require.NoError(t, gdb.Create(&db.ChatContent{
+		ID:        ccID,
+		ChatID:    c.ID,
+		Role:      db.ChatContentRoleAssistant,
+		Content:   "hello",
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+	}).Error)
+	require.NoError(t, gdb.Create(&db.ChatContentImage{
+		ID:            uuid.New(),
+		ChatContentID: ccID,
+		S3Key:         "slides/job/slide1.jpg",
+		URL:           "https://stale.example/old",
+		SlideNumber:   1,
+		CreatedAt:     time.Now().UTC(),
+		UpdatedAt:     time.Now().UTC(),
+	}).Error)
+
+	chat, err := svc.GetChat(ctx, u.ID, c.ID)
+	require.NoError(t, err)
+	require.Len(t, chat.Contents, 1)
+	require.Len(t, chat.Contents[0].Images, 1)
+	require.Equal(t, "https://example.com/signed-1", chat.Contents[0].Images[0].URL)
+	require.Equal(t, 1, store.signedURLCalls)
 }
