@@ -1,3 +1,5 @@
+import { Buffer } from 'node:buffer'
+
 import { expect, test } from '@playwright/test'
 
 const CHAT_ID = '00000000-0000-4000-8000-000000000001'
@@ -8,6 +10,12 @@ const ASST_MSG_ID = '00000000-0000-4000-8000-000000000011'
 const IMG_ID = '00000000-0000-4000-8000-000000000012'
 
 const iso = '2026-01-15T12:00:00.000Z'
+
+/** 1×1 JPEG — SlideViewer now loads slides via GET /chats/:id/files/:fileId (blob). */
+const MIN_JPEG = Buffer.from(
+  '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMiIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAf/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAP/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/2Q==',
+  'base64',
+)
 
 test.describe('chat (mocked API)', () => {
   test('send message → job done → SlideViewer + download ZIP', async ({ page }) => {
@@ -20,6 +28,14 @@ test.describe('chat (mocked API)', () => {
       const method = req.method()
       const path = new URL(req.url()).pathname
 
+      if (path === '/api/auth/refresh' && method === 'POST') {
+        await route.fulfill({
+          status: 401,
+          contentType: 'application/json',
+          body: JSON.stringify({}),
+        })
+        return
+      }
       if (path === '/api/auth/login' && method === 'POST') {
         await route.fulfill({
           status: 200,
@@ -58,6 +74,14 @@ test.describe('chat (mocked API)', () => {
           status: 202,
           contentType: 'application/json',
           body: JSON.stringify({ jobId: JOB_ID }),
+        })
+        return
+      }
+      if (path === `/api/chats/${CHAT_ID}/files/${IMG_ID}` && method === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'image/jpeg',
+          body: MIN_JPEG,
         })
         return
       }

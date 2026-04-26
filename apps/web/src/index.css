@@ -50,6 +50,9 @@
   --transition-fast: 150ms ease;
   --transition-normal: 250ms ease;
 
+  /* Bottom shelf: sidebar footer + composer strip share min height so border-t aligns (desktop). */
+  --app-bottom-shelf-min-height: 5rem;
+
   color-scheme: light;
 }
 

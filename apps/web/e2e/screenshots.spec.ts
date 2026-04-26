@@ -12,6 +12,16 @@ test.beforeAll(() => {
 })
 
 test.describe('UI — screenshots (build de produção)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route('**/api/auth/refresh', async (route) => {
+      await route.fulfill({
+        status: 401,
+        contentType: 'application/json',
+        body: JSON.stringify({}),
+      })
+    })
+  })
+
   test('login (desktop)', async ({ page }) => {
     await page.goto('/login')
     await expect(page.getByRole('heading', { name: 'Entrar' })).toBeVisible()

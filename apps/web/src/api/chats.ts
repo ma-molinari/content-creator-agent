@@ -123,12 +123,17 @@ export function useChats() {
   })
 }
 
+const CHAT_PRESIGN_REFRESH_MS = 45 * 60 * 1000
+
 export function useChat(id: string | undefined) {
   return useQuery({
     queryKey: ['chats', id],
     queryFn: () => api.get<Chat>(`/chats/${id}`).then((r) => r.data),
     enabled: !!id,
-    staleTime: 30_000,
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchInterval: CHAT_PRESIGN_REFRESH_MS,
+    refetchIntervalInBackground: false,
   })
 }
 

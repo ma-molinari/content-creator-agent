@@ -35,7 +35,7 @@ export function MessageAssistant({ message }: Props) {
 
           {files.length > 0 && (
             <div className="mt-3">
-              <SlideViewer files={files} />
+              <SlideViewer chatId={message.chatId} files={files} />
             </div>
           )}
         </div>

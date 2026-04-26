@@ -37,6 +37,17 @@ export default function Chat() {
   const chat = useChat(id)
   const deleteChat = useDeleteChat()
 
+  useEffect(() => {
+    if (!id) return
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) {
+        void qc.invalidateQueries({ queryKey: ['chats', id] })
+      }
+    }
+    window.addEventListener('pageshow', onPageShow)
+    return () => window.removeEventListener('pageshow', onPageShow)
+  }, [id, qc])
+
   const jobStatus = useJobStatus(activeJob?.chatId ?? null, activeJob?.jobId ?? null)
   const currentStatus: JobStatus | undefined = jobStatus.data?.status
 

@@ -1,6 +1,16 @@
 import { expect, test } from '@playwright/test'
 
 test.describe('auth (mocked API)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route('**/api/auth/refresh', async (route) => {
+      await route.fulfill({
+        status: 401,
+        contentType: 'application/json',
+        body: JSON.stringify({}),
+      })
+    })
+  })
+
   test('register flow — SecurityKeyModal → login', async ({ page }) => {
     await page.route('**/api/auth/register', async (route) => {
       await route.fulfill({

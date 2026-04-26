@@ -13,6 +13,14 @@ test.describe('history (mocked API)', () => {
       const method = req.method()
       const path = new URL(req.url()).pathname
 
+      if (path === '/api/auth/refresh' && method === 'POST') {
+        await route.fulfill({
+          status: 401,
+          contentType: 'application/json',
+          body: JSON.stringify({}),
+        })
+        return
+      }
       if (path === '/api/auth/login' && method === 'POST') {
         await route.fulfill({
           status: 200,

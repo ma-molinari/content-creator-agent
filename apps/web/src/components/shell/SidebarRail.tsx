@@ -1,10 +1,27 @@
+import { useNavigate } from 'react-router-dom'
+
+import { logoutRemote } from '@/api/auth'
 import { NavItem } from '@/components/shell/NavItem'
+import { queryClient } from '@/lib/queryClient'
+import { useAuthStore } from '@/stores/auth'
 
 type Props = {
   onClose?: () => void
 }
 
 export function SidebarRail({ onClose }: Props) {
+  const navigate = useNavigate()
+
+  const handleLogout = async () => {
+    try {
+      await logoutRemote()
+    } finally {
+      queryClient.clear()
+      useAuthStore.getState().clear()
+      navigate('/login', { replace: true })
+    }
+  }
+
   return (
     <aside
       className="flex h-full w-[220px] shrink-0 flex-col border-r border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)]"
@@ -30,13 +47,15 @@ export function SidebarRail({ onClose }: Props) {
         <NavItem to="/history" icon={<IconHistory />} label="Histórico" />
         <NavItem to="/profile" icon={<IconUser />} label="Perfil" />
       </nav>
-      <div className="border-t border-[var(--color-border-subtle)] p-3">
-        <div
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-bg-muted)] text-xs font-medium text-[var(--color-text-secondary)]"
-          aria-hidden
+      <div className="flex min-h-[var(--app-bottom-shelf-min-height)] items-center border-t border-[var(--color-border-subtle)] p-3">
+        <button
+          type="button"
+          onClick={handleLogout}
+          aria-label="Sair"
+          className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-[var(--radius-md)] text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text-primary)]"
         >
-          U
-        </div>
+          <IconLogout />
+        </button>
       </div>
     </aside>
   )
@@ -82,6 +101,27 @@ function IconX() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
       <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function IconLogout() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M16 17l5-5-5-5M21 12H9"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   )
 }

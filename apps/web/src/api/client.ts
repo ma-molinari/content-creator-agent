@@ -10,6 +10,13 @@ export const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
+/** No interceptors — only for initial session bootstrap (POST /auth/refresh). Avoids 401 → full-page redirect on public routes. */
+export const apiSession = axios.create({
+  baseURL,
+  withCredentials: true,
+  headers: { 'Content-Type': 'application/json' },
+})
+
 api.interceptors.request.use((config) => {
   const token = useAuthStore.getState().accessToken
   if (token) {

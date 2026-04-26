@@ -56,9 +56,9 @@ export function ComposerBar({
   }
 
   return (
-    <div className="shrink-0 border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] px-4 py-3">
+    <div className="min-h-[var(--app-bottom-shelf-min-height)] shrink-0 border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] px-4 py-3">
       <div className="mx-auto max-w-3xl">
-        <div className="flex items-end gap-2 rounded-[var(--radius-lg)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-app)] px-3 py-2 shadow-[var(--shadow-composer)] focus-within:ring-2 focus-within:ring-[var(--color-focus-ring)]">
+        <div className="flex items-center gap-2 rounded-[var(--radius-lg)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-app)] px-3 py-2 shadow-[var(--shadow-composer)] focus-within:ring-2 focus-within:ring-[var(--color-focus-ring)]">
           <textarea
             ref={textareaRef}
             value={text}
@@ -68,10 +68,10 @@ export function ComposerBar({
             placeholder={placeholder}
             rows={1}
             aria-label="Mensagem"
-            className="flex-1 resize-none bg-transparent text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex-1 resize-none bg-transparent py-2 text-sm leading-snug text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none disabled:cursor-not-allowed disabled:opacity-60"
             style={{ maxHeight: 120 }}
           />
-          <div className="flex shrink-0 items-center gap-2 pb-0.5">
+          <div className="flex shrink-0 items-center gap-2">
             <span
               className={[
                 'text-xs tabular-nums',

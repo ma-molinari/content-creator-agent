@@ -1,12 +1,14 @@
 import { useState } from 'react'
 
 import type { FileListItem } from '@/api/chats'
+import { AuthenticatedSlideImage } from '@/components/slides/AuthenticatedSlideImage'
 
 type Props = {
+  chatId: string
   files: FileListItem[]
 }
 
-export function SlideViewer({ files }: Props) {
+export function SlideViewer({ chatId, files }: Props) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
 
   if (files.length === 0) return null
@@ -51,8 +53,9 @@ export function SlideViewer({ files }: Props) {
             style={{ width: 96, aspectRatio: '768 / 1376' }}
             aria-label={`Abrir slide ${i + 1} de ${sorted.length}`}
           >
-            <img
-              src={file.downloadUrl}
+            <AuthenticatedSlideImage
+              chatId={chatId}
+              fileId={file.id}
               alt={`Slide ${i + 1} de ${sorted.length}`}
               loading="lazy"
               className="h-full w-full object-cover transition-opacity group-hover:opacity-90"
@@ -86,12 +89,15 @@ export function SlideViewer({ files }: Props) {
             </button>
           )}
 
-          <img
-            src={sorted[lightboxIndex].downloadUrl}
-            alt={`Slide ${lightboxIndex + 1} de ${sorted.length}`}
-            className="max-h-[90vh] max-w-[90vw] rounded-[var(--radius-md)] object-contain"
-            onClick={(e) => e.stopPropagation()}
-          />
+          <div onClick={(e) => e.stopPropagation()}>
+            <AuthenticatedSlideImage
+              chatId={chatId}
+              fileId={sorted[lightboxIndex].id}
+              alt={`Slide ${lightboxIndex + 1} de ${sorted.length}`}
+              loading="eager"
+              className="max-h-[90vh] max-w-[90vw] rounded-[var(--radius-md)] object-contain"
+            />
+          </div>
 
           {/* Next */}
           {lightboxIndex < sorted.length - 1 && (
