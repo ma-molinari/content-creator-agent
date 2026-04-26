@@ -30,7 +30,7 @@ func (c *Client) Summarize(ctx context.Context, history string) (string, error) 
 		return "", errors.New("empty history")
 	}
 	resp, err := c.inner.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-		Model: openai.GPT4oMini,
+		Model: "gpt-5.4-mini",
 		Messages: []openai.ChatCompletionMessage{
 			{Role: openai.ChatMessageRoleSystem, Content: summarizeSystemPrompt},
 			{Role: openai.ChatMessageRoleUser, Content: history},
