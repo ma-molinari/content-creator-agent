@@ -76,7 +76,6 @@ content-creator-agent/
 │           ├── stores/         # Zustand (auth — in-memory only)
 │           └── router/         # React Router routes
 │
-├── instagram-audits/           # Auditorias offline por cliente (AUDIT.md, BRAND.md)
 ├── tests/e2e/                  # Full-stack E2E (pytest + httpx + Docker Compose)
 ├── docs/                       # Documentação técnica detalhada
 ├── .specs/                     # Feature specs (create-spec-driven workflow)

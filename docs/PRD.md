@@ -12,7 +12,7 @@ Os posts respeitam a identidade visual: melhorias são permitidas **dentro** da 
 
 No **V1** o usuário configura o perfil **na aplicação**: textos de **auditoria** e **marca** (e, opcionalmente, até 8 imagens de referência enviadas para o S3) via `GET`/`PUT /profile` e anexos de referência. O *gate* de criação exige `audit_text` e `brand_text` preenchidos (`GET /setup/status`); sem isso, `POST /chats/:id/messages` responde com erro de configuração (ver `docs/ARCHITECTURE.md`).
 
-A skill **`map-instagram-profile`** e a pasta `instagram-audits/` descrevem a **estrutura de captura offline** (auditoria por screenshots e ficheiros `AUDIT.md` / `BRAND.md`) que pode alimentar o conteúdo do perfil; é documentação e fluxo de *intake*, não um substituto do armazenamento em base de dados.
+A skill **`map-instagram-profile`** descreve a **estrutura de captura offline** (auditoria por screenshots e ficheiros `AUDIT.md` / `BRAND.md` numa pasta de trabalho fora do armazenamento da app) que pode alimentar o conteúdo do perfil; é documentação e fluxo de *intake*, não um substituto do armazenamento em base de dados.
 
 **V2+ (direção):** experiência ainda mais guiada de *onboarding* a partir de capturas, ou automatismos adicionais — ver `docs/STRUCTURE.md`.
 

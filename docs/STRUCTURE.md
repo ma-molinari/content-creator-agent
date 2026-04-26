@@ -9,21 +9,13 @@ content-creator-agent/
 ├── Makefile                         # Root orchestration: e2e, prod-up, prod-down
 ├── docker-compose.yml               # Dev stack: postgres + api + worker
 ├── docker-compose.prod.yml          # Prod overlay (port/env overrides)
-├── package.json                     # Root npm (scripts for slide export tooling)
-├── scripts/
-│   ├── export-slides.js             # Playwright-based slide export helper
-│   └── build_git_history.py
+├── package.json                     # Root workspace metadata (no root npm dependencies)
 ├── docs/                            # Architecture, PRD, TDD, ui-guidelines, UI screenshots
 ├── tests/
 │   └── e2e/                         # Full-stack E2E (pytest + httpx)
 │       ├── conftest.py
 │       ├── test_smoke.py
 │       └── requirements.txt
-├── instagram-audits/                # Per-client Instagram audit folders
-│   └── 2026-04-07-stephaniefalanque/
-│       ├── AUDIT.md
-│       ├── BRAND.md
-│       └── carousels/               # Generated carousel data per topic
 ├── apps/
 │   ├── api/                         # Go REST API
 │   ├── worker/                      # Python LangGraph worker
@@ -190,9 +182,6 @@ apps/web/src/
 - Web env: `apps/web/.env.example` (VITE_API_BASE_URL)
 
 ## Special Directories
-
-**`instagram-audits/`:**
-Per-client raw audit data for the Instagram content creation workflow. Each subfolder follows `YYYY-MM-DD-username/` naming with structured subfolders (`00_meta`, `01_profile`, …, `06_stories`) and `AUDIT.md` + `BRAND.md` text files consumed by the worker.
 
 **`docs/`:**
 Architecture docs, PRD, TDD, UI guidelines (layout + tokens), UI mockups. The 7 codebase map files produced by this analysis also live here.

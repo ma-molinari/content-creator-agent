@@ -50,7 +50,7 @@ O **Content Creator Agent** é uma plataforma web que apoia a criação de posts
 
 ### Futuro (V2+)
 
-- *Onboarding* ainda mais integrado a capturas `instagram-audits/`, automação adicional, Redis para *rate limit* multi-instância, *refresh token* com rotação (ver preocupações em `docs/CONCERNS.md`).
+- *Onboarding* ainda mais integrado a capturas e fluxo de auditoria (pastas de trabalho do cliente, fora do repositório), automação adicional, Redis para *rate limit* multi-instância, *refresh token* com rotação (ver preocupações em `docs/CONCERNS.md`).
 
 ---
 
@@ -58,7 +58,7 @@ O **Content Creator Agent** é uma plataforma web que apoia a criação de posts
 
 ### Visão geral
 
-Monorepo: **React (Vite)** ↔ **API Go (Echo)** ↔ **PostgreSQL** e **S3**; a API despacha trabalhos longos para o **worker Python (FastAPI + LangGraph + Playwright)**. Não existe `export-slides.js` a correr dentro do *binary* Go: a renderização para JPEG acontece no **container do worker** (`docs/ARCHITECTURE.md`).
+Monorepo: **React (Vite)** ↔ **API Go (Echo)** ↔ **PostgreSQL** e **S3**; a API despacha trabalhos longos para o **worker Python (FastAPI + LangGraph + Playwright)**. A renderização para JPEG acontece no **container do worker** (`docs/ARCHITECTURE.md`), não no *binary* da API Go.
 
 | Componente | Responsabilidade |
 | ---------- | ---------------- |
@@ -101,8 +101,8 @@ Modelos OpenAI no worker: ver **`docs/INTEGRATIONS.md`** (p.ex. `gpt-4o-mini` / 
 
 ### Fluxo — “*setup*”
 
-- O *gate* de negócio é **perfil com `audit_text` e `brand_text` preenchidos** (e opcionalmente referências), não a existência de uma árvore de pastas `instagram-audits/` no servidor da API.
-- A pasta `instagram-audits/` no repositório apoia o *workflow* de auditoria e *skills* (`map-instagram-profile`); o usuário copia conteúdo para a tela de perfil. Ver `docs/PRD.md` e `docs/STRUCTURE.md`.
+- O *gate* de negócio é **perfil com `audit_text` e `brand_text` preenchidos** (e opcionalmente referências), não a existência de ficheiros de auditoria no disco do servidor da API.
+- *Skills* como `map-instagram-profile` descrevem como organizar capturas e `AUDIT.md` / `BRAND.md` fora do app; o utilizador cola o texto relevante na tela de perfil. Ver `docs/PRD.md` e `docs/STRUCTURE.md`.
 
 ### Rotas HTTP (resumo; autoridade: `apps/api/cmd/server/main.go`)
 
