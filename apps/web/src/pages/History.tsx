@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, type MouseEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import type { Chat } from '@/api/chats'
-import { useChats, useDeleteChat } from '@/api/chats'
+import { fetchChatFilesZip, useChats, useDeleteChat } from '@/api/chats'
+import { downloadBlob } from '@/lib/downloadBlob'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 import { toast } from '@/lib/toast'
 
@@ -92,6 +93,24 @@ type ChatListItemProps = {
 }
 
 function ChatListItem({ chat, deleting, onOpen, onDelete }: ChatListItemProps) {
+  const [isDownloadingZip, setIsDownloadingZip] = useState(false)
+
+  async function handleDownloadZip(e: MouseEvent<HTMLButtonElement>) {
+    e.stopPropagation()
+    if (isDownloadingZip) return
+    setIsDownloadingZip(true)
+    try {
+      const { blob, filename } = await fetchChatFilesZip(chat.id)
+      downloadBlob(blob, filename)
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : 'Não foi possível baixar o ZIP. Tente novamente.'
+      toast.error(msg)
+    } finally {
+      setIsDownloadingZip(false)
+    }
+  }
+
   const date = new Date(chat.createdAt).toLocaleDateString('pt-BR', {
     day: '2-digit',
     month: 'short',
@@ -115,15 +134,15 @@ function ChatListItem({ chat, deleting, onOpen, onDelete }: ChatListItemProps) {
         </span>
       </button>
 
-      <a
-        href={`/api/chats/${chat.id}/files/download`}
-        download
-        onClick={(e) => e.stopPropagation()}
+      <button
+        type="button"
+        onClick={(e) => void handleDownloadZip(e)}
+        disabled={isDownloadingZip}
         title="Baixar ZIP"
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-md)] text-[var(--color-text-muted)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text-primary)]"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-md)] text-[var(--color-text-muted)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text-primary)] disabled:opacity-40"
       >
-        <IconDownload />
-      </a>
+        {isDownloadingZip ? <Spinner size={14} /> : <IconDownload />}
+      </button>
 
       <button
         type="button"

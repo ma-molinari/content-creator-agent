@@ -13,6 +13,7 @@ test.describe('chat (mocked API)', () => {
   test('send message → job done → SlideViewer + download ZIP', async ({ page }) => {
     let jobPolls = 0
     let jobDone = false
+    let userMessagePersisted = false
 
     await page.route('**/api/**', async (route) => {
       const req = route.request()
@@ -52,6 +53,7 @@ test.describe('chat (mocked API)', () => {
         return
       }
       if (path === `/api/chats/${CHAT_ID}/messages` && method === 'POST') {
+        userMessagePersisted = true
         await route.fulfill({
           status: 202,
           contentType: 'application/json',
@@ -71,6 +73,32 @@ test.describe('chat (mocked API)', () => {
         return
       }
       if (path === `/api/chats/${CHAT_ID}` && method === 'GET') {
+        if (userMessagePersisted && !jobDone) {
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({
+              id: CHAT_ID,
+              userId: USER_ID,
+              postType: 'carousel',
+              title: 'E2E chat',
+              createdAt: iso,
+              updatedAt: iso,
+              contents: [
+                {
+                  id: USER_MSG_ID,
+                  chatId: CHAT_ID,
+                  role: 'user',
+                  content: 'Olá e2e',
+                  createdAt: iso,
+                  updatedAt: iso,
+                  images: [],
+                },
+              ],
+            }),
+          })
+          return
+        }
         if (!jobDone) {
           await route.fulfill({
             status: 200,
@@ -119,7 +147,7 @@ test.describe('chat (mocked API)', () => {
                     id: IMG_ID,
                     chatContentId: ASST_MSG_ID,
                     s3Key: 'e2e/slide.jpg',
-                    url: 'https://example.com/preview.jpg',
+                    url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/280px-PNG_transparency_demonstration_1.png',
                     slideNumber: 1,
                     createdAt: iso,
                     updatedAt: iso,
@@ -131,23 +159,6 @@ test.describe('chat (mocked API)', () => {
         })
         return
       }
-      if (path === `/api/chats/${CHAT_ID}/files` && method === 'GET') {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify([
-            {
-              id: 'f1',
-              fileName: 'slide_1.jpeg',
-              mimeType: 'image/jpeg',
-              downloadUrl:
-                'https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/280px-PNG_transparency_demonstration_1.png',
-            },
-          ]),
-        })
-        return
-      }
-
       await route.continue()
     })
 
@@ -162,6 +173,7 @@ test.describe('chat (mocked API)', () => {
     await page.getByRole('button', { name: 'Enviar' }).click()
 
     await expect(page).toHaveURL(new RegExp(`/chat/${CHAT_ID}`))
+    await expect(page.getByText('Olá e2e', { exact: true })).toHaveCount(1, { timeout: 10_000 })
 
     await expect(page.getByText('Slides prontos.')).toBeVisible({ timeout: 15_000 })
     await expect(page.locator('img').first()).toBeVisible()

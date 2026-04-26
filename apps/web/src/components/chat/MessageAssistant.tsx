@@ -1,15 +1,24 @@
-import type { ChatContent } from '@/api/chats'
-import { useFiles } from '@/api/chats'
+import type { ChatContent, ChatContentImage, FileListItem } from '@/api/chats'
 import { SlideViewer } from '@/components/slides/SlideViewer'
 
 type Props = {
   message: ChatContent
-  chatId: string
 }
 
-export function MessageAssistant({ message, chatId }: Props) {
-  const files = useFiles(chatId)
+function imagesToFileListItems(images: ChatContentImage[]): FileListItem[] {
+  return [...images]
+    .sort((a, b) => a.slideNumber - b.slideNumber)
+    .map((img) => ({
+      id: img.id,
+      fileName: `slide-${img.slideNumber}.jpg`,
+      mimeType: 'image/jpeg',
+      downloadUrl: img.url,
+    }))
+}
+
+export function MessageAssistant({ message }: Props) {
   const hasImages = message.images && message.images.length > 0
+  const files = hasImages ? imagesToFileListItems(message.images) : []
 
   const time = new Date(message.createdAt).toLocaleTimeString('pt-BR', {
     hour: '2-digit',
@@ -24,33 +33,14 @@ export function MessageAssistant({ message, chatId }: Props) {
             {message.content}
           </p>
 
-          {hasImages && (
+          {files.length > 0 && (
             <div className="mt-3">
-              {files.isLoading ? (
-                <SlideSkeleton count={message.images.length} />
-              ) : files.data && files.data.length > 0 ? (
-                <SlideViewer files={files.data} />
-              ) : null}
+              <SlideViewer files={files} />
             </div>
           )}
         </div>
         <p className="mt-1 text-xs text-[var(--color-text-muted)]">{time}</p>
       </div>
-    </div>
-  )
-}
-
-function SlideSkeleton({ count }: { count: number }) {
-  return (
-    <div className="flex gap-2">
-      {Array.from({ length: count }).map((_, i) => (
-        <div
-          key={i}
-          className="shrink-0 animate-pulse rounded-[var(--radius-md)] bg-[var(--color-bg-muted)]"
-          style={{ width: 96, aspectRatio: '768 / 1376' }}
-          aria-hidden
-        />
-      ))}
     </div>
   )
 }

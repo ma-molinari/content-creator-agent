@@ -4,7 +4,14 @@ import { useQueryClient } from '@tanstack/react-query'
 
 import { api } from '@/api/client'
 import type { Chat as ChatType, JobStatus } from '@/api/chats'
-import { useChat, useDeleteChat, useJobStatus, useSetupStatus } from '@/api/chats'
+import {
+  fetchChatFilesZip,
+  useChat,
+  useDeleteChat,
+  useJobStatus,
+  useSetupStatus,
+} from '@/api/chats'
+import { downloadBlob } from '@/lib/downloadBlob'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 import { ChatThread } from '@/components/chat/ChatThread'
 import { ComposerBar } from '@/components/composer/ComposerBar'
@@ -24,6 +31,7 @@ export default function Chat() {
 
   const [activeJob, setActiveJob] = useState<ActiveJob | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const [isDownloadingZip, setIsDownloadingZip] = useState(false)
 
   const setup = useSetupStatus()
   const chat = useChat(id)
@@ -41,7 +49,6 @@ export default function Chat() {
     if (currentStatus === 'done' || currentStatus === 'failed') {
       if (currentStatus === 'done' && activeJob) {
         qc.invalidateQueries({ queryKey: ['chats', activeJob.chatId] })
-        qc.invalidateQueries({ queryKey: ['files', activeJob.chatId] })
       }
       queueMicrotask(() => setActiveJob(null))
     }
@@ -65,6 +72,8 @@ export default function Chat() {
       const { data } = await api.post<{ jobId: string }>(`/chats/${chatId}/messages`, {
         content: text,
       })
+
+      await qc.invalidateQueries({ queryKey: ['chats', chatId] })
 
       setActiveJob({ chatId, jobId: data.jobId, pendingText: text })
     },
@@ -93,6 +102,20 @@ export default function Chat() {
       navigate('/', { replace: true })
     } catch {
       toast.error('Não foi possível excluir. Tente novamente.')
+    }
+  }
+
+  async function handleDownloadZip() {
+    if (!id || isDownloadingZip) return
+    setIsDownloadingZip(true)
+    try {
+      const { blob, filename } = await fetchChatFilesZip(id)
+      downloadBlob(blob, filename)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Não foi possível baixar o ZIP. Tente novamente.'
+      toast.error(msg)
+    } finally {
+      setIsDownloadingZip(false)
     }
   }
 
@@ -129,14 +152,15 @@ export default function Chat() {
               {chat.data?.title ?? 'Chat'}
             </p>
             <div className="flex items-center gap-1">
-              <a
-                href={`/api/chats/${id}/files/download`}
-                download
+              <button
+                type="button"
+                onClick={() => void handleDownloadZip()}
+                disabled={isDownloadingZip}
                 title="Baixar todos os slides (ZIP)"
-                className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-md)] text-[var(--color-text-muted)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text-primary)]"
+                className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-md)] text-[var(--color-text-muted)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text-primary)] disabled:opacity-40"
               >
-                <IconDownload />
-              </a>
+                {isDownloadingZip ? <SpinnerSmall /> : <IconDownload />}
+              </button>
               <button
                 type="button"
                 onClick={() => setConfirmDelete(true)}
@@ -184,6 +208,29 @@ export default function Chat() {
         onCancel={() => setConfirmDelete(false)}
       />
     </>
+  )
+}
+
+function SpinnerSmall() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-label="A baixar"
+      className="animate-spin text-[var(--color-text-muted)]"
+    >
+      <circle
+        cx="12"
+        cy="12"
+        r="10"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeDasharray="40 60"
+      />
+    </svg>
   )
 }
 

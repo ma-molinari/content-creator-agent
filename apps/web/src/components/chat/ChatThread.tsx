@@ -4,6 +4,7 @@ import type { Chat, JobStatus } from '@/api/chats'
 import { JobStatusIndicator } from '@/components/chat/JobStatusIndicator'
 import { MessageAssistant } from '@/components/chat/MessageAssistant'
 import { MessageBubbleUser } from '@/components/chat/MessageBubbleUser'
+import { serverUserMessageCoversPending } from '@/lib/sanitizeUserInput'
 
 type Props = {
   chat: Chat | undefined
@@ -23,6 +24,10 @@ export function ChatThread({ chat, pendingText, jobStatus, jobError, onRetry }: 
   }, [chat?.contents?.length, pendingText])
 
   const contents = chat?.contents ?? []
+  const showPendingBubble =
+    pendingText != null &&
+    pendingText.length > 0 &&
+    !serverUserMessageCoversPending(contents, pendingText)
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6">
@@ -30,12 +35,12 @@ export function ChatThread({ chat, pendingText, jobStatus, jobError, onRetry }: 
         msg.role === 'user' ? (
           <MessageBubbleUser key={msg.id} content={msg.content} createdAt={msg.createdAt} />
         ) : (
-          <MessageAssistant key={msg.id} message={msg} chatId={chat!.id} />
+          <MessageAssistant key={msg.id} message={msg} />
         ),
       )}
 
-      {/* Optimistic user bubble */}
-      {pendingText && <MessageBubbleUser content={pendingText} />}
+      {/* Optimistic user bubble (hidden once GET /chats has the same last user row) */}
+      {showPendingBubble && <MessageBubbleUser content={pendingText} />}
 
       {/* Job indicator or error */}
       {jobStatus === 'pending' || jobStatus === 'processing' ? (
