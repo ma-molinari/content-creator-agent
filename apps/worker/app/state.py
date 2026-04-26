@@ -1,6 +1,6 @@
 """LangGraph agent state and typed payloads."""
 
-from typing import TypedDict
+from typing import Optional, TypedDict
 
 from typing_extensions import NotRequired
 
@@ -40,3 +40,5 @@ class AgentState(TypedDict):
     assistant_text: NotRequired[str]
     # S3 object keys (design ref images) resolved by the API; empty = skip vision step
     reference_s3_keys: NotRequired[list[str]]
+    # Explicit slide count: inferência no worker, ou payload da API. None = sem exigência de N.
+    requested_slide_count: NotRequired[Optional[int]]

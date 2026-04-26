@@ -1,5 +1,7 @@
 """FastAPI entry: job dispatch and health."""
 
+from __future__ import annotations
+
 import logging
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -13,6 +15,7 @@ from fastapi import BackgroundTasks, FastAPI, Header, HTTPException
 from pydantic import BaseModel
 
 from app.graph import graph
+from app.slide_count_inference import infer_requested_slide_count
 from app.state import AgentState
 
 logger = logging.getLogger(__name__)
@@ -27,9 +30,14 @@ class DispatchPayload(BaseModel):
     brand_text: str = ""
     reprompt_context: str = ""
     reference_s3_keys: list[str] | None = None
+    # Optional: quando a API enviar N explícito; senão o worker infere a partir de raw_message.
+    requested_slide_count: int | None = None
 
 
 def _initial_state(payload: DispatchPayload) -> AgentState:
+    n: int | None = payload.requested_slide_count
+    if n is None:
+        n = infer_requested_slide_count(payload.raw_message)
     return {
         "job_id": str(payload.job_id),
         "user_id": str(payload.user_id),
@@ -39,6 +47,7 @@ def _initial_state(payload: DispatchPayload) -> AgentState:
         "brand_text": payload.brand_text,
         "reprompt_context": payload.reprompt_context or "",
         "reference_s3_keys": list(payload.reference_s3_keys or []),
+        "requested_slide_count": n,
         "profile_text": "",
         "optimized_brief": "",
         "raw_slide_output": "",

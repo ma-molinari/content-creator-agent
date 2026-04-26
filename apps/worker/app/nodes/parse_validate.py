@@ -1,5 +1,7 @@
 """Parse LLM slide markers and validate HTML; drive retry routing."""
 
+from __future__ import annotations
+
 import logging
 import re
 
@@ -34,6 +36,34 @@ def _valid_slide(item: SlideItem) -> bool:
     return "<html" in lower and "</html>" in lower
 
 
+def _requested_count_mismatch(
+    state: AgentState, valid: list[SlideItem]
+) -> tuple[bool, int | None, int]:
+    """Returns (mismatch, requested_or_none, got_count)."""
+    requested = state.get("requested_slide_count")
+    if not isinstance(requested, int):
+        return (False, None, len(valid))
+    if len(valid) != requested:
+        return (True, requested, len(valid))
+    return (False, requested, len(valid))
+
+
+def _failure_return(
+    errors: list[str], retry_count: int, extra_msg: str
+) -> dict:
+    errors = errors + [extra_msg]
+    if retry_count < 3:
+        return {
+            "slides_html": [],
+            "errors": errors,
+            "retry_count": retry_count + 1,
+        }
+    return {
+        "slides_html": [],
+        "errors": errors,
+    }
+
+
 def parse_validate(state: AgentState) -> dict:
     logger.info("node=parse_validate job_id=%s", state.get("job_id"))
     raw = state.get("raw_slide_output") or ""
@@ -43,20 +73,15 @@ def parse_validate(state: AgentState) -> dict:
     errors = list(state.get("errors") or [])
     retry_count = int(state.get("retry_count") or 0)
 
+    mismatch, req_n, got = _requested_count_mismatch(state, valid)
+    if mismatch:
+        msg = f"parse_validate: expected {req_n} slides, got {got} valid"
+        logger.info("node=parse_validate job_id=%s %s", state.get("job_id"), msg)
+        return _failure_return(errors, retry_count, msg)
+
     if not valid:
         msg = "parse_validate: no valid slides after parsing markers"
-        errors = errors + [msg]
-        # Up to 3 generate_slides runs: increment 1→2→3 on failures, then stop.
-        if retry_count < 3:
-            return {
-                "slides_html": [],
-                "errors": errors,
-                "retry_count": retry_count + 1,
-            }
-        return {
-            "slides_html": [],
-            "errors": errors,
-        }
+        return _failure_return(errors, retry_count, msg)
 
     return {"slides_html": valid, "errors": errors}
 
@@ -67,7 +92,6 @@ def route_after_parse(state: AgentState) -> str:
     retry_count = int(state.get("retry_count") or 0)
     if slides:
         return "continue"
-    # retry_count is incremented on each failed parse; retry until 3 attempts (rc 1,2,3).
     if retry_count < 3:
         return "retry"
     return "continue"

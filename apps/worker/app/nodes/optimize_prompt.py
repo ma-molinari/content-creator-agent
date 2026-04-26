@@ -1,5 +1,7 @@
 """Optimize user message into a structured brief using the LLM."""
 
+from __future__ import annotations
+
 import logging
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -23,14 +25,23 @@ def optimize_prompt(state: AgentState) -> dict:
     profile = state.get("profile_text") or ""
     raw = state.get("raw_message") or ""
     reprompt = (state.get("reprompt_context") or "").strip()
+    requested = state.get("requested_slide_count")
     user_parts = [profile, "---", "Pedido do usuário:", raw]
+    if isinstance(requested, int):
+        user_parts.extend(
+            [
+                "---",
+                f"**Quantidade de slides (obrigatória):** o carrossel deve ter **exatamente {requested} slides** — "
+                "o brief e a estrutura narrativa devem respeitar esse N (nem a mais, nem a menos).",
+            ]
+        )
     if reprompt:
         user_parts.extend(["---", "Contexto anterior do chat:", reprompt])
     user_content = "\n\n".join(user_parts)
 
     llm = ChatOpenAI(
         api_key=settings.openai_api_key,
-        model="gpt-4o-mini",
+        model=settings.openai_chat_model,
         max_tokens=4000,
     )
     msg = llm.invoke(
