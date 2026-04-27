@@ -23,7 +23,13 @@ async def render_to_jpeg(state: AgentState) -> dict:
         return {"rendered_slides": [], "errors": errors}
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch()
+        browser = await p.chromium.launch(
+            args=[
+                "--disable-background-networking",
+                "--disable-extensions",
+                "--no-default-browser-check",
+            ]
+        )
         try:
             for item in slides:
                 fname = item.get("filename") or "slide.html"
@@ -31,7 +37,15 @@ async def render_to_jpeg(state: AgentState) -> dict:
                 try:
                     page = await browser.new_page()
                     await page.set_viewport_size(_VIEWPORT)
-                    await page.set_content(html, wait_until="networkidle", timeout=_TIMEOUT_MS)
+                    await page.route(
+                        "**/*",
+                        lambda route: (
+                            route.continue_()
+                            if route.request.url.startswith("data:")
+                            else route.abort()
+                        ),
+                    )
+                    await page.set_content(html, wait_until="domcontentloaded", timeout=_TIMEOUT_MS)
                     data = await page.screenshot(
                         type="jpeg",
                         quality=_JPEG_QUALITY,
