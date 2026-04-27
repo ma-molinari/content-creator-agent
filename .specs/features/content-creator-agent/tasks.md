@@ -108,7 +108,7 @@ Caminho crítico: T1→T2→T3→T8→T11→T12→TI1→TI2→TI3→Fase6
 | **TP4** | Nó `optimize_prompt`: OpenAI + system prompt do otimizador (portado de `.cursor/` / skills) | TP3 |
 | **TP5** | Nó `generate_slides`: OpenAI + skill de slides; saída com marcadores `###SLIDE_FILE:...###` | TP4 |
 | **TP6** | Nó `parse_validate`: parser dos marcadores; validação HTML mínima; aresta condicional de retry → TP5 (máx. 2x) | TP5 |
-| **TP7** | Nó `render_to_jpeg`: playwright-python headless; 768×1376px, JPEG qualidade 92 | TP6 |
+| **TP7** | Nó `render_to_jpeg`: playwright-python headless; 1080×1350px (4:5), JPEG qualidade 92 | TP6 |
 | **TP8** | Nó `upload_assets`: boto3 → S3; lista `{ s3_key, slide_number }` | TP7 |
 | **TP9** | Nó `finalize`: `POST {GO_API_URL}/internal/jobs/:job_id/complete` com texto + artefatos | TP8 |
 | **TP10** | Montagem do grafo LangGraph: nós, arestas condicionais (retry em TP6), compilar | TP2–TP9 |

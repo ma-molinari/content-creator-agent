@@ -45,7 +45,7 @@ Entradas cronológicas do que foi efetivamente construído em código frente à 
 
 ### 2026-04-13 — Worker Python (Fase 2, TP1–TP11)
 
-**Implementado em `apps/worker/`:** projeto instalável (`pyproject.toml`, Hatchling), `Dockerfile` (Python 3.12-slim, `uv`, Playwright + Chromium), `.env.example`. Pipeline LangGraph: `load_profile` → `optimize_prompt` (gpt-4o-mini + `prompts/optimize_prompt.md`) → `generate_slides` (`prompts/generate_slides.md`) → `parse_validate` (marcadores `###SLIDE_FILE:` / `###END_SLIDE###`, retries condicionais) → `render_to_jpeg` (768×1376, JPEG q=92) → `upload_assets` (boto3 S3, **put_object** com até 3 tentativas e backoff) → `finalize` (`httpx` → `POST {GO_API_URL}/internal/jobs/{id}/complete`). FastAPI: `POST /jobs` (202 + `BackgroundTasks` + `graph.ainvoke`), `GET /health`, validação `X-Worker-API-Key`.
+**Implementado em `apps/worker/`:** projeto instalável (`pyproject.toml`, Hatchling), `Dockerfile` (Python 3.12-slim, `uv`, Playwright + Chromium), `.env.example`. Pipeline LangGraph: `load_profile` → `optimize_prompt` (gpt-4o-mini + `prompts/optimize_prompt.md`) → `generate_slides` (`prompts/generate_slides.md`) → `parse_validate` (marcadores `###SLIDE_FILE:` / `###END_SLIDE###`, retries condicionais) → `render_to_jpeg` (1080×1350, JPEG q=92) → `upload_assets` (boto3 S3, **put_object** com até 3 tentativas e backoff) → `finalize` (`httpx` → `POST {GO_API_URL}/internal/jobs/{id}/complete`). FastAPI: `POST /jobs` (202 + `BackgroundTasks` + `graph.ainvoke`), `GET /health`, validação `X-Worker-API-Key`.
 
 **Prompts:** conteúdo operacional em `apps/worker/prompts/*.md` (derivado das regras em `.cursor/`); não há leitura direta de `.cursor/` em runtime na imagem.
 
@@ -93,7 +93,7 @@ Entradas cronológicas do que foi efetivamente construído em código frente à 
 | 1 | Limite de 5 chats: remoção automática do mais antigo ao criar o 6º | Usuário pode deletar manualmente qualquer chat | 2026-04-10 |
 | 2 | Redis: rate limiting em memória no V1 (Redis opcional) | Redis pode ser adotado para escala horizontal no V2 | 2026-04-10 |
 | 3 | JWT: refresh token em cookie httpOnly + Secure + SameSite=Strict; access token em memória no cliente | Nunca em localStorage para proteção XSS | 2026-04-10 |
-| 4 | Geração de slides: GPT-5.4 Mini → HTML/CSS → Playwright → JPEG (768×1376px, qualidade 92) | Sem modelo dedicado de geração de imagem | 2026-04-10 |
+| 4 | Geração de slides: GPT-5.4 Mini → HTML/CSS → Playwright → JPEG (1080×1350px, 4:5, qualidade 92) | Sem modelo dedicado de geração de imagem | 2026-04-10 |
 | 5 | Limite de 4.000 tokens de saída por requisição ao LLM | Estimativa conservadora; revisar com dados reais de produção | 2026-04-10 |
 | 6 | Cookie `Secure` em `COOKIE_SECURE` (default true em produção; `false` para HTTP local) | Permite testar login/refresh em dev sem HTTPS | 2026-04-12 |
 | 7 | System prompts: referência em `.cursor/` skills/rules; **sem** `backend/promptdata/` — o worker em runtime lê **`apps/worker/prompts/*.md`** na imagem (alinhar mudanças de skills com essa pasta) | Evita duplicar sync para o Go | 2026-04-13 |

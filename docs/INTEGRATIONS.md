@@ -102,7 +102,8 @@
 **Purpose:** Convert LLM-generated HTML slide markup into pixel-perfect JPEG images.
 **Implementation:** `apps/worker/app/nodes/render_to_jpeg.py`
 **Settings:**
-- Viewport: 768 × 1376 px (portrait, Instagram carousel proportions)
+- Viewport: 1080 × 1350 px (4:5 portrait, alinhado ao feed Instagram)
+- Screenshot: tamanho do viewport apenas (`full_page=False`), evitando JPEG com altura errada se o HTML tiver overflow
 - JPEG quality: 92
 - Page load timeout: 60 000 ms (`networkidle`)
 - One new browser page per slide; browser shared within the run

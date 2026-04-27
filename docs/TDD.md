@@ -219,7 +219,7 @@ Referência cruzada: **`docs/ARCHITECTURE.md`** (substitui documentos de arquite
 | 1 | Limite de 5 chats | Remoção automática do mais antigo ao criar o 6.º; usuário pode apagar antes. |
 | 2 | Redis | Opcional; *V1* com *rate limit* em memória. |
 | 3 | *Refresh* | HttpOnly *cookie* + *access* em memória. |
-| 4 | Geração de *slides* | LLM gera **HTML** (blocos); **Playwright** no **worker** exporta **JPEG** 768×1376 (qualidade ~92). Modelos: ver `docs/INTEGRATIONS.md` (não DALL·E). |
+| 4 | Geração de *slides* | LLM gera **HTML** (blocos); **Playwright** no **worker** exporta **JPEG** 1080×1350 (4:5, qualidade ~92). Modelos: ver `docs/INTEGRATIONS.md` (não DALL·E). |
 | 5 | *Tokens* | *Max tokens* no gerador p.ex. 4000 no nó de *slides*; afinar com dados reais. |
 
 ---

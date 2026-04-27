@@ -70,7 +70,7 @@ load_profile → describe_references → optimize_prompt → generate_slides
 - `optimize_prompt` — rewrites the user brief into a structured generation brief
 - `generate_slides` — produces HTML slide blocks via GPT-4o-mini
 - `parse_validate` — parses the delimited HTML output; routes to retry or continue
-- `render_to_jpeg` — runs Playwright (headless Chromium) at 768×1376 to screenshot each slide
+- `render_to_jpeg` — runs Playwright (headless Chromium) at 1080×1350 (4:5) to screenshot each slide
 - `upload_assets` — uploads JPEG bytes to S3 under `slides/{jobId}/`
 - `finalize` — calls back the Go API `/internal/jobs/:id/complete` with artifact keys
 

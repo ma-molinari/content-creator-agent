@@ -32,7 +32,7 @@ React SPA (Vite/TS)  ←— HTTPS/REST + JWT —→  Go API (Echo, :8080)
 
 1. Usuário envia `POST /chats/:id/messages` (precisa de perfil configurado — gate `SETUP_REQUIRED`).
 2. API cria `ChatContent` + `Job{pending}`, despacha `POST /jobs` ao worker, retorna **202** + `jobId`.
-3. Worker executa grafo LangGraph, renderiza HTML→JPEG via Playwright (768×1376), faz upload S3.
+3. Worker executa grafo LangGraph, renderiza HTML→JPEG via Playwright (1080×1350, 4:5), faz upload S3.
 4. Worker chama `POST /internal/jobs/:id/complete` com artifacts (chaves S3) e texto do assistente.
 5. API persiste resposta + imagens em transação, marca `Job{done}`.
 6. Frontend faz poll `GET /chats/:id/jobs/:jobId/status` até terminal, carrega thread atualizada.
@@ -177,7 +177,7 @@ Modelos GORM em `apps/api/internal/db/models.go`.
 
 - **Setup gate:** perfil precisa de `audit_text` e `brand_text` preenchidos antes de enviar mensagens.
 - **Limite de chats:** máx 5 por usuário; ao criar o 6.º, o mais antigo é removido (com artefatos S3).
-- **Slides:** LLM gera HTML com blocos delimitados, Playwright exporta JPEG 768×1376, qualidade 92.
+- **Slides:** LLM gera HTML com blocos delimitados, Playwright exporta JPEG 1080×1350 (4:5), qualidade 92.
 - **Sumarização:** cron diário (padrão `0 2 * * *` UTC), só se `OPENAI_API_KEY` estiver definida.
 - **Referências de design:** até 8 imagens (5MB cada) no S3, usadas pelo worker para contextualizar geração.
 

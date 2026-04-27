@@ -141,7 +141,7 @@ Todo código backend deste produto em `backend/` SHALL seguir a rule **[`enginee
 
 ### Worker Python (LangGraph)
 
-- **Propósito**: Pipeline completo — `load_profile` → `optimize_prompt` → `generate_slides` → parse/validação → **Playwright** (JPEG 768×1376, qualidade 92) → **boto3** upload S3 → callback ao Go
+- **Propósito**: Pipeline completo — `load_profile` → `optimize_prompt` → `generate_slides` → parse/validação → **Playwright** (JPEG 1080×1350, 4:5, qualidade 92) → **boto3** upload S3 → callback ao Go
 - **Localização**: `worker/` (FastAPI + LangGraph; Dockerfile com Playwright/Chromium)
 - **Interfaces**:
   - `POST /jobs`: recebe payload do Go; valida API key; dispara `graph.ainvoke` em background
