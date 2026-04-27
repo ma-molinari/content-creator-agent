@@ -105,7 +105,7 @@ func buildEcho(gdb *gorm.DB, cfg *config.Config, worker jobs.WorkerClient, stor 
 	e := echo.New()
 	e.HideBanner = true
 	e.Use(middleware.Recover())
-	e.Use(appmw.SecurityHeaders())
+	e.Use(appmw.SecurityHeaders(false))
 	e.Use(appmw.CORS(cfg.CORSAllowedOrigins))
 
 	e.GET("/health", func(c echo.Context) error {
