@@ -71,7 +71,13 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title="Content Creator Worker", lifespan=lifespan)
+app = FastAPI(
+    title="Content Creator Worker",
+    lifespan=lifespan,
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
+)
 
 
 @app.get("/health")
