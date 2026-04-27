@@ -90,6 +90,18 @@ func main() {
 		}
 		log.Printf("[jobs] stuck-job cleanup registered expr=%q threshold=%dm (UTC)", cfg.StuckJobCron, cfg.StuckJobProcessingMinutes)
 	}
+	if err := sched.Register("0 3 * * *", func() {
+		n, err := repo.DeleteExpiredRefreshTokens(context.Background())
+		if err != nil {
+			log.Printf("[auth] token purge error: %v", err)
+			return
+		}
+		if n > 0 {
+			log.Printf("[auth] token purge: deleted %d expired refresh token(s)", n)
+		}
+	}); err != nil {
+		log.Fatalf("cron token purge: %v", err)
+	}
 	sched.Start()
 
 	e := echo.New()
@@ -97,7 +109,7 @@ func main() {
 	e.IPExtractor = echo.ExtractIPFromXFFHeader(echo.TrustPrivateNet(true))
 	e.Use(middleware.Recover())
 	e.Use(middleware.BodyLimit("2M"))
-	e.Use(appmw.SecurityHeaders())
+	e.Use(appmw.SecurityHeaders(cookieSecure))
 	e.Use(appmw.CORS(cfg.CORSAllowedOrigins))
 
 	e.GET("/health", func(c echo.Context) error {
@@ -143,12 +155,19 @@ func main() {
 		return c.JSON(http.StatusOK, map[string]string{"status": "ok"})
 	})
 
-	internal := e.Group("/internal")
-	internal.POST("/jobs/:id/complete", jobsH.Complete)
+	// Internal server on a separate port — never exposed to the host in docker-compose.
+	internalE := echo.New()
+	internalE.HideBanner = true
+	internalE.POST("/internal/jobs/:id/complete", jobsH.Complete)
 
 	addr := ":" + cfg.Port
 	go func() {
 		if err := e.Start(addr); err != nil && err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
+	}()
+	go func() {
+		if err := internalE.Start(":8081"); err != nil && err != http.ErrServerClosed {
 			log.Fatal(err)
 		}
 	}()
@@ -163,5 +182,8 @@ func main() {
 	defer cancel()
 	if err := e.Shutdown(shutdownCtx); err != nil {
 		log.Fatalf("shutdown: %v", err)
+	}
+	if err := internalE.Shutdown(shutdownCtx); err != nil {
+		log.Fatalf("internal shutdown: %v", err)
 	}
 }
