@@ -21,9 +21,13 @@ COPY prompts ./prompts
 # Install deps without full package build for speed in dev; sync from pyproject
 RUN uv pip install --system -e .
 
-RUN playwright install chromium --with-deps
-
 RUN useradd -m -u 1001 appuser
+
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
+RUN playwright install chromium --with-deps \
+    && chown -R appuser:appuser /ms-playwright
+
 USER appuser
 
 EXPOSE 8000
