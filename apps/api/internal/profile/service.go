@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"path"
 	"strings"
 	"time"
 
@@ -144,25 +143,7 @@ func (s *Service) UploadReferenceImage(ctx context.Context, userID uuid.UUID, da
 	}
 
 	ct := http.DetectContentType(data)
-	decl := strings.TrimSpace(strings.Split(clientContentType, ";")[0])
-	if decl != "" && decl != "application/octet-stream" {
-		ct = decl
-	}
 	ext, ok := extForImageType(ct)
-	if !ok {
-		// Try extension from client filename
-		_, e := extFromFilename(clientFilename)
-		switch strings.ToLower(e) {
-		case ".jpg", ".jpeg":
-			ct, ext, ok = "image/jpeg", ".jpg", true
-		case ".png":
-			ct, ext, ok = "image/png", ".png", true
-		case ".webp":
-			ct, ext, ok = "image/webp", ".webp", true
-		case ".gif":
-			ct, ext, ok = "image/gif", ".gif", true
-		}
-	}
 	if !ok || !allowedImageContentType(ct) {
 		return ErrInvalidImageType
 	}
@@ -230,6 +211,3 @@ func extForImageType(ct string) (ext string, ok bool) {
 	}
 }
 
-func extFromFilename(name string) (base, ext string) {
-	return strings.TrimSuffix(name, path.Ext(name)), path.Ext(name)
-}
