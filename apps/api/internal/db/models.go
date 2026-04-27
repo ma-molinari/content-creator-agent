@@ -138,3 +138,15 @@ type UserProfileReference struct {
 }
 
 func (UserProfileReference) TableName() string { return "user_profile_references" }
+
+// RefreshToken persists issued refresh token JTIs for revocation and rotation.
+type RefreshToken struct {
+	JTI       uuid.UUID  `gorm:"type:uuid;primaryKey"`
+	UserID    uuid.UUID  `gorm:"type:uuid;not null;index"`
+	User      User       `gorm:"constraint:OnDelete:CASCADE"`
+	ExpiresAt time.Time  `gorm:"not null"`
+	RevokedAt *time.Time `gorm:"column:revoked_at"`
+	CreatedAt time.Time
+}
+
+func (RefreshToken) TableName() string { return "refresh_tokens" }

@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"time"
 
 	"content-creator-agent/internal/db"
 
@@ -55,4 +56,28 @@ func (r *Repository) UpdatePasswordHash(ctx context.Context, userID uuid.UUID, p
 		return gorm.ErrRecordNotFound
 	}
 	return nil
+}
+
+func (r *Repository) CreateRefreshToken(ctx context.Context, rt *db.RefreshToken) error {
+	return r.gdb.WithContext(ctx).Create(rt).Error
+}
+
+func (r *Repository) FindRefreshToken(ctx context.Context, jti uuid.UUID) (*db.RefreshToken, error) {
+	var rt db.RefreshToken
+	err := r.gdb.WithContext(ctx).Where("jti = ?", jti).First(&rt).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &rt, nil
+}
+
+func (r *Repository) RevokeRefreshToken(ctx context.Context, jti uuid.UUID) error {
+	now := time.Now()
+	res := r.gdb.WithContext(ctx).Model(&db.RefreshToken{}).
+		Where("jti = ? AND revoked_at IS NULL", jti).
+		Update("revoked_at", now)
+	return res.Error
 }

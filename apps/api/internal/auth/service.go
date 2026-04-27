@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -110,14 +111,14 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 	if err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password)); err != nil {
 		return nil, errStatus(http.StatusUnauthorized, "invalid credentials")
 	}
-	access, refresh, err := s.issueTokens(u.ID)
+	access, refresh, err := s.issueTokens(ctx, u.ID)
 	if err != nil {
 		return nil, err
 	}
 	return &LoginResult{AccessToken: access, RefreshToken: refresh}, nil
 }
 
-func (s *Service) issueTokens(userID uuid.UUID) (access string, refresh string, err error) {
+func (s *Service) issueTokens(ctx context.Context, userID uuid.UUID) (access string, refresh string, err error) {
 	now := time.Now()
 	accessClaims := jwt.RegisteredClaims{
 		Subject:   userID.String(),
@@ -129,22 +130,37 @@ func (s *Service) issueTokens(userID uuid.UUID) (access string, refresh string, 
 	if err != nil {
 		return "", "", err
 	}
+	jti := uuid.New()
+	expiresAt := now.Add(refreshTokenTTL)
 	refreshClaims := jwt.RegisteredClaims{
 		Subject:   userID.String(),
+		ID:        jti.String(),
 		IssuedAt:  jwt.NewNumericDate(now),
-		ExpiresAt: jwt.NewNumericDate(now.Add(refreshTokenTTL)),
+		ExpiresAt: jwt.NewNumericDate(expiresAt),
 	}
 	rt := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
 	refresh, err = rt.SignedString(s.jwtRefreshSecret)
 	if err != nil {
 		return "", "", err
 	}
+	if err = s.repo.CreateRefreshToken(ctx, &db.RefreshToken{
+		JTI:       jti,
+		UserID:    userID,
+		ExpiresAt: expiresAt,
+	}); err != nil {
+		return "", "", err
+	}
 	return access, refresh, nil
 }
 
-func (s *Service) Refresh(ctx context.Context, refreshToken string) (accessToken string, err error) {
+type RefreshResult struct {
+	AccessToken  string
+	RefreshToken string
+}
+
+func (s *Service) Refresh(ctx context.Context, refreshToken string) (*RefreshResult, error) {
 	if refreshToken == "" {
-		return "", errStatus(http.StatusUnauthorized, "missing refresh token")
+		return nil, errStatus(http.StatusUnauthorized, "missing refresh token")
 	}
 	parser := jwt.NewParser(jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
 	tok, err := parser.ParseWithClaims(refreshToken, &jwt.RegisteredClaims{}, func(t *jwt.Token) (interface{}, error) {
@@ -154,31 +170,67 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (accessToken
 		return s.jwtRefreshSecret, nil
 	})
 	if err != nil || !tok.Valid {
-		return "", errStatus(http.StatusUnauthorized, "invalid or expired refresh token")
+		return nil, errStatus(http.StatusUnauthorized, "invalid or expired refresh token")
 	}
 	claims, ok := tok.Claims.(*jwt.RegisteredClaims)
-	if !ok || claims.Subject == "" {
-		return "", errStatus(http.StatusUnauthorized, "invalid refresh token")
+	if !ok || claims.Subject == "" || claims.ID == "" {
+		return nil, errStatus(http.StatusUnauthorized, "invalid refresh token")
 	}
 	userID, err := uuid.Parse(claims.Subject)
 	if err != nil {
-		return "", errStatus(http.StatusUnauthorized, "invalid refresh token")
+		return nil, errStatus(http.StatusUnauthorized, "invalid refresh token")
+	}
+	jti, err := uuid.Parse(claims.ID)
+	if err != nil {
+		return nil, errStatus(http.StatusUnauthorized, "invalid refresh token")
+	}
+	record, err := s.repo.FindRefreshToken(ctx, jti)
+	if err != nil {
+		return nil, err
+	}
+	if record == nil || record.RevokedAt != nil {
+		return nil, errStatus(http.StatusUnauthorized, "refresh token revoked")
 	}
 	u, err := s.repo.FindByID(ctx, userID)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if u == nil {
-		return "", errStatus(http.StatusUnauthorized, "invalid refresh token")
+		return nil, errStatus(http.StatusUnauthorized, "invalid refresh token")
 	}
-	now := time.Now()
-	accessClaims := jwt.RegisteredClaims{
-		Subject:   userID.String(),
-		IssuedAt:  jwt.NewNumericDate(now),
-		ExpiresAt: jwt.NewNumericDate(now.Add(accessTokenTTL)),
+	if err := s.repo.RevokeRefreshToken(ctx, jti); err != nil {
+		return nil, err
 	}
-	at := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
-	return at.SignedString(s.jwtSecret)
+	access, newRefresh, err := s.issueTokens(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return &RefreshResult{AccessToken: access, RefreshToken: newRefresh}, nil
+}
+
+// Logout revokes the JTI embedded in the refresh token, if valid.
+func (s *Service) Logout(ctx context.Context, refreshToken string) {
+	if refreshToken == "" {
+		return
+	}
+	parser := jwt.NewParser(jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
+	tok, err := parser.ParseWithClaims(refreshToken, &jwt.RegisteredClaims{}, func(t *jwt.Token) (interface{}, error) {
+		return s.jwtRefreshSecret, nil
+	})
+	if err != nil || !tok.Valid {
+		return
+	}
+	claims, ok := tok.Claims.(*jwt.RegisteredClaims)
+	if !ok || claims.ID == "" {
+		return
+	}
+	jti, err := uuid.Parse(claims.ID)
+	if err != nil {
+		return
+	}
+	if err := s.repo.RevokeRefreshToken(ctx, jti); err != nil {
+		log.Printf("[auth] logout: revoke jti=%s err=%v", jti, err)
+	}
 }
 
 func (s *Service) RecoverPassword(ctx context.Context, email, securityKey, newPassword string) error {

@@ -26,6 +26,13 @@ func testAuthDB(t *testing.T) *gorm.DB {
 		created_at DATETIME,
 		updated_at DATETIME
 	)`).Error)
+	require.NoError(t, gdb.Exec(`CREATE TABLE refresh_tokens (
+		jti TEXT PRIMARY KEY,
+		user_id TEXT NOT NULL,
+		expires_at DATETIME NOT NULL,
+		revoked_at DATETIME,
+		created_at DATETIME
+	)`).Error)
 	return gdb
 }
 

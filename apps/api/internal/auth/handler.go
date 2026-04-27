@@ -82,15 +82,29 @@ func (h *Handler) Refresh(c echo.Context) error {
 	if err == nil && cookie != nil {
 		token = strings.TrimSpace(cookie.Value)
 	}
-	access, err := h.svc.Refresh(c.Request().Context(), token)
+	res, err := h.svc.Refresh(c.Request().Context(), token)
 	if err != nil {
 		return mapAuthError(err)
 	}
-	return c.JSON(http.StatusOK, refreshResponse{AccessToken: access})
+	c.SetCookie(&http.Cookie{
+		Name:     refreshCookieName,
+		Value:    res.RefreshToken,
+		Path:     "/",
+		MaxAge:   int(RefreshTokenTTL / time.Second),
+		HttpOnly: true,
+		Secure:   h.svc.CookieSecure(),
+		SameSite: http.SameSiteStrictMode,
+	})
+	return c.JSON(http.StatusOK, refreshResponse{AccessToken: res.AccessToken})
 }
 
 func (h *Handler) Logout(c echo.Context) error {
-	cookie := &http.Cookie{
+	var token string
+	if cookie, err := c.Cookie(refreshCookieName); err == nil && cookie != nil {
+		token = strings.TrimSpace(cookie.Value)
+	}
+	h.svc.Logout(c.Request().Context(), token)
+	c.SetCookie(&http.Cookie{
 		Name:     refreshCookieName,
 		Value:    "",
 		Path:     "/",
@@ -98,8 +112,7 @@ func (h *Handler) Logout(c echo.Context) error {
 		HttpOnly: true,
 		Secure:   h.svc.CookieSecure(),
 		SameSite: http.SameSiteStrictMode,
-	}
-	c.SetCookie(cookie)
+	})
 	return c.NoContent(http.StatusNoContent)
 }
 
