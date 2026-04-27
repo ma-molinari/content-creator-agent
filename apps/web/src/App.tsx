@@ -7,11 +7,13 @@ import { ToastContainer } from '@/components/ui/ToastContainer'
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <AppRouter />
-      </AuthProvider>
-      <ToastContainer />
-    </QueryClientProvider>
+    <div className="h-dvh min-h-0 overflow-y-auto">
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+          <AppRouter />
+        </AuthProvider>
+        <ToastContainer />
+      </QueryClientProvider>
+    </div>
   )
 }

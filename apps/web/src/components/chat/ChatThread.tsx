@@ -49,10 +49,15 @@ export function ChatThread({ chat, pendingText, jobStatus, jobError, onRetry }: 
             <JobStatusIndicator status={jobStatus} />
           </div>
         </div>
-      ) : jobError !== undefined && jobError !== null ? (
+      ) : jobError !== undefined && jobError !== null && jobError !== '' ? (
         <div className="flex justify-start">
           <div className="rounded-[var(--radius-lg)] rounded-tl-[var(--radius-sm)] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
             <p>Ocorreu um erro ao gerar o post. Tente enviar novamente.</p>
+            {jobError !== 'Erro desconhecido' && (
+              <p className="mt-1 line-clamp-3 break-words text-xs text-red-600/90 dark:text-red-400/90">
+                {jobError.length > 280 ? `${jobError.slice(0, 280)}…` : jobError}
+              </p>
+            )}
             {onRetry && (
               <button
                 type="button"

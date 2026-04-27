@@ -24,12 +24,18 @@ type ActiveJob = {
   pendingText: string
 }
 
+type LastJobFailure = {
+  error: string
+  pendingText: string
+}
+
 export default function Chat() {
   const { id } = useParams()
   const navigate = useNavigate()
   const qc = useQueryClient()
 
   const [activeJob, setActiveJob] = useState<ActiveJob | null>(null)
+  const [lastJobFailure, setLastJobFailure] = useState<LastJobFailure | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [isDownloadingZip, setIsDownloadingZip] = useState(false)
 
@@ -48,26 +54,44 @@ export default function Chat() {
     return () => window.removeEventListener('pageshow', onPageShow)
   }, [id, qc])
 
+  useEffect(() => {
+    setActiveJob(null)
+    setLastJobFailure(null)
+  }, [id])
+
   const jobStatus = useJobStatus(activeJob?.chatId ?? null, activeJob?.jobId ?? null)
   const currentStatus: JobStatus | undefined = jobStatus.data?.status
 
-  // Detect job terminal state and clear
+  // Detect job terminal state: persist failure for UI, then clear active job
   const prevStatusRef = useRef<JobStatus | undefined>(undefined)
   useEffect(() => {
     if (prevStatusRef.current === currentStatus) return
     prevStatusRef.current = currentStatus
 
-    if (currentStatus === 'done' || currentStatus === 'failed') {
-      if (currentStatus === 'done' && activeJob) {
-        qc.invalidateQueries({ queryKey: ['chats', activeJob.chatId] })
+    if (currentStatus === 'done') {
+      if (activeJob) {
+        void qc.invalidateQueries({ queryKey: ['chats', activeJob.chatId] })
+        setLastJobFailure(null)
       }
       queueMicrotask(() => setActiveJob(null))
+    } else if (currentStatus === 'failed' && activeJob) {
+      const err = jobStatus.data?.error ?? 'Erro desconhecido'
+      setLastJobFailure({ error: err, pendingText: activeJob.pendingText })
+      toast.error('Não foi possível gerar o post.')
+      queueMicrotask(() => setActiveJob(null))
     }
-  }, [currentStatus, activeJob, qc])
+  }, [currentStatus, activeJob, qc, jobStatus.data?.error])
 
-  const isJobActive =
+  const showJobLoading =
     !!activeJob &&
     (currentStatus === 'pending' || currentStatus === 'processing' || currentStatus === undefined)
+
+  const jobError: string | null =
+    (activeJob && currentStatus === 'failed'
+      ? (jobStatus.data?.error ?? 'Erro desconhecido')
+      : null) ??
+    lastJobFailure?.error ??
+    null
 
   const handleSend = useCallback(
     async (text: string) => {
@@ -79,6 +103,8 @@ export default function Chat() {
         qc.invalidateQueries({ queryKey: ['chats'] })
         navigate(`/chat/${chatId}`, { replace: true })
       }
+
+      setLastJobFailure(null)
 
       const { data } = await api.post<{ jobId: string }>(`/chats/${chatId}/messages`, {
         content: text,
@@ -99,10 +125,11 @@ export default function Chat() {
   )
 
   const handleRetry = useCallback(() => {
-    const text = activeJob?.pendingText
+    const text = activeJob?.pendingText ?? lastJobFailure?.pendingText
+    setLastJobFailure(null)
     setActiveJob(null)
     if (text) void handleSend(text)
-  }, [activeJob, handleSend])
+  }, [activeJob, lastJobFailure, handleSend])
 
   async function handleDelete() {
     if (!id) return
@@ -132,7 +159,7 @@ export default function Chat() {
 
   if (setup.isLoading) {
     return (
-      <div className="flex flex-1 items-center justify-center py-20">
+      <div className="flex min-h-0 flex-1 items-center justify-center py-20">
         <Spinner />
       </div>
     )
@@ -142,7 +169,7 @@ export default function Chat() {
 
   return (
     <>
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {!setupConfigured && (
           <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-6 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
             Perfil não configurado.{' '}
@@ -184,7 +211,7 @@ export default function Chat() {
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {!id ? (
             <EmptyChatState onChipClick={setupConfigured ? handleChipClick : undefined} />
           ) : chat.isLoading ? (
@@ -194,19 +221,18 @@ export default function Chat() {
           ) : (
             <ChatThread
               chat={chat.data}
-              pendingText={isJobActive ? (activeJob?.pendingText ?? null) : null}
-              jobStatus={isJobActive ? currentStatus : undefined}
-              jobError={
-                currentStatus === 'failed'
-                  ? (jobStatus.data?.error ?? 'Erro desconhecido')
-                  : null
-              }
-              onRetry={currentStatus === 'failed' ? handleRetry : undefined}
+              pendingText={showJobLoading ? (activeJob?.pendingText ?? null) : null}
+              jobStatus={showJobLoading ? currentStatus : undefined}
+              jobError={jobError}
+              onRetry={jobError != null ? handleRetry : undefined}
             />
           )}
         </div>
 
-        <ComposerBar onSend={handleSend} disabled={isJobActive || !setupConfigured} />
+        <ComposerBar
+          onSend={handleSend}
+          disabled={showJobLoading || !setupConfigured}
+        />
       </div>
 
       <AlertDialog

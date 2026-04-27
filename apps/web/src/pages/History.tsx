@@ -32,44 +32,48 @@ export default function History() {
 
   return (
     <>
-      <div className="mx-auto max-w-3xl px-4 py-6">
-        <div className="mb-6 flex items-center gap-3">
-          <Link
-            to="/"
-            className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
-          >
-            ← Início
-          </Link>
-          <h1 className="text-xl font-semibold text-[var(--color-text-primary)]">Histórico</h1>
-        </div>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="mx-auto max-w-3xl px-4 py-6">
+            <div className="mb-6 flex items-center gap-3">
+              <Link
+                to="/"
+                className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+              >
+                ← Início
+              </Link>
+              <h1 className="text-xl font-semibold text-[var(--color-text-primary)]">Histórico</h1>
+            </div>
 
-        {isLoading ? (
-          <div className="flex justify-center py-16">
-            <Spinner />
+            {isLoading ? (
+              <div className="flex justify-center py-16">
+                <Spinner />
+              </div>
+            ) : !chats || chats.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 text-center">
+                <p className="text-[var(--color-text-secondary)]">Nenhum post criado ainda.</p>
+                <Link
+                  to="/"
+                  className="mt-3 text-sm font-medium text-[var(--color-brand-primary)] hover:text-[var(--color-brand-primary-hover)]"
+                >
+                  Comece pelo chat →
+                </Link>
+              </div>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {chats.map((chat) => (
+                  <ChatListItem
+                    key={chat.id}
+                    chat={chat}
+                    deleting={deletingId === chat.id}
+                    onOpen={() => navigate(`/chat/${chat.id}`)}
+                    onDelete={() => setConfirmId(chat.id)}
+                  />
+                ))}
+              </ul>
+            )}
           </div>
-        ) : !chats || chats.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <p className="text-[var(--color-text-secondary)]">Nenhum post criado ainda.</p>
-            <Link
-              to="/"
-              className="mt-3 text-sm font-medium text-[var(--color-brand-primary)] hover:text-[var(--color-brand-primary-hover)]"
-            >
-              Comece pelo chat →
-            </Link>
-          </div>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {chats.map((chat) => (
-              <ChatListItem
-                key={chat.id}
-                chat={chat}
-                deleting={deletingId === chat.id}
-                onOpen={() => navigate(`/chat/${chat.id}`)}
-                onDelete={() => setConfirmId(chat.id)}
-              />
-            ))}
-          </ul>
-        )}
+        </div>
       </div>
 
       <AlertDialog
