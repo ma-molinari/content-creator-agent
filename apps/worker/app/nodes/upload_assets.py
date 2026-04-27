@@ -1,8 +1,8 @@
 """Upload rendered JPEGs to S3 with exponential backoff."""
 
+import asyncio
 import logging
 import re
-import time
 from typing import Optional
 
 import boto3
@@ -24,28 +24,28 @@ def _slide_number_from_filename(filename: str) -> int:
     return 0
 
 
-def _upload_with_retry(client, bucket: str, key: str, body: bytes) -> None:
+def _put_object_sync(client, bucket: str, key: str, body: bytes) -> None:
+    """Blocking S3 put — intended to be called via asyncio.to_thread."""
+    client.put_object(Bucket=bucket, Key=key, Body=body, ContentType="image/jpeg")
+
+
+async def _upload_with_retry(client, bucket: str, key: str, body: bytes) -> None:
     delay = 0.5
     last: Optional[Exception] = None
     for attempt in range(_MAX_ATTEMPTS):
         try:
-            client.put_object(
-                Bucket=bucket,
-                Key=key,
-                Body=body,
-                ContentType="image/jpeg",
-            )
+            await asyncio.to_thread(_put_object_sync, client, bucket, key, body)
             return
         except (ClientError, BotoCoreError) as e:
             last = e
             if attempt < _MAX_ATTEMPTS - 1:
-                time.sleep(delay)
+                await asyncio.sleep(delay)
                 delay *= 2
     if last:
         raise last
 
 
-def upload_assets(state: AgentState) -> dict:
+async def upload_assets(state: AgentState) -> dict:
     logger.info("node=upload_assets job_id=%s", state.get("job_id"))
     settings = get_settings()
     job_id = state.get("job_id") or ""
@@ -69,7 +69,7 @@ def upload_assets(state: AgentState) -> dict:
         body = item.get("jpeg_bytes") or b""
         key = f"slides/{job_id}/{fname}"
         try:
-            _upload_with_retry(client, bucket, key, body)
+            await _upload_with_retry(client, bucket, key, body)
             sn = _slide_number_from_filename(fname)
             if sn <= 0:
                 sn = idx
