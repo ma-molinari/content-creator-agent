@@ -55,25 +55,24 @@ func (s *Service) ListChats(ctx context.Context, userID uuid.UUID) ([]db.Chat, e
 }
 
 // CreateChat creates a chat, evicting the oldest when the user already has 5.
+// The count-check and insert run in a single transaction to prevent TOCTOU races.
 func (s *Service) CreateChat(ctx context.Context, userID uuid.UUID, postType string) (*db.Chat, error) {
 	pt, err := parsePostType(postType)
 	if err != nil {
 		return nil, err
 	}
-	n, err := s.repo.CountByUser(ctx, userID)
+	created, evictedID, err := s.repo.CreateChatEvicting(ctx, userID, pt, listChatsLimit)
 	if err != nil {
 		return nil, err
 	}
-	if n >= 5 {
-		oldest, err := s.repo.OldestChatID(ctx, userID)
-		if err != nil {
-			return nil, err
-		}
-		if err := s.DeleteChat(ctx, userID, oldest); err != nil {
-			return nil, err
+	// S3 cleanup of evicted chat happens outside the transaction (best-effort).
+	if evictedID != nil {
+		keys, err := s.repo.CollectS3KeysForChat(ctx, *evictedID)
+		if err == nil {
+			_ = s.store.DeleteMany(ctx, keys)
 		}
 	}
-	return s.repo.Create(ctx, userID, pt)
+	return created, nil
 }
 
 func parsePostType(s string) (db.PostType, error) {

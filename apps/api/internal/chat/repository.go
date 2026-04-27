@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // Repository persists chat aggregates.
@@ -63,6 +64,42 @@ func (r *Repository) Create(ctx context.Context, userID uuid.UUID, postType db.P
 		return nil, err
 	}
 	return &c, nil
+}
+
+// CreateChatEvicting atomically counts the user's chats, evicts the oldest when
+// the count is at or above the limit, and inserts the new chat — all inside a
+// single serialisable transaction to prevent TOCTOU races.
+// It returns the new chat and, when an eviction occurred, the evicted chat ID
+// so the caller can clean up S3 artefacts outside the transaction.
+func (r *Repository) CreateChatEvicting(ctx context.Context, userID uuid.UUID, postType db.PostType, limit int) (*db.Chat, *uuid.UUID, error) {
+	var created db.Chat
+	var evictedID *uuid.UUID
+
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var ids []uuid.UUID
+		// clause.Locking is silently ignored by the SQLite driver (unit tests) and
+		// translates to FOR UPDATE on PostgreSQL (production).
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Model(&db.Chat{}).
+			Where("user_id = ?", userID).
+			Order("created_at ASC").
+			Pluck("id", &ids).Error; err != nil {
+			return err
+		}
+		if len(ids) >= limit {
+			oldest := ids[0]
+			evictedID = &oldest
+			if err := tx.Unscoped().Delete(&db.Chat{}, "id = ?", oldest).Error; err != nil {
+				return err
+			}
+		}
+		created = db.Chat{ID: uuid.New(), UserID: userID, PostType: postType}
+		return tx.Create(&created).Error
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return &created, evictedID, nil
 }
 
 // GetByID loads a chat by primary key only (no ownership check).
