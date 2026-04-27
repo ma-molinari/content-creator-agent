@@ -62,5 +62,12 @@ async def finalize(state: AgentState) -> dict:
         r = await client.post(url, json=payload, headers=headers)
         if r.status_code >= 400:
             errors.append(f"finalize callback failed: {r.status_code} {r.text}")
+            # Prevent the job from being stuck in processing by sending an error callback.
+            async with httpx.AsyncClient(timeout=10.0) as fallback:
+                await fallback.post(
+                    url,
+                    json={"error": "callback delivery failed"},
+                    headers=headers,
+                )
 
     return {"errors": errors}
