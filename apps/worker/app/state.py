@@ -42,3 +42,7 @@ class AgentState(TypedDict):
     reference_s3_keys: NotRequired[list[str]]
     # Explicit slide count: inferência no worker, ou payload da API. None = sem exigência de N.
     requested_slide_count: NotRequired[Optional[int]]
+    # Set by prompt_security_validate when input fails deterministic checks (routing + finalize).
+    prompt_validation_failed: NotRequired[bool]
+    # Internal rule id for logs when validation rejects (not shown to end users).
+    prompt_security_rule: NotRequired[str]

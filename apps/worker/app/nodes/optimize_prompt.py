@@ -8,6 +8,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
 from app.config import PROMPTS_DIR, get_settings
+from app.parse_optimize_output import split_optimize_response
 from app.state import AgentState
 
 logger = logging.getLogger(__name__)
@@ -26,18 +27,26 @@ def optimize_prompt(state: AgentState) -> dict:
     raw = state.get("raw_message") or ""
     reprompt = (state.get("reprompt_context") or "").strip()
     requested = state.get("requested_slide_count")
-    user_parts = [profile, "---", "Pedido do usuário:", raw]
+    user_parts = [
+        "<perfil_usuario>",
+        profile,
+        "</perfil_usuario>",
+        "",
+        "<pedido_usuario>",
+        raw,
+        "</pedido_usuario>",
+    ]
     if isinstance(requested, int):
         user_parts.extend(
             [
-                "---",
+                "",
                 f"**Quantidade de slides (obrigatória):** o carrossel deve ter **exatamente {requested} slides** — "
                 "o brief e a estrutura narrativa devem respeitar esse N (nem a mais, nem a menos).",
             ]
         )
     if reprompt:
-        user_parts.extend(["---", "Contexto anterior do chat:", reprompt])
-    user_content = "\n\n".join(user_parts)
+        user_parts.extend(["", "<contexto_anterior>", reprompt, "</contexto_anterior>"])
+    user_content = "\n".join(user_parts)
 
     llm = ChatOpenAI(
         api_key=settings.openai_api_key,
@@ -51,4 +60,8 @@ def optimize_prompt(state: AgentState) -> dict:
         ]
     )
     text = (msg.content or "").strip() if hasattr(msg, "content") else str(msg)
-    return {"optimized_brief": text}
+    brief, user_msg = split_optimize_response(text)
+    out: dict = {"optimized_brief": brief}
+    if user_msg:
+        out["assistant_text"] = user_msg
+    return out

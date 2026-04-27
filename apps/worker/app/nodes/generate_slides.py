@@ -9,6 +9,7 @@ from langchain_openai import ChatOpenAI
 
 from app.config import PROMPTS_DIR, get_settings
 from app.generate_slides_tokens import compute_max_output_tokens
+from app.sanitize import sanitize_brief_output  # noqa: F401 (re-exported for tests)
 from app.state import AgentState
 
 logger = logging.getLogger(__name__)
@@ -47,7 +48,7 @@ def generate_slides(state: AgentState) -> dict:
     settings = get_settings()
     system = _read_generate_prompt()
     profile = state.get("profile_text") or ""
-    brief = state.get("optimized_brief") or ""
+    brief = sanitize_brief_output(state.get("optimized_brief") or "")
     requested = state.get("requested_slide_count")
     max_tokens = compute_max_output_tokens(
         requested if isinstance(requested, int) else None,
@@ -57,7 +58,14 @@ def generate_slides(state: AgentState) -> dict:
     if int(state.get("retry_count") or 0) > 0:
         max_tokens = min(max_tokens + _MAX_TOKENS_RETRY_HINT, settings.generate_slides_max_tokens_cap)
 
-    user_content = f"{profile}\n\n---\n\nBrief otimizado:\n{brief}"
+    user_content = (
+        "<perfil_usuario>\n"
+        f"{profile}\n"
+        "</perfil_usuario>\n\n"
+        "<brief_otimizado>\n"
+        f"{brief}\n"
+        "</brief_otimizado>"
+    )
     user_content += _count_instruction(requested if isinstance(requested, int) else None)
     user_content += _retry_feedback(state.get("errors"))
 

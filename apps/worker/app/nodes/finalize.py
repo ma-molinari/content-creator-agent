@@ -5,6 +5,7 @@ import logging
 import httpx
 
 from app.config import get_settings
+from app.sanitize import sanitize_brief_output
 from app.state import AgentState
 
 logger = logging.getLogger(__name__)
@@ -18,7 +19,7 @@ def _summarize_errors(errors: list[str]) -> str:
 
 def _build_assistant_text(state: AgentState) -> str:
     if state.get("assistant_text"):
-        return str(state["assistant_text"])
+        return sanitize_brief_output(str(state["assistant_text"]).strip())
     brief = (state.get("optimized_brief") or "").strip()
     if brief:
         return brief

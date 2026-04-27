@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -40,7 +41,9 @@ class Settings(BaseSettings):
     generate_slides_tokens_per_slide: int = Field(default=1200, ge=200)
     generate_slides_max_tokens_cap: int = Field(default=16_000, ge=2_000)
     # If set, overrides the computed value (still capped at generate_slides_max_tokens_cap).
-    generate_slides_max_tokens: int | None = Field(default=None)
+    generate_slides_max_tokens: Optional[int] = Field(default=None)
+    # Max combined length (characters) of raw_message + reprompt_context before LLM nodes.
+    user_prompt_max_chars: int = Field(default=48_000, ge=4096)
 
 
 @lru_cache

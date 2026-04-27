@@ -8,6 +8,7 @@ from app.nodes.generate_slides import generate_slides
 from app.nodes.load_profile import load_profile
 from app.nodes.optimize_prompt import optimize_prompt
 from app.nodes.parse_validate import parse_validate, route_after_parse
+from app.nodes.prompt_security_validate import prompt_security_validate, route_after_prompt_security
 from app.nodes.render_to_jpeg import render_to_jpeg
 from app.nodes.upload_assets import upload_assets
 from app.state import AgentState
@@ -16,6 +17,7 @@ from app.state import AgentState
 def build_graph():
     builder = StateGraph(AgentState)
     builder.add_node("load_profile", load_profile)
+    builder.add_node("prompt_security_validate", prompt_security_validate)
     builder.add_node("describe_references", describe_references)
     builder.add_node("optimize_prompt", optimize_prompt)
     builder.add_node("generate_slides", generate_slides)
@@ -25,7 +27,12 @@ def build_graph():
     builder.add_node("finalize", finalize)
 
     builder.set_entry_point("load_profile")
-    builder.add_edge("load_profile", "describe_references")
+    builder.add_edge("load_profile", "prompt_security_validate")
+    builder.add_conditional_edges(
+        "prompt_security_validate",
+        route_after_prompt_security,
+        {"ok": "describe_references", "rejected": "finalize"},
+    )
     builder.add_edge("describe_references", "optimize_prompt")
     builder.add_edge("optimize_prompt", "generate_slides")
     builder.add_edge("generate_slides", "parse_validate")
