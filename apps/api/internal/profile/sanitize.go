@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 const maxProfileTextBytes = 20_000
@@ -55,10 +56,13 @@ func SanitizeProfileText(s string) string {
 	s = strings.TrimSpace(s)
 
 	if len(s) > maxProfileTextBytes {
-		// Truncate at a rune boundary.
-		runes := []rune(s)
-		truncated := string(runes[:maxProfileTextBytes])
-		s = strings.TrimSpace(truncated)
+		b := []byte(s)
+		b = b[:maxProfileTextBytes]
+		// Retreat byte by byte until the slice is valid UTF-8 (at most 3 steps).
+		for len(b) > 0 && !utf8.Valid(b) {
+			b = b[:len(b)-1]
+		}
+		s = strings.TrimSpace(string(b))
 	}
 	return s
 }

@@ -46,8 +46,24 @@ func TestSanitizeProfileText_neutralizesHorizontalRules(t *testing.T) {
 func TestSanitizeProfileText_truncatesAtLimit(t *testing.T) {
 	long := strings.Repeat("a", maxProfileTextBytes+1000)
 	got := SanitizeProfileText(long)
-	if len([]rune(got)) > maxProfileTextBytes {
-		t.Errorf("esperava truncagem em %d chars, tamanho obtido: %d", maxProfileTextBytes, len(got))
+	if len(got) > maxProfileTextBytes {
+		t.Errorf("esperava truncagem em %d bytes, tamanho obtido: %d", maxProfileTextBytes, len(got))
+	}
+}
+
+func TestSanitizeProfileText_truncatesMultiByteAtLimit(t *testing.T) {
+	// Each emoji is 4 bytes; repeat enough to exceed the byte limit.
+	long := strings.Repeat("😀", maxProfileTextBytes/2)
+	got := SanitizeProfileText(long)
+	if len(got) > maxProfileTextBytes {
+		t.Errorf("truncagem multi-byte excedeu %d bytes: %d", maxProfileTextBytes, len(got))
+	}
+	// Result must be valid UTF-8.
+	for i, r := range got {
+		if r == '\uFFFD' {
+			t.Errorf("runa inválida (U+FFFD) na posição %d após truncagem", i)
+			break
+		}
 	}
 }
 
