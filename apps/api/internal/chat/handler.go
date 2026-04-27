@@ -232,6 +232,9 @@ func (h *Handler) PostMessage(c echo.Context) error {
 	if body.Content == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "content is required")
 	}
+	if len(body.Content) > 10_000 {
+		return echo.NewHTTPError(http.StatusBadRequest, "content too long")
+	}
 	uid := middleware.UserID(c)
 	res, err := h.svc.PostMessage(c.Request().Context(), uid, chatID, body.Content)
 	if err != nil {

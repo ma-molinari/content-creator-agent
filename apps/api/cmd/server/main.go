@@ -94,7 +94,9 @@ func main() {
 
 	e := echo.New()
 	e.HideBanner = true
+	e.IPExtractor = echo.ExtractIPFromXFFHeader(echo.TrustPrivateNet(true))
 	e.Use(middleware.Recover())
+	e.Use(middleware.BodyLimit("2M"))
 	e.Use(appmw.SecurityHeaders())
 	e.Use(appmw.CORS(cfg.CORSAllowedOrigins))
 
