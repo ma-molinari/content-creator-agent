@@ -9,7 +9,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "screenshots": "npm run build && playwright test e2e/screenshots.spec.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:dev": "PLAYWRIGHT_BASE_URL=http://localhost:5173 playwright test --project=chromium"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.99.0",

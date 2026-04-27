@@ -205,3 +205,168 @@ test.describe('chat (mocked API)', () => {
     await expect(page.getByTitle('Baixar todos os slides (ZIP)')).toBeVisible()
   })
 })
+
+test.describe('chat — cenários adicionais (API mockada)', () => {
+  const CHAT_ID = '00000000-0000-4000-8000-000000000001'
+  const USER_MSG_ID = '00000000-0000-4000-8000-000000000010'
+  const ASST_MSG_ID = '00000000-0000-4000-8000-000000000011'
+  const USER_ID = '00000000-0000-4000-8000-000000000003'
+  const iso = '2026-01-15T12:00:00.000Z'
+
+  const chatWithMessages = {
+    id: CHAT_ID,
+    userId: USER_ID,
+    postType: 'carousel',
+    title: 'Chat existente e2e',
+    createdAt: iso,
+    updatedAt: iso,
+    contents: [
+      {
+        id: USER_MSG_ID,
+        chatId: CHAT_ID,
+        role: 'user',
+        content: 'Mensagem do usuário',
+        createdAt: iso,
+        updatedAt: iso,
+        images: [],
+      },
+      {
+        id: ASST_MSG_ID,
+        chatId: CHAT_ID,
+        role: 'assistant',
+        content: 'Resposta do assistente',
+        createdAt: iso,
+        updatedAt: iso,
+        images: [],
+      },
+    ],
+  }
+
+  test('setup gate — banner visível quando perfil não configurado', async ({ page }) => {
+    await page.route('**/api/**', async (route) => {
+      const req = route.request()
+      const method = req.method()
+      const path = new URL(req.url()).pathname
+
+      if (path === '/api/auth/refresh' && method === 'POST') {
+        await route.fulfill({ status: 401, contentType: 'application/json', body: '{}' })
+        return
+      }
+      if (path === '/api/auth/login' && method === 'POST') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ accessToken: 'e2e-token' }),
+        })
+        return
+      }
+      if (path === '/api/setup/status' && method === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ configured: false }),
+        })
+        return
+      }
+      await route.continue()
+    })
+
+    await page.goto('/login')
+    await page.getByLabel('Email').fill('e2e-gate@example.com')
+    await page.locator('#password').fill('password12')
+    await page.getByRole('button', { name: 'Entrar' }).click()
+
+    await expect(page).toHaveURL('/')
+    await expect(page.getByText('Perfil não configurado.')).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Abrir configuração do perfil' })).toBeVisible()
+  })
+
+  test('navegar para /chat/:id carrega thread com mensagens', async ({ page }) => {
+    await page.route('**/api/**', async (route) => {
+      const req = route.request()
+      const method = req.method()
+      const path = new URL(req.url()).pathname
+
+      if (path === '/api/auth/refresh' && method === 'POST') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ accessToken: 'e2e-token' }),
+        })
+        return
+      }
+      if (path === '/api/setup/status' && method === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ configured: true }),
+        })
+        return
+      }
+      if (path === `/api/chats/${CHAT_ID}` && method === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(chatWithMessages),
+        })
+        return
+      }
+      await route.continue()
+    })
+
+    await page.goto(`/chat/${CHAT_ID}`)
+
+    await expect(page.getByText('Mensagem do usuário')).toBeVisible({ timeout: 8_000 })
+    await expect(page.getByText('Resposta do assistente')).toBeVisible()
+    await expect(page.getByText('Chat existente e2e')).toBeVisible()
+  })
+
+  test('delete de chat dentro da view → AlertDialog → redireciona para /', async ({ page }) => {
+    await page.route('**/api/**', async (route) => {
+      const req = route.request()
+      const method = req.method()
+      const path = new URL(req.url()).pathname
+
+      if (path === '/api/auth/refresh' && method === 'POST') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ accessToken: 'e2e-token' }),
+        })
+        return
+      }
+      if (path === '/api/setup/status' && method === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ configured: true }),
+        })
+        return
+      }
+      if (path === `/api/chats/${CHAT_ID}` && method === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(chatWithMessages),
+        })
+        return
+      }
+      if (path === `/api/chats/${CHAT_ID}` && method === 'DELETE') {
+        await route.fulfill({ status: 204 })
+        return
+      }
+      await route.continue()
+    })
+
+    await page.goto(`/chat/${CHAT_ID}`)
+    await expect(page.getByText('Chat existente e2e')).toBeVisible({ timeout: 8_000 })
+
+    await page.getByTitle('Excluir chat').click()
+    await expect(page.getByRole('alertdialog')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Excluir chat' })).toBeVisible()
+
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Excluir' }).click()
+
+    await expect(page).toHaveURL('/', { timeout: 8_000 })
+  })
+})

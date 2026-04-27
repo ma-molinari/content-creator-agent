@@ -82,4 +82,79 @@ test.describe('history (mocked API)', () => {
     await expect.poll(() => deleteCalls).toBe(1)
     await expect(page.getByText('Histórico e2e')).not.toBeVisible()
   })
+
+  test('clicar em item da lista navega para /chat/:id', async ({ page }) => {
+    await page.route('**/api/**', async (route) => {
+      const req = route.request()
+      const method = req.method()
+      const path = new URL(req.url()).pathname
+
+      if (path === '/api/auth/refresh' && method === 'POST') {
+        await route.fulfill({ status: 401, contentType: 'application/json', body: '{}' })
+        return
+      }
+      if (path === '/api/auth/login' && method === 'POST') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ accessToken: 'e2e-token' }),
+        })
+        return
+      }
+      if (path === '/api/chats' && method === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify([
+            {
+              id: CHAT_A,
+              userId: '00000000-0000-4000-8000-000000000003',
+              postType: 'carousel',
+              title: 'Histórico e2e',
+              createdAt: iso,
+              updatedAt: iso,
+              contents: [],
+            },
+          ]),
+        })
+        return
+      }
+      if (path === `/api/chats/${CHAT_A}` && method === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            id: CHAT_A,
+            userId: '00000000-0000-4000-8000-000000000003',
+            postType: 'carousel',
+            title: 'Histórico e2e',
+            createdAt: iso,
+            updatedAt: iso,
+            contents: [],
+          }),
+        })
+        return
+      }
+      if (path === '/api/setup/status' && method === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ configured: true }),
+        })
+        return
+      }
+      await route.continue()
+    })
+
+    await page.goto('/login')
+    await page.getByLabel('Email').fill('e2e-hist-nav@example.com')
+    await page.locator('#password').fill('password12')
+    await page.getByRole('button', { name: 'Entrar' }).click()
+
+    await page.getByRole('link', { name: 'Histórico' }).click()
+    await expect(page.getByText('Histórico e2e')).toBeVisible()
+
+    await page.getByText('Histórico e2e').click()
+    await expect(page).toHaveURL(new RegExp(`/chat/${CHAT_A}`))
+  })
 })
