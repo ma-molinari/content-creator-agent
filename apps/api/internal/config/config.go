@@ -27,7 +27,7 @@ type Config struct {
 	SummarizeCron string
 	// StuckJobCron runs stuck-job cleanup (default every 10 minutes UTC). Empty disables the job.
 	StuckJobCron string
-	// StuckJobProcessingMinutes marks processing jobs as failed when UpdatedAt is older than this (default 45).
+	// StuckJobProcessingMinutes marks processing jobs as failed when UpdatedAt is older than this (default 20).
 	StuckJobProcessingMinutes int
 	// ProfileRefMaxCount caps optional design reference uploads per user (default 8).
 	ProfileRefMaxCount int
@@ -58,7 +58,7 @@ func Load() Config {
 	if stuckJobCron == "" {
 		stuckJobCron = "*/10 * * * *"
 	}
-	stuckJobMinutes := 45
+	stuckJobMinutes := 20
 	if v := strings.TrimSpace(os.Getenv("STUCK_JOB_PROCESSING_MINUTES")); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			stuckJobMinutes = n
