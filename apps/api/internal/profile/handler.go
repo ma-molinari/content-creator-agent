@@ -45,7 +45,9 @@ func (h *Handler) Save(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid JSON body")
 	}
 	uid := middleware.UserID(c)
-	if err := h.svc.SaveProfile(c.Request().Context(), uid, body.AuditText, body.BrandText); err != nil {
+	auditText := SanitizeProfileText(body.AuditText)
+	brandText := SanitizeProfileText(body.BrandText)
+	if err := h.svc.SaveProfile(c.Request().Context(), uid, auditText, brandText); err != nil {
 		return httperr.Internal("[profile] save", err)
 	}
 	v, err := h.svc.GetProfile(c.Request().Context(), uid)

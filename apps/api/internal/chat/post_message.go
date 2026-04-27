@@ -13,7 +13,11 @@ import (
 	"github.com/google/uuid"
 )
 
-var htmlTagPattern = regexp.MustCompile(`<[^>]+>`)
+var (
+	htmlTagPattern         = regexp.MustCompile(`<[^>]+>`)
+	chatSlideMarkerPattern = regexp.MustCompile(`(?i)###SLIDE_FILE:[^\n]*`)
+	chatEndSlidePattern    = regexp.MustCompile(`(?i)###END_SLIDE###`)
+)
 
 func stripHTML(s string) string {
 	return htmlTagPattern.ReplaceAllString(s, "")
@@ -28,10 +32,26 @@ func stripControlChars(s string) string {
 	}, s)
 }
 
-// SanitizeUserInput removes HTML tags and control characters from user text.
+// neutralizePipelineDelimiters prefixes horizontal rules and removes slide
+// markers so a crafted message cannot hijack the worker pipeline separators.
+func neutralizePipelineDelimiters(s string) string {
+	s = chatSlideMarkerPattern.ReplaceAllString(s, "")
+	s = chatEndSlidePattern.ReplaceAllString(s, "")
+	lines := strings.Split(s, "\n")
+	for i, line := range lines {
+		if strings.HasPrefix(strings.TrimSpace(line), "---") {
+			lines[i] = "> " + line
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+// SanitizeUserInput removes HTML tags, control characters, and pipeline
+// delimiter sequences from user text.
 func SanitizeUserInput(s string) string {
 	s = stripHTML(s)
 	s = stripControlChars(s)
+	s = neutralizePipelineDelimiters(s)
 	return strings.TrimSpace(s)
 }
 
