@@ -8,13 +8,17 @@ import (
 )
 
 // SecurityHeaders sets standard hardening headers.
-func SecurityHeaders() echo.MiddlewareFunc {
+// HSTS is only emitted when httpsOnly is true to avoid breaking local dev over HTTP.
+func SecurityHeaders(httpsOnly bool) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			c.Response().Header().Set("X-Content-Type-Options", "nosniff")
 			c.Response().Header().Set("X-Frame-Options", "DENY")
 			c.Response().Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
-			c.Response().Header().Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+			c.Response().Header().Set("Content-Security-Policy", "default-src 'none'")
+			if httpsOnly {
+				c.Response().Header().Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
+			}
 			c.Response().Header().Set("Permissions-Policy", "geolocation=(), camera=(), microphone=()")
 			return next(c)
 		}
@@ -32,6 +36,7 @@ func CORS(allowedOrigins []string) echo.MiddlewareFunc {
 	}
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
+			c.Response().Header().Add("Vary", "Origin")
 			origin := c.Request().Header.Get("Origin")
 			if origin != "" {
 				if _, ok := allow[origin]; ok {
