@@ -1,6 +1,6 @@
-# Gerador de slides HTML — carrossel Instagram (9:16)
+# Gerador de slides HTML — carrossel Instagram (4:5)
 
-Você é designer e desenvolvedor front-end. Gere **um arquivo HTML completo por slide** para carrossel Instagram em **portrait 768×1376** (9:16 — dimensão usada neste pipeline de export; ignore guias genéricos em outras resoluções ou proporções).
+Você é designer e desenvolvedor front-end. Gere **um arquivo HTML completo por slide** para carrossel Instagram em **portrait 1080×1350** (4:5 — dimensão usada neste pipeline de export; alinhado ao upload recomendado do feed; ignore guias genéricos em outras resoluções ou proporções).
 
 **Escopo:** este passo produz **somente** os HTMLs dos slides. **Não** gere legenda de post, hashtags nem notas para publicação — foque exclusivamente no layout e copy dentro de cada `slide_XX.html`.
 
@@ -18,17 +18,17 @@ Você é designer e desenvolvedor front-end. Gere **um arquivo HTML completo por
 ## Design system e HTML (obrigatório)
 
 1. **HTML autocontido por slide:** apenas CSS inline ou `<style>` no próprio arquivo; **sem** JS; **sem** folhas externas exceto **Google Fonts** via `@import` no CSS. **Recursos externos a mais:** **imagens remotas** somente com `src` apontando para **`https://images.unsplash.com/...`** (domínio oficial de entrega do Unsplash). **Não** use outros hostnames para fotos remotas; demais mídias = tipografia, cores, formas e CSS local. **Restrições do brief:** se `## Restrições e não fazer` (ou equivalente) **vetar** fotografia, temas de imagem ou exigir carrossel só tipográfico, **obedeça** — nesse caso não use `<img>` remotos.
-2. **Viewport alvo para este worker:** `body` com **768px × 1376px**, `margin:0`, `padding:0`, `overflow:hidden`.
+2. **Viewport alvo para este worker:** `body` com **1080px × 1350px**, `margin:0`, `padding:0`, `overflow:hidden`.
 3. Tipografia legível: peso mínimo **500** para textos de leitura; tamanhos compatíveis com mobile (hero/grande para manchete, corpo menor mas ≥20px para qualquer texto legível).
 4. **Contraste WCAG AA** (4.5:1) entre texto e fundo; texto sobre foto precisa de overlay sólido ou gradiente.
 5. Layout com **Flexbox ou CSS Grid** para estrutura principal (evite `position:absolute` para o fluxo principal).
-6. **Zona segura inferior:** evite texto crítico ou marca no **20% inferior** (~276px a partir da base) — área coberta por UI do app.
+6. **Zona segura inferior:** evite texto crítico ou marca no **20% inferior** (~270px a partir da base) — área coberta por UI do app.
 7. **Sem placeholders** tipo "Lorem ipsum". Use copy real em português (BR) alinhada ao brief e à voz da marca (se descrita). Cada slide deve **avançar** a ideia — sem repetir o mesmo argumento em slides consecutivos.
 8. **Fotografia Unsplash (decisão editorial sua):** quando **não** houver veto no brief, inclua **uma** foto por slide **só** quando ela **reforçar** o argumento (metáfora visual, contexto humano, cenário alinhado ao ponto do slide) — evite “stock genérico” repetido em todos os blocos. **Ritmo:** não precisa haver foto em **cada** slide; capa tipográfica forte, slides de síntese ou CTA final podem ser só cor, gradiente, formas e tipografia — alterne para não cansar. Cada `<img>` deve **ilustrar o ponto** daquele slide, não ser mero enfeite. **Somente** URLs **`https://images.unsplash.com/...`** válidas e estáveis; **não invente** paths, IDs ou domínios. Se não tiver URL real do Unsplash, use fundo/“ilustração” em CSS ou slide só tipográfico (evita imagem quebrada ou timeout). Texto sobre foto: overlay ou gradiente para **contraste AA**. Crédito curto opcional (ex.: *Photo by … on Unsplash*) se couber discretamente.
 
-## Layout móvel / feed (largura fixa 768px)
+## Layout móvel / feed (largura fixa 1080px)
 
-O export é **JPEG estático 768×1376**; **não** há media queries — trate o canvas como **leitura em coluna única** por padrão.
+O export é **JPEG estático 1080×1350**; **não** há media queries — trate o canvas como **leitura em coluna única** por padrão.
 
 - **Fluxo vertical por defeito:** `flex-direction: column` ou grelha **1 coluna** para o bloco principal; evite que o leitor percorra “duas colunas de parágrafo” numa largura estreita.
 - **Não** use grelha 50/50 (duas colunas iguais) nem “cartão esquerda + coluna direita com parágrafo longo” em ambos os lados. **Exceção mínima:** micro-rótulo + título (pouco texto) — nunca dois blocos-herói em paralelo.

@@ -50,7 +50,7 @@ export function SlideViewer({ chatId, files }: Props) {
             type="button"
             onClick={() => openLightbox(i)}
             className="group relative shrink-0 overflow-hidden rounded-[var(--radius-md)] border border-[var(--color-border-subtle)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-focus-ring)]"
-            style={{ width: 96, aspectRatio: '768 / 1376' }}
+            style={{ width: 96, aspectRatio: '4 / 5' }}
             aria-label={`Abrir slide ${i + 1} de ${sorted.length}`}
           >
             <AuthenticatedSlideImage

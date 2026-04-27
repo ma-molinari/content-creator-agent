@@ -8,7 +8,7 @@ from app.state import AgentState, RenderedSlide
 
 logger = logging.getLogger(__name__)
 
-_VIEWPORT = {"width": 768, "height": 1376}
+_VIEWPORT = {"width": 1080, "height": 1350}
 _JPEG_QUALITY = 92
 _TIMEOUT_MS = 60_000
 
@@ -35,7 +35,7 @@ async def render_to_jpeg(state: AgentState) -> dict:
                     data = await page.screenshot(
                         type="jpeg",
                         quality=_JPEG_QUALITY,
-                        full_page=True,
+                        full_page=False,
                     )
                     await page.close()
                     base = fname.rsplit(".", 1)[0] if "." in fname else fname
