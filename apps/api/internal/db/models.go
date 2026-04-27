@@ -150,3 +150,11 @@ type RefreshToken struct {
 }
 
 func (RefreshToken) TableName() string { return "refresh_tokens" }
+
+// LoginAttempt records each failed login for account-level lockout.
+type LoginAttempt struct {
+	UserID   uuid.UUID `gorm:"type:uuid;not null;index:idx_login_attempts_user_at"`
+	FailedAt time.Time `gorm:"not null;index:idx_login_attempts_user_at;default:now()"`
+}
+
+func (LoginAttempt) TableName() string { return "login_attempts" }

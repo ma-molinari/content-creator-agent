@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/mail"
 	"strings"
 	"time"
 
@@ -23,6 +24,9 @@ const (
 	RefreshTokenTTL = 7 * 24 * time.Hour
 	accessTokenTTL  = AccessTokenTTL
 	refreshTokenTTL = RefreshTokenTTL
+
+	loginMaxAttempts   = 5
+	loginLockoutWindow = 15 * time.Minute
 )
 
 // ServiceError carries an HTTP status for handlers.
@@ -62,7 +66,7 @@ func (s *Service) Register(ctx context.Context, email, password string) (*Regist
 	if len(password) < 8 {
 		return nil, errStatus(http.StatusBadRequest, "password must be at least 8 characters")
 	}
-	if email == "" || !strings.Contains(email, "@") {
+	if _, err := mail.ParseAddress(email); email == "" || err != nil {
 		return nil, errStatus(http.StatusBadRequest, "invalid email")
 	}
 	existing, err := s.repo.FindByEmail(ctx, email)
@@ -108,9 +112,23 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 	if u == nil {
 		return nil, errStatus(http.StatusUnauthorized, "invalid credentials")
 	}
+
+	// Check lockout before bcrypt to avoid timing oracle when account is locked.
+	since := time.Now().UTC().Add(-loginLockoutWindow)
+	count, err := s.repo.CountRecentLoginAttempts(ctx, u.ID, since)
+	if err != nil {
+		return nil, err
+	}
+	if count >= loginMaxAttempts {
+		return nil, errStatus(http.StatusTooManyRequests, "too many failed login attempts, try again later")
+	}
+
 	if err := bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password)); err != nil {
+		_ = s.repo.RecordLoginAttempt(ctx, u.ID)
 		return nil, errStatus(http.StatusUnauthorized, "invalid credentials")
 	}
+
+	_ = s.repo.ClearLoginAttempts(ctx, u.ID)
 	access, refresh, err := s.issueTokens(ctx, u.ID)
 	if err != nil {
 		return nil, err
@@ -118,7 +136,8 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 	return &LoginResult{AccessToken: access, RefreshToken: refresh}, nil
 }
 
-func (s *Service) issueTokens(ctx context.Context, userID uuid.UUID) (access string, refresh string, err error) {
+// signTokens signs both JWTs and returns the model to persist — no I/O.
+func (s *Service) signTokens(userID uuid.UUID) (access string, refresh string, rt *db.RefreshToken, err error) {
 	now := time.Now()
 	accessClaims := jwt.RegisteredClaims{
 		Subject:   userID.String(),
@@ -128,7 +147,7 @@ func (s *Service) issueTokens(ctx context.Context, userID uuid.UUID) (access str
 	at := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
 	access, err = at.SignedString(s.jwtSecret)
 	if err != nil {
-		return "", "", err
+		return "", "", nil, err
 	}
 	jti := uuid.New()
 	expiresAt := now.Add(refreshTokenTTL)
@@ -138,16 +157,20 @@ func (s *Service) issueTokens(ctx context.Context, userID uuid.UUID) (access str
 		IssuedAt:  jwt.NewNumericDate(now),
 		ExpiresAt: jwt.NewNumericDate(expiresAt),
 	}
-	rt := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
-	refresh, err = rt.SignedString(s.jwtRefreshSecret)
+	rtJWT := jwt.NewWithClaims(jwt.SigningMethodHS256, refreshClaims)
+	refresh, err = rtJWT.SignedString(s.jwtRefreshSecret)
+	if err != nil {
+		return "", "", nil, err
+	}
+	return access, refresh, &db.RefreshToken{JTI: jti, UserID: userID, ExpiresAt: expiresAt}, nil
+}
+
+func (s *Service) issueTokens(ctx context.Context, userID uuid.UUID) (access string, refresh string, err error) {
+	access, refresh, rt, err := s.signTokens(userID)
 	if err != nil {
 		return "", "", err
 	}
-	if err = s.repo.CreateRefreshToken(ctx, &db.RefreshToken{
-		JTI:       jti,
-		UserID:    userID,
-		ExpiresAt: expiresAt,
-	}); err != nil {
+	if err = s.repo.CreateRefreshToken(ctx, rt); err != nil {
 		return "", "", err
 	}
 	return access, refresh, nil
@@ -198,11 +221,11 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*RefreshRes
 	if u == nil {
 		return nil, errStatus(http.StatusUnauthorized, "invalid refresh token")
 	}
-	if err := s.repo.RevokeRefreshToken(ctx, jti); err != nil {
+	access, newRefresh, newRT, err := s.signTokens(userID)
+	if err != nil {
 		return nil, err
 	}
-	access, newRefresh, err := s.issueTokens(ctx, userID)
-	if err != nil {
+	if err := s.repo.RevokeAndCreateRefreshToken(ctx, jti, newRT); err != nil {
 		return nil, err
 	}
 	return &RefreshResult{AccessToken: access, RefreshToken: newRefresh}, nil
