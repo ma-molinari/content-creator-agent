@@ -46,6 +46,14 @@ def optimize_prompt(state: AgentState) -> dict:
         )
     if reprompt:
         user_parts.extend(["", "<contexto_anterior>", reprompt, "</contexto_anterior>"])
+        user_parts.extend(
+            [
+                "",
+                "Refinamento: preserve o tema comercial/narrativo do contexto anterior; trate o pedido atual "
+                "como especificações de layout/visual (seções Direção de layout e Restrições), não como novo "
+                "tópico que substitua o arco anterior.",
+            ]
+        )
     user_content = "\n".join(user_parts)
 
     llm = ChatOpenAI(
