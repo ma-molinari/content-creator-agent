@@ -52,7 +52,7 @@ services:
       - path: ./apps/worker/.env
         required: false
     environment:
-      GO_API_URL: http://api:8081
+      GO_API_URL: http://api:8080
     depends_on:
       api:
         condition: service_healthy
@@ -64,6 +64,26 @@ services:
       timeout: 5s
       retries: 8
       start_period: 60s
+
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: /api
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${WEB_PUBLISH_PORT:-5173}:80"
+    networks:
+      - app-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 5s
+      timeout: 3s
+      retries: 8
+      start_period: 15s
 
 networks:
   app-net:
