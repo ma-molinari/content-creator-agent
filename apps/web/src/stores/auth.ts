@@ -16,5 +16,6 @@ export const useAuthStore = create<AuthState>((set) => ({
   sessionStatus: 'unknown',
   setAccessToken: (accessToken) => set({ accessToken }),
   setSessionStatus: (sessionStatus) => set({ sessionStatus }),
-  clear: () => set({ accessToken: null, sessionStatus: 'unknown' }),
+  /** Clears access token; keeps sessionStatus ready so public/protected routes do not stay on bootstrap fallback (AuthProvider refresh runs once). */
+  clear: () => set({ accessToken: null, sessionStatus: 'ready' }),
 }))

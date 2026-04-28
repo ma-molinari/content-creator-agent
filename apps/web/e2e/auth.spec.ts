@@ -52,4 +52,36 @@ test.describe('auth (mocked API)', () => {
 
     await expect(page).toHaveURL(/\/?$/)
   })
+
+  test('logout — URL /login e formulário visível', async ({ page }) => {
+    await page.route('**/api/auth/login', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ accessToken: 'e2e-fake-access-token' }),
+      })
+    })
+    await page.route('**/api/auth/logout', async (route) => {
+      await route.fulfill({ status: 204 })
+    })
+    await page.route('**/api/setup/status', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ configured: true }),
+      })
+    })
+
+    await page.goto('/login')
+    await page.getByLabel('Email').fill('e2e-logout@example.com')
+    await page.locator('#password').fill('password12')
+    await page.getByRole('button', { name: 'Entrar' }).click()
+
+    await expect(page).toHaveURL((url) => new URL(url).pathname === '/')
+
+    await page.getByRole('button', { name: 'Sair' }).click()
+
+    await expect(page).toHaveURL(/\/login$/)
+    await expect(page.getByLabel('Email')).toBeVisible()
+  })
 })

@@ -53,7 +53,7 @@ export default function ProfileSettings() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 max-h-full flex-initial overflow-y-auto">
         <div className="mx-auto max-w-3xl px-4 py-6">
           <div className="mb-6 flex items-center gap-3">
             <Link

@@ -80,6 +80,7 @@
 html {
   height: 100dvh;
   min-height: 0;
+  overflow-y: hidden;
 }
 
 body {
