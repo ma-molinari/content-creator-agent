@@ -108,6 +108,7 @@ func main() {
 	e.HideBanner = true
 	e.IPExtractor = echo.ExtractIPFromXFFHeader(echo.TrustPrivateNet(true))
 	e.Use(middleware.Recover())
+	e.Use(middleware.Logger())
 	e.Use(middleware.BodyLimit("2M"))
 	e.Use(appmw.SecurityHeaders(cookieSecure))
 	e.Use(appmw.CORS(cfg.CORSAllowedOrigins))
@@ -158,6 +159,7 @@ func main() {
 	// Internal server on a separate port — never exposed to the host in docker-compose.
 	internalE := echo.New()
 	internalE.HideBanner = true
+	internalE.Use(middleware.Logger())
 	internalE.POST("/internal/jobs/:id/complete", jobsH.Complete)
 
 	addr := ":" + cfg.Port

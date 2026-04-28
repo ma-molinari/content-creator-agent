@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -14,14 +15,14 @@ import (
 
 // DispatchPayload is sent to POST {WORKER_URL}/jobs.
 type DispatchPayload struct {
-	JobID             uuid.UUID `json:"job_id"`
-	UserID            uuid.UUID `json:"user_id"`
-	ChatID            uuid.UUID `json:"chat_id"`
-	RawMessage        string    `json:"raw_message"`
-	AuditText         string    `json:"audit_text"`
-	BrandText         string    `json:"brand_text"`
-	RepromptContext   string    `json:"reprompt_context,omitempty"`
-	ReferenceS3Keys   []string  `json:"reference_s3_keys,omitempty"`
+	JobID           uuid.UUID `json:"job_id"`
+	UserID          uuid.UUID `json:"user_id"`
+	ChatID          uuid.UUID `json:"chat_id"`
+	RawMessage      string    `json:"raw_message"`
+	AuditText       string    `json:"audit_text"`
+	BrandText       string    `json:"brand_text"`
+	RepromptContext string    `json:"reprompt_context,omitempty"`
+	ReferenceS3Keys []string  `json:"reference_s3_keys,omitempty"`
 }
 
 // WorkerClient dispatches async jobs to the Python worker.
@@ -68,13 +69,17 @@ func (c *HTTPWorkerClient) DispatchJob(ctx context.Context, payload DispatchPayl
 	if c.apiKey != "" {
 		req.Header.Set("X-Worker-API-Key", c.apiKey)
 	}
+	log.Printf("[railway-debug] dispatch POST %s/jobs job_id=%s chat_id=%s user_id=%s", c.baseURL, payload.JobID, payload.ChatID, payload.UserID)
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		log.Printf("[railway-debug] dispatch failed job_id=%s err=%v", payload.JobID, err)
 		return fmt.Errorf("jobs: dispatch request: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		log.Printf("[railway-debug] dispatch HTTP error job_id=%s status=%d", payload.JobID, resp.StatusCode)
 		return fmt.Errorf("jobs: worker returned %s", resp.Status)
 	}
+	log.Printf("[railway-debug] dispatch ok job_id=%s status=%d", payload.JobID, resp.StatusCode)
 	return nil
 }
