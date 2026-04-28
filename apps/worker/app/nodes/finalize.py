@@ -42,9 +42,13 @@ async def finalize(state: AgentState) -> dict:
     no_artifacts = len(artifacts) == 0
     if no_artifacts and errors:
         body = {"error": _summarize_errors(errors)}
-        r = await post_complete_callback(url, json_body=body, headers=headers)
-        if r.status_code >= 400:
-            errors.append(f"finalize callback failed: {r.status_code} {r.text}")
+        try:
+            r = await post_complete_callback(url, json_body=body, headers=headers, timeout=15.0)
+            if r.status_code >= 400:
+                errors.append(f"finalize callback failed: {r.status_code} {r.text}")
+        except Exception as exc:
+            logger.error("finalize callback error: %s", exc)
+            errors.append(f"finalize callback error: {exc}")
         return {"errors": errors}
 
     assistant = _build_assistant_text(state)
@@ -56,15 +60,32 @@ async def finalize(state: AgentState) -> dict:
         "error": None,
     }
 
-    r = await post_complete_callback(url, json_body=payload, headers=headers)
-    if r.status_code >= 400:
-        errors.append(f"finalize callback failed: {r.status_code} {r.text}")
-        # Prevent the job from being stuck in processing by sending an error callback.
-        await post_complete_callback(
-            url,
-            json_body={"error": "callback delivery failed"},
-            headers=headers,
-            timeout=10.0,
-        )
+    try:
+        r = await post_complete_callback(url, json_body=payload, headers=headers, timeout=15.0)
+        if r.status_code >= 400:
+            errors.append(f"finalize callback failed: {r.status_code} {r.text}")
+            # Prevent the job from being stuck in processing by sending an error callback.
+            try:
+                await post_complete_callback(
+                    url,
+                    json_body={"error": "callback delivery failed"},
+                    headers=headers,
+                    timeout=10.0,
+                )
+            except Exception as retry_exc:
+                logger.error("failed to send error callback: %s", retry_exc)
+    except Exception as exc:
+        logger.error("finalize callback error: %s", exc)
+        errors.append(f"finalize callback error: {exc}")
+        # Attempt to notify API of failure
+        try:
+            await post_complete_callback(
+                url,
+                json_body={"error": "callback delivery failed"},
+                headers=headers,
+                timeout=10.0,
+            )
+        except Exception as retry_exc:
+            logger.error("failed to send error callback: %s", retry_exc)
 
     return {"errors": errors}

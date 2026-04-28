@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -30,7 +31,7 @@ def _user_safe_error_message(exc: BaseException) -> str:
     return raw
 
 
-async def report_job_failure(job_id: UUID, message: str) -> None:
+async def report_job_failure(job_id: UUID, message: str, timeout: float = 15.0) -> None:
     """POST failure to Go API; raises only on request/transport errors (caller logs)."""
     from app.api_client import post_complete_callback
     from app.config import get_settings
@@ -43,9 +44,13 @@ async def report_job_failure(job_id: UUID, message: str) -> None:
         "X-Worker-API-Key": settings.worker_api_key,
     }
     body = {"error": message}
-    r = await post_complete_callback(url, json_body=body, headers=headers)
-    if r.status_code >= 400:
-        r.raise_for_status()
+    try:
+        r = await post_complete_callback(url, json_body=body, headers=headers, timeout=timeout)
+        if r.status_code >= 400:
+            r.raise_for_status()
+    except Exception as exc:
+        logger.error("failed to report job failure: %s", exc)
+        # Don't re-raise; let the caller handle gracefully
 
 
 class DispatchPayload(BaseModel):
@@ -110,9 +115,35 @@ async def _run_job(state: AgentState) -> None:
             )
 
 
+async def _run_job_safe(state: AgentState) -> None:
+    """Wrapper that ensures the background task never crashes the worker process."""
+    try:
+        await _run_job(state)
+    except Exception as exc:
+        logger.critical(
+            "background task crashed: job_id=%s",
+            state.get("job_id"),
+            exc_info=exc,
+        )
+        # Attempt final error callback to prevent job from being stuck
+        try:
+            job_id_str = state.get("job_id", "")
+            if job_id_str:
+                job_uuid = UUID(str(job_id_str))
+                await report_job_failure(job_uuid, "worker process error")
+        except Exception as report_exc:
+            logger.error("failed to report critical error: %s", report_exc)
+
+
 @asynccontextmanager
-async def lifespan(_: FastAPI):
+async def lifespan(app: FastAPI):
+    # Startup
+    logger.info("Worker starting up")
     yield
+    # Shutdown: give in-flight background tasks a grace period to complete
+    logger.info("Worker shutting down, waiting for in-flight tasks...")
+    await asyncio.sleep(5)  # Grace period for background tasks to finish
+    logger.info("Worker shutdown complete")
 
 
 app = FastAPI(
@@ -143,5 +174,5 @@ async def post_jobs(
         raise HTTPException(status_code=401, detail="invalid worker API key")
 
     state = _initial_state(payload)
-    background_tasks.add_task(_run_job, state)
+    background_tasks.add_task(_run_job_safe, state)
     return {"accepted": True, "job_id": str(payload.job_id)}
