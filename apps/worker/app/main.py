@@ -92,8 +92,11 @@ def _initial_state(payload: DispatchPayload) -> AgentState:
 
 
 async def _run_job(state: AgentState) -> None:
+    jid = state.get("job_id", "")
+    logger.info("[railway-debug] graph_start job_id=%s", jid)
     try:
         await graph.ainvoke(state)
+        logger.info("[railway-debug] graph_done job_id=%s", jid)
     except Exception as exc:
         logger.exception("job failed: job_id=%s", state.get("job_id"))
         jid = state.get("job_id")
@@ -138,6 +141,7 @@ async def _run_job_safe(state: AgentState) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    logging.basicConfig(level=logging.INFO)
     logger.info("Worker starting up")
     yield
     # Shutdown: give in-flight background tasks a grace period to complete
@@ -174,5 +178,11 @@ async def post_jobs(
         raise HTTPException(status_code=401, detail="invalid worker API key")
 
     state = _initial_state(payload)
+    logger.info(
+        "[railway-debug] accepted job_id=%s chat_id=%s user_id=%s",
+        payload.job_id,
+        payload.chat_id,
+        payload.user_id,
+    )
     background_tasks.add_task(_run_job_safe, state)
     return {"accepted": True, "job_id": str(payload.job_id)}
