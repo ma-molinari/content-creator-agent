@@ -2,8 +2,7 @@
 
 import logging
 
-import httpx
-
+from app.api_client import post_complete_callback
 from app.config import get_settings
 from app.sanitize import sanitize_brief_output
 from app.state import AgentState
@@ -43,10 +42,9 @@ async def finalize(state: AgentState) -> dict:
     no_artifacts = len(artifacts) == 0
     if no_artifacts and errors:
         body = {"error": _summarize_errors(errors)}
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            r = await client.post(url, json=body, headers=headers)
-            if r.status_code >= 400:
-                errors.append(f"finalize callback failed: {r.status_code} {r.text}")
+        r = await post_complete_callback(url, json_body=body, headers=headers)
+        if r.status_code >= 400:
+            errors.append(f"finalize callback failed: {r.status_code} {r.text}")
         return {"errors": errors}
 
     assistant = _build_assistant_text(state)
@@ -58,16 +56,15 @@ async def finalize(state: AgentState) -> dict:
         "error": None,
     }
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        r = await client.post(url, json=payload, headers=headers)
-        if r.status_code >= 400:
-            errors.append(f"finalize callback failed: {r.status_code} {r.text}")
-            # Prevent the job from being stuck in processing by sending an error callback.
-            async with httpx.AsyncClient(timeout=10.0) as fallback:
-                await fallback.post(
-                    url,
-                    json={"error": "callback delivery failed"},
-                    headers=headers,
-                )
+    r = await post_complete_callback(url, json_body=payload, headers=headers)
+    if r.status_code >= 400:
+        errors.append(f"finalize callback failed: {r.status_code} {r.text}")
+        # Prevent the job from being stuck in processing by sending an error callback.
+        await post_complete_callback(
+            url,
+            json_body={"error": "callback delivery failed"},
+            headers=headers,
+            timeout=10.0,
+        )
 
     return {"errors": errors}

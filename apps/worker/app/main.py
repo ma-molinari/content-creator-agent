@@ -7,7 +7,6 @@ from contextlib import asynccontextmanager
 from typing import Optional
 from uuid import UUID
 
-import httpx
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -33,6 +32,7 @@ def _user_safe_error_message(exc: BaseException) -> str:
 
 async def report_job_failure(job_id: UUID, message: str) -> None:
     """POST failure to Go API; raises only on request/transport errors (caller logs)."""
+    from app.api_client import post_complete_callback
     from app.config import get_settings
 
     settings = get_settings()
@@ -43,8 +43,7 @@ async def report_job_failure(job_id: UUID, message: str) -> None:
         "X-Worker-API-Key": settings.worker_api_key,
     }
     body = {"error": message}
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        r = await client.post(url, json=body, headers=headers)
+    r = await post_complete_callback(url, json_body=body, headers=headers)
     if r.status_code >= 400:
         r.raise_for_status()
 
