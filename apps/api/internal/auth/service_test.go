@@ -33,6 +33,11 @@ func testAuthDB(t *testing.T) *gorm.DB {
 		revoked_at DATETIME,
 		created_at DATETIME
 	)`).Error)
+	require.NoError(t, gdb.Exec(`CREATE TABLE login_attempts (
+		user_id TEXT NOT NULL,
+		failed_at DATETIME NOT NULL
+	)`).Error)
+	require.NoError(t, gdb.Exec(`CREATE INDEX idx_login_attempts_user_at ON login_attempts (user_id, failed_at)`).Error)
 	return gdb
 }
 
