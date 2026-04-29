@@ -23,15 +23,15 @@
 
 ## AI / LLM — Slide Generation (Worker)
 
-**Service:** OpenAI API (`gpt-4o-mini` for generation, `gpt-4o` for description / optimization)
+**Service:** OpenAI API — defaults **`gpt-5.4-mini`** for chat (`optimize_prompt`, `generate_slides`) and vision (`describe_references`). Override with `OPENAI_CHAT_MODEL` and `REFERENCE_VISION_MODEL` (`apps/worker/app/config.py`, `apps/worker/.env.example`).
 **Purpose:** Optimize user brief into a structured prompt, describe design reference images (vision), and generate HTML carousel slides.
 **Implementation:** `apps/worker/app/nodes/`
-- `optimize_prompt.py` — ChatOpenAI call to rewrite brief
-- `describe_references.py` — GPT-4o vision; reads S3 reference images and produces textual descriptions
-- `generate_slides.py` — ChatOpenAI (`gpt-4o-mini`, `max_tokens=4000`); output is delimited HTML slide blocks
+- `optimize_prompt.py` — ChatOpenAI with `OPENAI_CHAT_MODEL` (default `gpt-5.4-mini`)
+- `describe_references.py` — vision via `REFERENCE_VISION_MODEL` (default `gpt-5.4-mini`); reads S3 reference images and produces textual descriptions
+- `generate_slides.py` — ChatOpenAI with `OPENAI_CHAT_MODEL`; `max_tokens` computed from settings (`generate_slides_*` in config); output is delimited HTML slide blocks
 **Configuration:**
 - `OPENAI_API_KEY` in `apps/worker/.env`
-- Model names hardcoded per node (not configurable at runtime)
+- `OPENAI_CHAT_MODEL`, `REFERENCE_VISION_MODEL` — optional; default `gpt-5.4-mini` each
 **Prompt storage:** `apps/worker/prompts/` — markdown files read at call time (no caching)
 
 ---
@@ -40,7 +40,7 @@
 
 **Service:** OpenAI API
 **Purpose:** Nightly condensation of chat histories to maintain useful context over long sessions.
-**Implementation:** `apps/api/internal/summarizer/openai.go` — uses `sashabaranov/go-openai`
+**Implementation:** `apps/api/internal/summarizer/openai.go` — uses `sashabaranov/go-openai`, model **`gpt-5.4-mini`** (fixed in the summarizer client)
 **Trigger:** robfig/cron scheduler registered at startup if `OPENAI_API_KEY` is set
 **Configuration:**
 - `OPENAI_API_KEY` in `apps/api/.env`

@@ -102,9 +102,9 @@ apps/worker/
 │   ├── state.py         # AgentState TypedDict
 │   └── nodes/
 │       ├── load_profile.py          # Fetches audit/brand text from Go API
-│       ├── describe_references.py   # GPT-4o vision on design reference images
+│       ├── describe_references.py   # Vision model (default gpt-5.4-mini) on design reference images
 │       ├── optimize_prompt.py       # Rewrites user brief → structured brief
-│       ├── generate_slides.py       # GPT-4o-mini → HTML slide blocks
+│       ├── generate_slides.py       # Chat model (default gpt-5.4-mini) → HTML slide blocks
 │       ├── parse_validate.py        # Parses delimited output; triggers retry
 │       ├── render_to_jpeg.py        # Playwright screenshot per slide
 │       ├── upload_assets.py         # boto3 S3 upload

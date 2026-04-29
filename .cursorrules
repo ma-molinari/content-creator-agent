@@ -100,7 +100,7 @@ content-creator-agent/
 - Zustand v5, axios, Tailwind CSS v4
 
 ### Infraestrutura
-- PostgreSQL 16, AWS S3, Docker Compose, OpenAI API (gpt-4o-mini, gpt-4o)
+- PostgreSQL 16, AWS S3, Docker Compose, OpenAI API (defaults **gpt-5.4-mini**; ver `docs/INTEGRATIONS.md`)
 
 ---
 

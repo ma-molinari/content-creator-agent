@@ -66,9 +66,9 @@ load_profile → describe_references → optimize_prompt → generate_slides
 ```
 
 - `load_profile` — fetches profile context (audit + brand text) from Go API
-- `describe_references` — uses GPT-4o vision to describe S3 design reference images
+- `describe_references` — vision model (`REFERENCE_VISION_MODEL`, default `gpt-5.4-mini`) describes S3 design reference images
 - `optimize_prompt` — rewrites the user brief into a structured generation brief
-- `generate_slides` — produces HTML slide blocks via GPT-4o-mini
+- `generate_slides` — produces HTML slide blocks via configurable chat model (`OPENAI_CHAT_MODEL`, default `gpt-5.4-mini`)
 - `parse_validate` — parses the delimited HTML output; routes to retry or continue
 - `render_to_jpeg` — runs Playwright (headless Chromium) at 1080×1350 (4:5) to screenshot each slide
 - `upload_assets` — uploads JPEG bytes to S3 under `slides/{jobId}/`

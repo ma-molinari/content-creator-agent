@@ -91,12 +91,12 @@ flowchart LR
 5. A API grava resposta do assistente e imagens, marca o *job* como concluído.
 6. O cliente usa `GET /chats/:id/jobs/:jobId/status` até `done` ou `failed` e atualiza o fio do chat.
 
-Modelos OpenAI no worker: ver **`docs/INTEGRATIONS.md`** (p.ex. `gpt-4o-mini` / `gpt-4o` nos nós atuais). *Max tokens* e *prompts* em `apps/worker/`.
+Modelos OpenAI no worker: ver **`docs/INTEGRATIONS.md`** (defaults **`gpt-5.4-mini`** para chat e visão, configuráveis por env). *Max tokens* e *prompts* em `apps/worker/`.
 
 ### Fluxo — sumarização
 
 1. *Cron* na API (UTC), expressão `SUMMARIZE_CRON`, por predefinição `0 2 * * *`.
-2. Orquestração em `apps/api/internal/summarizer/`, cliente `sashabaranov/go-openai` (modelo no código, p.ex. `GPT4oMini`).
+2. Orquestração em `apps/api/internal/summarizer/`, cliente `sashabaranov/go-openai` (modelo **`gpt-5.4-mini`** em `openai.go`; detalhes em **`docs/INTEGRATIONS.md`**).
 3. Orçamento de tempo por execução e escrita em `chat_content_resume`.
 
 ### Fluxo — “*setup*”

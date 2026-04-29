@@ -34,7 +34,7 @@ A skill **`map-instagram-profile`** descreve a **estrutura de captura offline** 
 
 - Interface de chat no estilo de produtos de mercado; *prompts* alinhados a *Prompt Engineering Meta* e contextualizados com a skill `create-social-post` (regras em `.cursor/`).
 
-- **Cron diário** (API Go, `SUMMARIZE_CRON`, predefinido `0 2 * * *` UTC): condensa o histórico de chats com conteúdo novo para reduzir tokens em reutilizações; usa o cliente OpenAI na API (modelo configurado no código, p.ex. `GPT4oMini` no sumarizador). Só corre se `OPENAI_API_KEY` estiver definida.
+- **Cron diário** (API Go, `SUMMARIZE_CRON`, predefinido `0 2 * * *` UTC): condensa o histórico de chats com conteúdo novo para reduzir tokens em reutilizações; usa o cliente OpenAI na API (**`gpt-5.4-mini`** em `apps/api/internal/summarizer/openai.go`). Só corre se `OPENAI_API_KEY` estiver definida.
 
 ## Segurança
 
@@ -59,7 +59,7 @@ A skill **`map-instagram-profile`** descreve a **estrutura de captura offline** 
 
 ### LLM (geração e suporte)
 
-- **Worker:** OpenAI — p.ex. `gpt-4o-mini` (geração de blocos HTML de slides), `gpt-4o` (visão / otimização de *brief*), conforme nós em `apps/worker/app/nodes/` e `docs/INTEGRATIONS.md`.
+- **Worker:** OpenAI — defaults **`gpt-5.4-mini`** para chat (`optimize_prompt`, `generate_slides` via `OPENAI_CHAT_MODEL`) e visão (`describe_references` via `REFERENCE_VISION_MODEL`); ver `apps/worker/app/config.py` e `docs/INTEGRATIONS.md`.
 - **API (sumarização):** OpenAI via `sashabaranov/go-openai`, modelo alinhado ao código do sumarizador.
 
 ### Banco e rede
