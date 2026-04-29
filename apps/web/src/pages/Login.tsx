@@ -118,6 +118,15 @@ export default function Login() {
           {login.isPending ? 'Entrando…' : 'Entrar'}
         </button>
 
+        <p className="text-center text-sm">
+          <Link
+            to="/recover-password"
+            className="font-medium text-[var(--color-brand-primary)] hover:text-[var(--color-brand-primary-hover)]"
+          >
+            Esqueci minha senha
+          </Link>
+        </p>
+
         <p className="text-center text-sm text-[var(--color-text-secondary)]">
           Não tem conta?{' '}
           <Link

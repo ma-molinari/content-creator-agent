@@ -8,6 +8,7 @@ import { RouteFallback } from '@/components/ui/RouteFallback'
 
 const Login = lazy(() => import('@/pages/Login'))
 const Register = lazy(() => import('@/pages/Register'))
+const RecoverPassword = lazy(() => import('@/pages/RecoverPassword'))
 const Chat = lazy(() => import('@/pages/Chat'))
 const History = lazy(() => import('@/pages/History'))
 const ProfileSettings = lazy(() => import('@/pages/ProfileSettings'))
@@ -30,6 +31,14 @@ export function AppRouter() {
             element={
               <PublicOnlyRoute>
                 <Register />
+              </PublicOnlyRoute>
+            }
+          />
+          <Route
+            path="/recover-password"
+            element={
+              <PublicOnlyRoute>
+                <RecoverPassword />
               </PublicOnlyRoute>
             }
           />
