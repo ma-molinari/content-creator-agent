@@ -35,8 +35,7 @@ func (c *Client) Summarize(ctx context.Context, history string) (string, error) 
 			{Role: openai.ChatMessageRoleSystem, Content: summarizeSystemPrompt},
 			{Role: openai.ChatMessageRoleUser, Content: history},
 		},
-		MaxTokens:   512,
-		Temperature: 0.3,
+		MaxCompletionTokens: 512,
 	})
 	if err != nil {
 		return "", err
