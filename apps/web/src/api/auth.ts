@@ -26,3 +26,18 @@ export function useRegister() {
       api.post<RegisterResult>('/auth/register', vars).then((r) => r.data),
   })
 }
+
+export type RecoverPasswordVars = {
+  email: string
+  securityKey: string
+  newPassword: string
+}
+
+export type RecoverPasswordResult = { success: boolean }
+
+export function useRecoverPassword() {
+  return useMutation<RecoverPasswordResult, Error, RecoverPasswordVars>({
+    mutationFn: (vars) =>
+      api.post<RecoverPasswordResult>('/auth/recover-password', vars).then((r) => r.data),
+  })
+}
