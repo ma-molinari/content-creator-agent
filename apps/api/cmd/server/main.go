@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -62,11 +63,19 @@ func main() {
 
 	sched := appcron.New()
 	if cfg.OpenAIAPIKey != "" {
+		var summOverlap sync.Mutex
 		summRepo := summarizer.NewRepository(gdb)
 		summClient := summarizer.NewClient(cfg.OpenAIAPIKey)
 		summSvc := summarizer.NewService(summRepo, summClient)
 		if err := sched.Register(cfg.SummarizeCron, func() {
-			summSvc.Run(context.Background())
+			if !summOverlap.TryLock() {
+				log.Print("[summarizer] skipped overlap: previous run still in progress")
+				return
+			}
+			defer summOverlap.Unlock()
+			appcron.SafelyRun("summarizer", func() {
+				summSvc.Run(context.Background())
+			})
 		}); err != nil {
 			log.Fatalf("cron summarizer: %v", err)
 		}
@@ -76,7 +85,7 @@ func main() {
 	}
 	if strings.TrimSpace(cfg.StuckJobCron) != "" {
 		maxAge := time.Duration(cfg.StuckJobProcessingMinutes) * time.Minute
-		if err := sched.Register(cfg.StuckJobCron, func() {
+		if err := sched.RegisterSafe(cfg.StuckJobCron, "stuck-job-cleanup", func() {
 			n, err := jobs.RunStuckJobCleanup(context.Background(), jobsRepo, maxAge)
 			if err != nil {
 				log.Printf("[jobs] stuck cleanup error: %v", err)
@@ -90,7 +99,7 @@ func main() {
 		}
 		log.Printf("[jobs] stuck-job cleanup registered expr=%q threshold=%dm (UTC)", cfg.StuckJobCron, cfg.StuckJobProcessingMinutes)
 	}
-	if err := sched.Register("0 3 * * *", func() {
+	if err := sched.RegisterSafe("0 3 * * *", "token-purge", func() {
 		n, err := repo.DeleteExpiredRefreshTokens(context.Background())
 		if err != nil {
 			log.Printf("[auth] token purge error: %v", err)
