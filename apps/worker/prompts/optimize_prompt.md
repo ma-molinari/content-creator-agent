@@ -67,6 +67,7 @@ Estrutura sugerida interna a este bloco:
 - `## Estrutura sugerida dos slides` (quantidade, função de cada bloco)
 - `## CTAs e hashtags` (se aplicável)
 - `## Direção de layout (feed móvel)` (opcional; alinha com o gerador 1080×1350)
+- `## Fotografia obrigatória (pedido explícito do usuário)` (**obrigatória** quando os gatilhos abaixo se aplicarem ao `<pedido_usuario>`; omita quando não houver pedido explícito de imagem)
 - `## Restrições e não fazer`
 - `## Perguntas em aberto` (opcional; só se necessário, itens **numerados**, máx. **5**; objetivo, público, tom, restrições — alinhado à regra acima de não inventar fatos)
 
@@ -74,7 +75,21 @@ Seja acionável e específico. O próximo passo gera **HTML** por slide: **prefi
 
 **Feed móvel (1080px fixo, proporção 4:5, sem responsividade real):** o brief **não** deve pedir “duas colunas lado a lado com muito texto” nem composições tipo *desktop editorial* (revista de duas colunas de parágrafo). Prefira **blocos e *feature boxes* em sequência vertical**; se mencionar CTA, selos, pills ou badges, deixe explícita **margem** em relação à borda inferior (coerente com a zona segura do gerador), para não forçar elementos colados ao rodapé.
 
-**Fotografia no slide:** o gerador de HTML **decide sozinho** quando incluir fotos do **Unsplash** (`https://images.unsplash.com/...`), alinhado ao conteúdo — **não** é necessário que este brief **peça** imagens para o pipeline usar fotografia. O Unsplash é só **canal de mídia** no slide — **não** substitui nem inventa o que deveria vir de **AUDIT** e **BRAND**. **Não** sugira outros bancos, marketplaces de stock genéricos nem URLs de fotografia fora do Unsplash. Se o usuário ou a marca **não** quiserem fotos (ou quiserem limitar temas), registre em `## Restrições e não fazer` (ex.: carrossel só tipográfico, sem rostos, só abstrato) para o gerador obedecer.
+**Fotografia no slide (dois regimes):**
+
+1. **Pedido sem solicitação explícita de imagem:** o gerador de HTML **pode decidir sozinho** quando incluir fotos do **Unsplash** (`https://images.unsplash.com/...`), alinhado ao conteúdo — **não** é necessário que este brief **peça** imagens. O Unsplash é só **canal de mídia** no slide — **não** substitui nem inventa o que deveria vir de **AUDIT** e **BRAND**.
+
+2. **Pedido explícito de imagem/fotografia** no `<pedido_usuario>` — trate como **obrigatório** refletir no brief. **Gatilhos** (pt-BR e EN, exemplos não exaustivos): *adicione*, *inclua*, *coloque*, *use*, *quero* + *imagem/imagens/foto/fotos/fotografia/ilustração fotográfica*; *background com foto*; *com foto em cada slide*; referência a **Unsplash**; URL contendo **`unsplash.com`**; pedidos claros de recurso visual fotográfico no carrossel.
+
+   Quando qualquer gatilho se aplicar, inclua **obrigatoriamente** a seção com este título fixo: **`## Fotografia obrigatória (pedido explícito do usuário)`**. Nela, **ordene** o uso de `<img>` com `src` **somente** em **`https://images.unsplash.com/...`** (único hostname permitido para fotos remotas). **Escopo** (alinhe ao texto do usuário):
+   - Pediu **uma** imagem no post / foto em **um** slide específico → exija **pelo menos um** slide com **pelo menos uma** foto; indique **qual(is) slide(s)** quando o pedido deixar claro (ex.: “só na capa”).
+   - Pedido **genérico** de imagens no carrossel (sem limitar a um slide) → exija **cada slide** com **pelo menos uma** fotografia Unsplash **coerente** com o argumento daquele slide.
+
+   Se o usuário colar **URL de página** Unsplash (`https://unsplash.com/photos/...`), **preserve** identificador/slug no brief e **instrua** o gerador a usar **exclusivamente** o equivalente servido em **`https://images.unsplash.com/...`** — **nunca** `unsplash.com/photos/...` como `src` de `<img>`.
+
+**Conflito marca vs. pedido:** Se `<perfil_usuario>` (**AUDIT**/**BRAND**) **vetar** fotografia de forma clara e o usuário **pedir** imagens, mencione o conflito brevemente em `## Restrições e não fazer` ou `## Perguntas em aberto` (**sem** inventar política da marca), **sem** omitir o pedido explícito do usuário.
+
+**Não** sugira outros bancos, marketplaces de stock genéricos nem URLs de fotografia fora do Unsplash. Se o usuário ou a marca **não** quiserem fotos (sem pedido explícito em sentido contrário), registre em `## Restrições e não fazer` (ex.: carrossel só tipográfico, sem rostos, só abstrato) para o gerador obedecer.
 
 **Não** prescreva formato técnico de delimitadores do gerador (`###SLIDE_FILE` etc.) neste bloco.
 
