@@ -33,11 +33,11 @@ func AuthByIP() echo.MiddlewareFunc {
 	}
 }
 
-// LLMByUser limits authenticated LLM-style endpoints per user (10 per minute). Requires JWT middleware before it.
+// LLMByUser limits authenticated LLM-style endpoints per user (20 per minute). Requires JWT middleware before it.
 func LLMByUser() echo.MiddlewareFunc {
 	rate := limiter.Rate{
 		Period: 1 * time.Minute,
-		Limit:  10,
+		Limit:  20,
 	}
 	store := memory.NewStore()
 	instance := limiter.New(store, rate)

@@ -94,7 +94,7 @@ load_profile → describe_references → optimize_prompt → generate_slides
 ### Security layers
 
 - Auth routes: IP-based rate limit (20 req / 5 min, `ulule/limiter` in-memory)
-- LLM routes: per-user rate limit (10 req / 1 min)
+- LLM routes: per-user rate limit (20 req / 1 min)
 - CORS: explicit origin allowlist (`CORS_ALLOWED_ORIGINS` env); no wildcard
 - Security headers: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`
 - Worker callback: protected by shared `WORKER_API_KEY` header
