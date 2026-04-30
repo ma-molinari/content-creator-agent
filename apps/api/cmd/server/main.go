@@ -69,7 +69,7 @@ func main() {
 		summSvc := summarizer.NewService(summRepo, summClient)
 		if err := sched.Register(cfg.SummarizeCron, func() {
 			if !summOverlap.TryLock() {
-				log.Print("[summarizer] skipped overlap: previous run still in progress")
+				log.Printf("[summarizer] skip run: previous invocation still running (overlap)")
 				return
 			}
 			defer summOverlap.Unlock()

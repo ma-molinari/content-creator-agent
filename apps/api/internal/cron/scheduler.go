@@ -22,11 +22,9 @@ func (s *Scheduler) Register(expr string, fn func()) error {
 	return err
 }
 
-// RegisterSafe is like Register but wraps fn with SafelyRun(jobName).
+// RegisterSafe registers expr to run fn inside SafelyRun(jobName, fn).
 func (s *Scheduler) RegisterSafe(expr, jobName string, fn func()) error {
-	return s.Register(expr, func() {
-		SafelyRun(jobName, fn)
-	})
+	return s.Register(expr, func() { SafelyRun(jobName, fn) })
 }
 
 // Start begins executing registered jobs.

@@ -6,18 +6,20 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSafelyRun_RunsNormally(t *testing.T) {
+func TestSafelyRun_RunsNormal(t *testing.T) {
 	t.Parallel()
-	var n int
-	SafelyRun("test_ok", func() { n++ })
-	require.Equal(t, 1, n)
+	var ran bool
+	SafelyRun("test-job", func() {
+		ran = true
+	})
+	require.True(t, ran)
 }
 
 func TestSafelyRun_RecoversPanic(t *testing.T) {
 	t.Parallel()
 	require.NotPanics(t, func() {
-		SafelyRun("test_panic", func() {
-			panic("intentional panic for test")
+		SafelyRun("panic-job", func() {
+			panic("intentional")
 		})
 	})
 }
