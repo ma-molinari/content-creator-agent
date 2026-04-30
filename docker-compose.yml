@@ -52,7 +52,7 @@ services:
       - path: ./apps/worker/.env
         required: false
     environment:
-      GO_API_URL: http://api:8080
+      GO_API_URL: http://api:8081
     depends_on:
       api:
         condition: service_healthy
