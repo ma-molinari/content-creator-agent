@@ -36,6 +36,46 @@ def _valid_slide(item: SlideItem) -> bool:
     return "<html" in lower and "</html>" in lower
 
 
+def _expected_filenames(n: int) -> list[str]:
+    return [f"slide_{i:02d}.html" for i in range(1, n + 1)]
+
+
+def _structured_parse_messages(
+    state: AgentState,
+    parsed: list[SlideItem],
+    valid: list[SlideItem],
+    got_valid: int,
+) -> list[str]:
+    """Human- and LLM-oriented diagnostics for generate_slides retries."""
+    msgs: list[str] = []
+    valid_names = {s.get("filename") or "" for s in valid}
+    malformed = [s.get("filename") or "slide.html" for s in parsed if not _valid_slide(s)]
+
+    requested = state.get("requested_slide_count")
+    if isinstance(requested, int):
+        expected = set(_expected_filenames(requested))
+        missing = sorted(expected - valid_names)
+        msgs.append(
+            f"parse_validate: esperados {requested} slides válidos; recebidos {got_valid}."
+        )
+        if missing:
+            msgs.append(
+                "parse_validate: arquivos ausentes (gere cada bloco completo nesta tentativa): "
+                + ", ".join(missing)
+            )
+    else:
+        msgs.append(f"parse_validate: slides válidos após parsing: {got_valid}.")
+
+    if malformed:
+        msgs.append(
+            "parse_validate: HTML inválido ou truncado (cada slide precisa de documento completo "
+            "com <html> e </html>): "
+            + ", ".join(malformed)
+        )
+
+    return msgs
+
+
 def _requested_count_mismatch(
     state: AgentState, valid: list[SlideItem]
 ) -> tuple[bool, int | None, int]:
@@ -49,9 +89,11 @@ def _requested_count_mismatch(
 
 
 def _failure_return(
-    errors: list[str], retry_count: int, extra_msg: str
+    errors: list[str],
+    retry_count: int,
+    diag: list[str],
 ) -> dict:
-    errors = errors + [extra_msg]
+    errors = errors + diag
     if retry_count < 3:
         return {
             "slides_html": [],
@@ -74,24 +116,25 @@ def parse_validate(state: AgentState) -> dict:
     retry_count = int(state.get("retry_count") or 0)
 
     mismatch, req_n, got = _requested_count_mismatch(state, valid)
+    diag = _structured_parse_messages(state, parsed, valid, got)
+
     if mismatch:
-        msg = f"parse_validate: expected {req_n} slides, got {got} valid"
-        logger.info("node=parse_validate job_id=%s %s", state.get("job_id"), msg)
-        return _failure_return(errors, retry_count, msg)
+        head = f"parse_validate: expected {req_n} slides, got {got} valid"
+        logger.info("node=parse_validate job_id=%s %s", state.get("job_id"), head)
+        return _failure_return(errors, retry_count, [head] + diag)
 
     if not valid:
-        msg = "parse_validate: no valid slides after parsing markers"
-        return _failure_return(errors, retry_count, msg)
+        head = "parse_validate: no valid slides after parsing markers"
+        return _failure_return(errors, retry_count, [head] + diag)
 
     return {"slides_html": valid, "errors": errors}
 
 
 def route_after_parse(state: AgentState) -> str:
-    """Return 'retry' or 'continue' for conditional edges from parse_validate."""
+    """Return 'retry', 'continue', or 'fail' for conditional edges from parse_validate."""
     slides = state.get("slides_html") or []
-    retry_count = int(state.get("retry_count") or 0)
     if slides:
         return "continue"
-    if retry_count < 3:
+    if int(state.get("retry_count") or 0) < 3:
         return "retry"
-    return "continue"
+    return "fail"

@@ -1,5 +1,8 @@
 """Enrich profile_text with a vision model summary of optional S3 design references."""
 
+from __future__ import annotations
+
+import asyncio
 import base64
 import logging
 import mimetypes
@@ -64,13 +67,20 @@ def _strip_wrapped_heading(text: str) -> str:
     return t.strip()
 
 
-def describe_references(state: AgentState) -> dict[str, Any]:
+async def describe_references(state: AgentState) -> dict[str, Any]:
     keys = (state.get("reference_s3_keys") or [])[:_MAX_IMAGES]
     if not keys:
         return {}
     job_id = state.get("job_id")
     base = (state.get("profile_text") or "").strip()
     system = _read_prompt()
+    errors = list(state.get("errors") or [])
+
+    fetch_out = await asyncio.gather(
+        *[asyncio.to_thread(_fetch_bytes, key) for key in keys],
+        return_exceptions=True,
+    )
+
     user_blocks: list[dict[str, Any]] = [
         {
             "type": "text",
@@ -82,12 +92,17 @@ def describe_references(state: AgentState) -> dict[str, Any]:
             ),
         }
     ]
-    for key in keys:
-        try:
-            raw = _fetch_bytes(key)
-        except Exception:
-            logger.exception("describe_references: s3 get failed job_id=%s key=%s", job_id, key)
-            raise
+
+    for key, result in zip(keys, fetch_out):
+        if isinstance(result, BaseException):
+            logger.exception(
+                "describe_references: s3 get failed job_id=%s key=%s",
+                job_id,
+                key,
+            )
+            errors.append(f"describe_references: falha ao baixar referência S3 {key}: {result!s}")
+            continue
+        raw: bytes = result
         mime = _guess_mime(raw, key)
         b64 = base64.standard_b64encode(raw).decode("ascii")
         user_blocks.append(
@@ -96,6 +111,15 @@ def describe_references(state: AgentState) -> dict[str, Any]:
                 "image_url": {"url": f"data:{mime};base64,{b64}"},
             }
         )
+
+    if len(user_blocks) == 1:
+        logger.warning(
+            "describe_references: no reference images loaded job_id=%s errors=%s",
+            job_id,
+            len(errors),
+        )
+        return {"errors": errors} if errors else {}
+
     human = HumanMessage(content=user_blocks)
     settings = get_settings()
     llm = ChatOpenAI(
@@ -112,11 +136,15 @@ def describe_references(state: AgentState) -> dict[str, Any]:
     text = (getattr(out, "content", None) or str(out) or "").strip()
     if not text:
         logger.warning("describe_references: empty model output job_id=%s", job_id)
-        return {}
+        return {"errors": errors} if errors else {}
+
     if text.lstrip().startswith("##"):
         body = text
     else:
         inner = _strip_wrapped_heading(text)
         body = f"## REFERÊNCIAS_VISUAIS (resumo)\n\n{inner}"
     combined = f"{base}\n\n{body}" if base else body
-    return {"profile_text": combined}
+    out_state: dict[str, Any] = {"profile_text": combined}
+    if errors:
+        out_state["errors"] = errors
+    return out_state

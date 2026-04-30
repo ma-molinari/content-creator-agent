@@ -25,12 +25,18 @@ def _read_generate_prompt() -> str:
 def _retry_feedback(errors: list[str] | None) -> str:
     if not errors:
         return ""
-    # Last errors first; keep parse/validation messages for the model.
-    relevant = [e for e in errors if "parse_validate" in (e or "")]
-    lines = (relevant or errors)[-3:]
+    relevant = [e for e in errors if "parse_validate:" in (e or "")]
+    lines = relevant[-8:] if relevant else []
     if not lines:
         return ""
-    return "\n\n---\n\nCorreção (tentativa anterior):\n" + "\n".join(lines)
+    bullets = "\n".join(f"- {line}" for line in lines)
+    return (
+        "\n\n---\n\n**Correções necessárias (saída anterior — cumpra na íntegra):**\n"
+        f"{bullets}\n\n"
+        "Regenerar **todos** os blocos `###SLIDE_FILE:` … `###END_SLIDE###` pedidos; cada slide deve ser "
+        "um HTML completo com `<html>` e `</html>`. Não omita arquivos listados como ausentes; corrija HTML "
+        "marcado como inválido."
+    )
 
 
 def _count_instruction(requested: int | None) -> str:

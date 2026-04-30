@@ -46,3 +46,5 @@ class AgentState(TypedDict):
     prompt_validation_failed: NotRequired[bool]
     # Internal rule id for logs when validation rejects (not shown to end users).
     prompt_security_rule: NotRequired[str]
+    # Failed brief validations before giving up (validate_brief → optimize_prompt retries).
+    brief_retry_count: NotRequired[int]

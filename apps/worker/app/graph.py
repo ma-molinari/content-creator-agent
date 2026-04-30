@@ -11,6 +11,7 @@ from app.nodes.parse_validate import parse_validate, route_after_parse
 from app.nodes.prompt_security_validate import prompt_security_validate, route_after_prompt_security
 from app.nodes.render_to_jpeg import render_to_jpeg
 from app.nodes.upload_assets import upload_assets
+from app.nodes.validate_brief import route_after_validate_brief, validate_brief
 from app.state import AgentState
 
 
@@ -20,6 +21,7 @@ def build_graph():
     builder.add_node("prompt_security_validate", prompt_security_validate)
     builder.add_node("describe_references", describe_references)
     builder.add_node("optimize_prompt", optimize_prompt)
+    builder.add_node("validate_brief", validate_brief)
     builder.add_node("generate_slides", generate_slides)
     builder.add_node("parse_validate", parse_validate)
     builder.add_node("render_to_jpeg", render_to_jpeg)
@@ -34,12 +36,17 @@ def build_graph():
         {"ok": "describe_references", "rejected": "finalize"},
     )
     builder.add_edge("describe_references", "optimize_prompt")
-    builder.add_edge("optimize_prompt", "generate_slides")
+    builder.add_edge("optimize_prompt", "validate_brief")
+    builder.add_conditional_edges(
+        "validate_brief",
+        route_after_validate_brief,
+        {"ok": "generate_slides", "retry": "optimize_prompt", "fail": "finalize"},
+    )
     builder.add_edge("generate_slides", "parse_validate")
     builder.add_conditional_edges(
         "parse_validate",
         route_after_parse,
-        {"retry": "generate_slides", "continue": "render_to_jpeg"},
+        {"retry": "generate_slides", "continue": "render_to_jpeg", "fail": "finalize"},
     )
     builder.add_edge("render_to_jpeg", "upload_assets")
     builder.add_edge("upload_assets", "finalize")

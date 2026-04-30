@@ -87,6 +87,7 @@ def _initial_state(payload: DispatchPayload) -> AgentState:
         "rendered_slides": [],
         "artifacts": [],
         "retry_count": 0,
+        "brief_retry_count": 0,
         "errors": [],
     }
 

@@ -1,16 +1,58 @@
 """Render each slide HTML to JPEG bytes with Playwright."""
 
+import asyncio
 import logging
 
-from playwright.async_api import async_playwright
+from playwright.async_api import Browser, Route, async_playwright
 
-from app.state import AgentState, RenderedSlide
+from app.slide_render_html import enhance_slide_html_for_render
+from app.state import AgentState, RenderedSlide, SlideItem
 
 logger = logging.getLogger(__name__)
 
 _VIEWPORT = {"width": 1080, "height": 1350}
 _JPEG_QUALITY = 92
 _TIMEOUT_MS = 60_000
+
+
+async def _allow_slide_route(route: Route) -> None:
+    """Block remote assets except Google Fonts (needed for @import in slide HTML)."""
+    url = route.request.url
+    if url.startswith("data:"):
+        await route.continue_()
+        return
+    if "fonts.googleapis.com" in url or "fonts.gstatic.com" in url:
+        await route.continue_()
+        return
+    await route.abort()
+
+
+async def _render_one_slide(browser: Browser, item: SlideItem) -> tuple[RenderedSlide | None, str | None]:
+    fname = item.get("filename") or "slide.html"
+    raw_html = item.get("html") or ""
+    html = enhance_slide_html_for_render(raw_html)
+    try:
+        page = await browser.new_page()
+        try:
+            await page.set_viewport_size(_VIEWPORT)
+            await page.route("**/*", _allow_slide_route)
+            await page.set_content(html, wait_until="domcontentloaded", timeout=_TIMEOUT_MS)
+            try:
+                await page.evaluate("() => document.fonts.ready")
+            except Exception:
+                pass
+            data = await page.screenshot(
+                type="jpeg",
+                quality=_JPEG_QUALITY,
+                full_page=False,
+            )
+        finally:
+            await page.close()
+        base = fname.rsplit(".", 1)[0] if "." in fname else fname
+        jpeg_name = f"{base}.jpeg"
+        return ({"filename": jpeg_name, "jpeg_bytes": data}, None)
+    except Exception as exc:  # noqa: BLE001 — capture Playwright errors per slide
+        return (None, f"render_to_jpeg {fname}: {exc!s}")
 
 
 async def render_to_jpeg(state: AgentState) -> dict:
@@ -31,33 +73,16 @@ async def render_to_jpeg(state: AgentState) -> dict:
             ]
         )
         try:
-            for item in slides:
-                fname = item.get("filename") or "slide.html"
-                html = item.get("html") or ""
-                try:
-                    page = await browser.new_page()
-                    await page.set_viewport_size(_VIEWPORT)
-                    await page.route(
-                        "**/*",
-                        lambda route: (
-                            route.continue_()
-                            if route.request.url.startswith("data:")
-                            else route.abort()
-                        ),
-                    )
-                    await page.set_content(html, wait_until="domcontentloaded", timeout=_TIMEOUT_MS)
-                    data = await page.screenshot(
-                        type="jpeg",
-                        quality=_JPEG_QUALITY,
-                        full_page=False,
-                    )
-                    await page.close()
-                    base = fname.rsplit(".", 1)[0] if "." in fname else fname
-                    jpeg_name = f"{base}.jpeg"
-                    rendered.append({"filename": jpeg_name, "jpeg_bytes": data})
-                except Exception as exc:  # noqa: BLE001 — capture Playwright errors per slide
-                    errors.append(f"render_to_jpeg {fname}: {exc!s}")
+            results = await asyncio.gather(
+                *[_render_one_slide(browser, item) for item in slides],
+            )
         finally:
             await browser.close()
+
+    for slide_or_none, err in results:
+        if err:
+            errors.append(err)
+        elif slide_or_none is not None:
+            rendered.append(slide_or_none)
 
     return {"rendered_slides": rendered, "errors": errors}

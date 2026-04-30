@@ -84,12 +84,13 @@ class TestParseValidateCount(unittest.TestCase):
         }
         out = parse_validate(state)  # type: ignore[arg-type]
         self.assertEqual(out.get("slides_html"), [])
-        self.assertIn("expected 3 slides", (out.get("errors") or [])[-1])
+        err_joined = " ".join(out.get("errors") or [])
+        self.assertIn("expected 3 slides", err_joined)
         self.assertEqual(out.get("retry_count"), 1)
         st2 = {**state, **out}
         self.assertEqual(route_after_parse(st2), "retry")
 
-    def test_exhausted_retries_continues_to_finalize(self) -> None:
+    def test_exhausted_retries_routes_to_fail(self) -> None:
         state = {
             "job_id": "j1",
             "raw_slide_output": _wrapped_slides(1),
@@ -100,7 +101,7 @@ class TestParseValidateCount(unittest.TestCase):
         out = parse_validate(state)  # type: ignore[arg-type]
         self.assertEqual(out.get("slides_html"), [])
         st2 = {**state, **out}
-        self.assertEqual(route_after_parse(st2), "continue")
+        self.assertEqual(route_after_parse(st2), "fail")
 
 
 if __name__ == "__main__":
