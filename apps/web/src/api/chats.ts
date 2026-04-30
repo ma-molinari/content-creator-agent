@@ -178,7 +178,7 @@ export function useJobStatus(chatId: string | null, jobId: string | null) {
     enabled: !!chatId && !!jobId,
     refetchInterval: (query) => {
       const s = query.state.data?.status
-      return s === 'done' || s === 'failed' ? false : 1_500
+      return s === 'done' || s === 'failed' ? false : 5_000
     },
     staleTime: 0,
   })
