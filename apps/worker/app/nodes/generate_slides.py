@@ -53,7 +53,7 @@ def _count_instruction(requested: int | None) -> str:
     )
 
 
-def generate_slides(state: AgentState) -> dict:
+async def generate_slides(state: AgentState) -> dict:
     logger.info("node=generate_slides job_id=%s", state.get("job_id"))
     settings = get_settings()
     system = _read_generate_prompt()
@@ -91,7 +91,7 @@ def generate_slides(state: AgentState) -> dict:
         model=settings.openai_chat_model,
         max_tokens=max_tokens,
     )
-    msg = llm.invoke(
+    msg = await llm.ainvoke(
         [
             SystemMessage(content=system),
             HumanMessage(content=user_content),

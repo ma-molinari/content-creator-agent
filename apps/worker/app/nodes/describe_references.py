@@ -43,7 +43,7 @@ def _guess_mime(data: bytes, s3_key: str) -> str:
     return "image/jpeg"
 
 
-def _fetch_bytes(key: str) -> bytes:
+def _fetch_bytes_limited(key: str, *, max_bytes: int) -> bytes:
     settings = get_settings()
     c = boto3.client(
         "s3",
@@ -52,7 +52,11 @@ def _fetch_bytes(key: str) -> bytes:
         aws_secret_access_key=settings.aws_secret_access_key,
     )
     o = c.get_object(Bucket=settings.aws_s3_bucket, Key=key)
-    return o["Body"].read()
+    body = o["Body"]
+    chunk = body.read(max_bytes + 1)
+    if len(chunk) > max_bytes:
+        raise ValueError(f"reference object exceeds configured max ({max_bytes} bytes)")
+    return chunk
 
 
 def _strip_wrapped_heading(text: str) -> str:
@@ -76,8 +80,9 @@ async def describe_references(state: AgentState) -> dict[str, Any]:
     system = _read_prompt()
     errors = list(state.get("errors") or [])
 
+    max_bytes = get_settings().reference_image_max_bytes
     fetch_out = await asyncio.gather(
-        *[asyncio.to_thread(_fetch_bytes, key) for key in keys],
+        *[asyncio.to_thread(_fetch_bytes_limited, key, max_bytes=max_bytes) for key in keys],
         return_exceptions=True,
     )
 
@@ -95,12 +100,23 @@ async def describe_references(state: AgentState) -> dict[str, Any]:
 
     for key, result in zip(keys, fetch_out):
         if isinstance(result, BaseException):
-            logger.exception(
-                "describe_references: s3 get failed job_id=%s key=%s",
-                job_id,
-                key,
-            )
-            errors.append(f"describe_references: falha ao baixar referência S3 {key}: {result!s}")
+            if isinstance(result, ValueError):
+                logger.warning(
+                    "describe_references: reference too large job_id=%s key=%s",
+                    job_id,
+                    key,
+                )
+                errors.append(
+                    "describe_references: referência de design excede o tamanho máximo permitido "
+                    f"({max_bytes} bytes) — {key}"
+                )
+            else:
+                logger.exception(
+                    "describe_references: s3 get failed job_id=%s key=%s",
+                    job_id,
+                    key,
+                )
+                errors.append(f"describe_references: falha ao baixar referência S3 {key}: {result!s}")
             continue
         raw: bytes = result
         mime = _guess_mime(raw, key)
@@ -127,7 +143,7 @@ async def describe_references(state: AgentState) -> dict[str, Any]:
         model=settings.reference_vision_model,
         max_tokens=2000,
     )
-    out = llm.invoke(
+    out = await llm.ainvoke(
         [
             SystemMessage(content=system),
             human,

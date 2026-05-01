@@ -48,6 +48,28 @@ class TestPostCompleteCallback(IsolatedAsyncioTestCase):
             self.assertEqual(out.status_code, 200)
             self.assertEqual(mock_client.post.await_count, 2)
 
+    async def test_retries_write_timeout_then_success(self) -> None:
+        ok = httpx.Response(200)
+        with patch("app.api_client.httpx.AsyncClient") as ac:
+            mock_client = AsyncMock()
+            ac.return_value.__aenter__.return_value = mock_client
+            mock_client.post = AsyncMock(
+                side_effect=[
+                    httpx.WriteTimeout("timeout"),
+                    ok,
+                ]
+            )
+
+            with patch("app.api_client.asyncio.sleep", new_callable=AsyncMock):
+                out = await post_complete_callback(
+                    "http://api/internal/jobs/x/complete",
+                    json_body={"a": 1},
+                    headers=None,
+                )
+
+            self.assertEqual(out.status_code, 200)
+            self.assertEqual(mock_client.post.await_count, 2)
+
     async def test_retries_5xx_then_success(self) -> None:
         bad = httpx.Response(503)
         ok = httpx.Response(200)

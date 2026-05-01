@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     openai_chat_model: str = Field(default="gpt-5.4-mini", min_length=1)
     # Vision model for optional design reference images in describe_references.
     reference_vision_model: str = Field(default="gpt-5.4-mini", min_length=1)
+    # Max bytes loaded per reference image from S3 (aligned with API upload cap for refs).
+    reference_image_max_bytes: int = Field(default=5_242_880, ge=262_144, le=52_428_800)
     # Dynamic max output tokens for generate_slides: min(base + per_slide * N, cap).
     generate_slides_tokens_base: int = Field(default=1500, ge=500)
     generate_slides_tokens_per_slide: int = Field(default=1200, ge=200)

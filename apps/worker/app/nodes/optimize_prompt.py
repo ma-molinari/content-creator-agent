@@ -19,7 +19,7 @@ def _read_optimize_prompt() -> str:
     return path.read_text(encoding="utf-8")
 
 
-def optimize_prompt(state: AgentState) -> dict:
+async def optimize_prompt(state: AgentState) -> dict:
     logger.info("node=optimize_prompt job_id=%s", state.get("job_id"))
     settings = get_settings()
     system = _read_optimize_prompt()
@@ -61,7 +61,7 @@ def optimize_prompt(state: AgentState) -> dict:
         model=settings.openai_chat_model,
         max_tokens=4000,
     )
-    msg = llm.invoke(
+    msg = await llm.ainvoke(
         [
             SystemMessage(content=system),
             HumanMessage(content=user_content),

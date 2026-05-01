@@ -21,6 +21,12 @@ def _transport_retryable(exc: BaseException) -> bool:
             httpx.ConnectError,
             httpx.ReadTimeout,
             httpx.ConnectTimeout,
+            httpx.WriteTimeout,
+            httpx.PoolTimeout,
+            httpx.RemoteProtocolError,
+            httpx.ReadError,
+            httpx.WriteError,
+            httpx.LocalProtocolError,
         ),
     )
 
