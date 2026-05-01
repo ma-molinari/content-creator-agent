@@ -16,7 +16,9 @@ import { AlertDialog } from '@/components/ui/AlertDialog'
 import { ChatThread } from '@/components/chat/ChatThread'
 import { ComposerBar } from '@/components/composer/ComposerBar'
 import { EmptyChatState } from '@/components/chat/EmptyChatState'
+import { OnboardingHint } from '@/components/onboarding'
 import { toast } from '@/lib/toast'
+import { useOnboardingStore } from '@/stores/onboarding'
 
 type ActiveJob = {
   chatId: string
@@ -33,6 +35,7 @@ export default function Chat() {
   const { id } = useParams()
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const chatHintDismissed = useOnboardingStore((s) => s.dismissedHints.has('chat-composer'))
 
   const [activeJob, setActiveJob] = useState<ActiveJob | null>(null)
   const [lastJobFailure, setLastJobFailure] = useState<LastJobFailure | null>(null)
@@ -167,6 +170,14 @@ export default function Chat() {
 
   const setupConfigured = setup.data?.configured ?? true
 
+  const chatLoading = !!id && (chat.isLoading || chat.isFetching)
+  const messageCount = id && chat.data ? chat.data.contents.length : 0
+  const showComposerHint =
+    !chatHintDismissed &&
+    !showJobLoading &&
+    !chatLoading &&
+    messageCount === 0
+
   return (
     <>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -229,10 +240,25 @@ export default function Chat() {
           )}
         </div>
 
-        <ComposerBar
-          onSend={handleSend}
-          disabled={showJobLoading || !setupConfigured}
-        />
+        <div className="relative shrink-0">
+          {showComposerHint && (
+            <div className="px-4 pt-3">
+              <div className="mx-auto w-full max-w-3xl">
+                <OnboardingHint
+                  id="chat-composer"
+                  title="Comece por aqui"
+                  description="Descreva o post que quer criar — tipo, tema, tom. A IA cuida do resto."
+                  narrow={false}
+                  arrowAlign="center"
+                />
+              </div>
+            </div>
+          )}
+          <ComposerBar
+            onSend={handleSend}
+            disabled={showJobLoading || !setupConfigured}
+          />
+        </div>
       </div>
 
       <AlertDialog

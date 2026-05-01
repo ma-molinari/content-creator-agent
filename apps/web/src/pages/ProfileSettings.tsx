@@ -7,6 +7,7 @@ import {
   useSaveProfile,
   useUploadReference,
 } from '@/api/profile'
+import { OnboardingHint } from '@/components/onboarding'
 import { ProfileBrandGuide } from '@/components/profile/ProfileBrandGuide'
 import { toast } from '@/lib/toast'
 
@@ -98,6 +99,11 @@ export default function ProfileSettings() {
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+              <OnboardingHint
+                id="profile-brand"
+                title="Antes de usar o chat"
+                description="Preencha a auditoria e o guia de marca. Sem essas informações, o chat fica bloqueado."
+              />
               <div className="flex flex-wrap items-center gap-3">
                 <button
                   type="button"

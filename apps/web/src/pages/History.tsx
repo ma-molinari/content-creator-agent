@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import type { Chat } from '@/api/chats'
 import { fetchChatFilesZip, useChats, useDeleteChat } from '@/api/chats'
 import { downloadBlob } from '@/lib/downloadBlob'
+import { OnboardingHint } from '@/components/onboarding'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 import { toast } from '@/lib/toast'
 
@@ -60,17 +61,24 @@ export default function History() {
                 </Link>
               </div>
             ) : (
-              <ul className="flex flex-col gap-2">
-                {chats.map((chat) => (
-                  <ChatListItem
-                    key={chat.id}
-                    chat={chat}
-                    deleting={deletingId === chat.id}
-                    onOpen={() => navigate(`/chat/${chat.id}`)}
-                    onDelete={() => setConfirmId(chat.id)}
-                  />
-                ))}
-              </ul>
+              <>
+                <OnboardingHint
+                  id="history-list"
+                  title="Os seus posts"
+                  description="Aqui ficam todos os seus posts anteriores. Abra qualquer um para rever os slides ou baixar o ZIP."
+                />
+                <ul className="flex flex-col gap-2">
+                  {chats.map((chat) => (
+                    <ChatListItem
+                      key={chat.id}
+                      chat={chat}
+                      deleting={deletingId === chat.id}
+                      onOpen={() => navigate(`/chat/${chat.id}`)}
+                      onDelete={() => setConfirmId(chat.id)}
+                    />
+                  ))}
+                </ul>
+              </>
             )}
           </div>
         </div>
