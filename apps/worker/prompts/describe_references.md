@@ -15,6 +15,9 @@ O resumo alimenta agentes que **só recebem texto** — não as imagens. Por iss
 
 ## Saída (Markdown, pt-BR)
 
+- O texto produzido **não deve conter URLs de imagem** nem links `http://` ou `https://` para bitmap, stock ou CDNs genéricos — o output é **descrição textual** pensada para CSS e layout local, não referência de asset remoto.
+- Se uma URL aparecer dentro das imagens de referência (ex.: watermark, rodapé de site ou QR visível), **ignore-a** e **não a transcreva** na sua resposta; descreva só o aspecto visual, não o literal do link.
+
 Uma **única** resposta com esta estrutura:
 
 ## REFERÊNCIAS_VISUAIS (resumo)

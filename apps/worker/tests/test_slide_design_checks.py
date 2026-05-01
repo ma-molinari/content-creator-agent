@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 
 from app.nodes.design_validate import design_validate, route_after_design
-from app.slide_design_checks import collect_design_violations
+from app.slide_design_checks import check_remote_assets, collect_design_violations
 from app.state import AgentState
 
 
@@ -44,6 +44,20 @@ class TestSlideDesignChecks(unittest.TestCase):
         )
         msgs = collect_design_violations(html)
         self.assertTrue(any("remota" in m.lower() or "proibida" in m.lower() for m in msgs))
+
+    def test_multiple_remote_assets_all_reported(self) -> None:
+        """All forbidden remote URLs are reported in one pass (no early return)."""
+        html = (
+            _minimal_valid_slide()
+            .replace("<main>", '<main><img src="https://example.com/x.png" alt=""/>')
+            .replace(
+                "body { margin:0;padding:0;width:1080px;height:1350px;overflow:hidden;",
+                "body { margin:0;padding:0;width:1080px;height:1350px;overflow:hidden;"
+                "background-image:url(https://cdn.example.com/bg.jpg);",
+            )
+        )
+        msgs = check_remote_assets(html)
+        self.assertGreaterEqual(len(msgs), 2)
 
     def test_missing_inter_rejected(self) -> None:
         html = _minimal_valid_slide().replace("'Inter', system-ui", "system-ui")

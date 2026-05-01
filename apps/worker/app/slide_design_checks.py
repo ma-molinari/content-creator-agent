@@ -126,6 +126,7 @@ def check_no_javascript(html: str) -> list[str]:
 
 
 def check_remote_assets(html: str) -> list[str]:
+    errs: list[str] = []
     soup = BeautifulSoup(html or "", "html.parser")
     css_blob = _extract_css_blob(html)
 
@@ -143,7 +144,7 @@ def check_remote_assets(html: str) -> list[str]:
                 continue
             v = val.strip()
             if v.startswith(("http://", "https://")) and not _allowed_remote_netloc(v):
-                return [f"URL remota proibida em <{tag_name} {attr}>: {v[:120]}"]
+                errs.append(f"URL remota proibida em <{tag_name} {attr}>: {v[:120]}")
 
     for node in soup.find_all(True):
         for attr_name in ("srcset", "poster"):
@@ -153,13 +154,13 @@ def check_remote_assets(html: str) -> list[str]:
             for piece in val.split(","):
                 url_part = piece.strip().split()[0] if piece.strip() else ""
                 if url_part.startswith(("http://", "https://")) and not _allowed_remote_netloc(url_part):
-                    return [f"URL remota proibida em {attr_name}: {url_part[:120]}"]
+                    errs.append(f"URL remota proibida em {attr_name}: {url_part[:120]}")
 
     for url in _collect_style_http_urls(css_blob):
         if url.startswith(("http://", "https://")) and not _allowed_remote_netloc(url):
-            return [f"url() remoto proibido no CSS: {url[:120]}"]
+            errs.append(f"url() remoto proibido no CSS: {url[:120]}")
 
-    return []
+    return errs
 
 
 def check_external_stylesheets(html: str) -> list[str]:
