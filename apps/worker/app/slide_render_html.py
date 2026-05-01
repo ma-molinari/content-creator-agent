@@ -1,10 +1,11 @@
-"""HTML tweaks for slide JPEG export (typography + font loading)."""
+"""HTML tweaks for slide JPEG export (typography + font loading + layout safety)."""
 
 from __future__ import annotations
 
 import re
 
 _HEAD_RE = re.compile(r"<head\b[^>]*>", re.IGNORECASE)
+_BODY_END_RE = re.compile(r"</body\s*>", re.IGNORECASE)
 
 
 # Injected early in <head>: preconnect speeds up Google Fonts; pipeline CSS improves rasterization.
@@ -18,13 +19,26 @@ _SLIDE_HEAD_INJECTION = (
     "</style>"
 )
 
+_BODY_END_INJECTION = (
+    '<style id="__pipeline_layout_safety">'
+    # Previne o anti-padrão "título no topo + conteúdo no rodapé + centro vazio".
+    # Sobrescreve space-between apenas no container direto de body (cascade posterior).
+    # Containers internos (cards, listas) não são afetados pois não são filhos diretos de body.
+    "body>div,body>main,body>section,body>article{"
+    "justify-content:flex-start!important"
+    "}"
+    "</style>"
+)
+
 
 def enhance_slide_html_for_render(html: str) -> str:
-    """Insert preconnect + global typography hints so Playwright export matches design intent."""
+    """Insert preconnect + typography in head and layout safety CSS before </body>."""
     if not (html or "").strip():
         return html
     m = _HEAD_RE.search(html)
     if m:
-        end = m.end()
-        return html[:end] + _SLIDE_HEAD_INJECTION + html[end:]
+        html = html[: m.end()] + _SLIDE_HEAD_INJECTION + html[m.end() :]
+    m2 = _BODY_END_RE.search(html)
+    if m2:
+        html = html[: m2.start()] + _BODY_END_INJECTION + html[m2.start() :]
     return html

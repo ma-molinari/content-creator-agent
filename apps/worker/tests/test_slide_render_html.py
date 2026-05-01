@@ -19,6 +19,13 @@ class TestEnhanceSlideHtmlForRender(unittest.TestCase):
         out = enhance_slide_html_for_render(html)
         self.assertIn("fonts.googleapis.com", out)
 
+    def test_inserts_layout_safety_before_body_close(self) -> None:
+        html = "<!DOCTYPE html><html><head></head><body><div>x</div></body></html>"
+        out = enhance_slide_html_for_render(html)
+        self.assertIn("__pipeline_layout_safety", out)
+        self.assertLess(out.index("__pipeline_layout_safety"), out.index("</body>"))
+        self.assertIn("justify-content:flex-start!important", out)
+
     def test_empty_passthrough(self) -> None:
         self.assertEqual(enhance_slide_html_for_render(""), "")
 

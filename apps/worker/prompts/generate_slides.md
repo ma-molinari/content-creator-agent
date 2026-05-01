@@ -97,6 +97,33 @@ O export é **JPEG estático 1080×1350**; **não** há media queries — trate 
 - **Pills, badges, “Nº ganho” e CTAs:** além da zona segura (20% inferior), mantenha **folga** entre esses elementos e a borda inferior do `body` — **não** cole etiquetas nem botões de chamada à borda nem à área de gesto.
 - **Anti-padrões a evitar:** “torre” + cartão pequeno desalinhado; *feature box* com meio vazio e texto espremido em baixo; duas manchetes a competir; *whitespace* acidental que quebre a hierarquia.
 
+## Anti-padrão de layout proibido (causa centro vazio)
+
+O uso de `justify-content: space-between` no wrapper principal do slide cria um canvas com título no topo e conteúdo no rodapé, deixando o meio vazio.
+
+**❌ PROIBIDO no container direto do body:**
+
+```css
+.slide-wrapper {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between; /* ← CAUSA O VAZIO */
+}
+```
+
+**✅ CORRETO — use flex-start + gap:**
+
+```css
+.slide-wrapper {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start; /* ou center */
+  gap: 32px; /* espaço controlado entre blocos */
+}
+```
+
+A mesma regra se aplica a `body`, `main`, `section` e qualquer elemento que ocupe a altura total do canvas. Distribua espaço com `gap`, `padding` e `margin`, nunca com `space-between` no nível de container.
+
 ## Formato de saída (crítico)
 
 Você **deve** envolver cada slide exatamente neste formato, **um bloco por slide**, em ordem:
@@ -145,6 +172,8 @@ Quantidade: siga o brief; **se o brief estiver aberto e não houver N obrigatór
 - [ ] **Inset:** padding do bloco principal **≥28px** (ideal **32–36px** em topo e laterais no wrapper de conteúdo); metadados/@handle com o **mesmo** recuo horizontal que o hero; texto crítico fora da zona ~**20% inferior** e sem colar em cantos.
 - [ ] **Inter:** `@import` Google Fonts (URL variável recomendada no item 1.2) + **`font-family: 'Inter', …`** em **cada** slide; exceção só com fonte **nomeada** no brief ou **BRAND**.
 - [ ] **Escala tipográfica:** manchete, apoio, microcopy, badges e texto de pill/CTA com **mínimos distintos** conforme a tabela de **Design tokens**; `line-height` adequado em manchetes multi-linha; secundário “muted” sempre **AA** (nada de cinza fraco sem contraste checado).
+- [ ] **Layout sem centro vazio:** wrapper principal usa `justify-content: flex-start` ou `center` — **nunca `space-between`** no container de altura total do canvas. Espaçamento entre blocos via `gap` ou `margin`.
+- [ ] **Contraste (par obrigatório):** antes de fechar cada slide, identifique (1) a cor de fundo do container principal e (2) a cor do texto sobreposto. Se o par falhar 4.5:1 (texto normal) ou 3:1 (texto ≥24px bold), aplique um overlay `rgba(0,0,0,0.45)` ou `rgba(255,255,255,0.55)` entre fundo e texto. Cinzas muted sobre fundos escuros: use ≥ `#94a3b8`; jamais `#64748b` ou mais fechado sobre `#0f172a` sem verificação.
 - [ ] **Cards / layout:** **coluna única** por padrão; **gap** vertical uniforme entre cards empilhados (token único, ex.: **16px**); badge→título com **margem/gap** consistente; sem cartões com **altura fixa** que deixem tarja vazia; duas colunas só se o brief pedir comparativo — com gap e padding simétricos.
 - [ ] **CTA (último slide):** **min-height ≥44px** em botões/pills; texto do CTA **≥13–14px**; quando fizer sentido, **uma** ação primária clara.
 - [ ] Primeiro slide com gancho forte; último com CTA concreto.
