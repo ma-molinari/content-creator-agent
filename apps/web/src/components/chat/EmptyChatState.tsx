@@ -1,11 +1,25 @@
-const CHIPS = [
-  "Crie um carrossel sobre produtividade para Instagram",
-  "Post único sobre lançamento de produto",
-  "Post motivacional para segunda-feira",
+export type EmptyChatChip = {
+  text: string;
+  postType: "single" | "carousel";
+};
+
+const CHIPS: EmptyChatChip[] = [
+  {
+    text: "Crie um carrossel sobre produtividade para Instagram",
+    postType: "carousel",
+  },
+  {
+    text: "Post único sobre lançamento de produto",
+    postType: "single",
+  },
+  {
+    text: "Post motivacional para segunda-feira",
+    postType: "single",
+  },
 ];
 
 type Props = {
-  onChipClick?: (text: string) => void;
+  onChipClick?: (text: string, postType: "single" | "carousel") => void;
 };
 
 export function EmptyChatState({ onChipClick }: Props) {
@@ -26,12 +40,12 @@ export function EmptyChatState({ onChipClick }: Props) {
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           {CHIPS.map((chip) => (
             <button
-              key={chip}
+              key={chip.text}
               type="button"
-              onClick={() => onChipClick(chip)}
+              onClick={() => onChipClick(chip.text, chip.postType)}
               className="rounded-[var(--radius-pill)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] px-4 py-2 text-sm text-[var(--color-text-secondary)] transition-colors hover:border-[var(--color-brand-primary)] hover:text-[var(--color-brand-primary)]"
             >
-              {chip}
+              {chip.text}
             </button>
           ))}
         </div>

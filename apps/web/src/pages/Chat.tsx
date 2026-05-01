@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
+import { isAxiosError } from 'axios'
 
 import { api } from '@/api/client'
 import type { Chat as ChatType, JobStatus } from '@/api/chats'
@@ -29,6 +30,16 @@ type ActiveJob = {
 type LastJobFailure = {
   error: string
   pendingText: string
+}
+
+function messageFromApiError(err: unknown, fallback: string): string {
+  if (isAxiosError(err)) {
+    const data = err.response?.data as { message?: string } | undefined
+    if (typeof data?.message === 'string' && data.message.length > 0) {
+      return data.message
+    }
+  }
+  return fallback
 }
 
 export default function Chat() {
@@ -97,32 +108,51 @@ export default function Chat() {
     null
 
   const handleSend = useCallback(
-    async (text: string) => {
+    async (text: string, options?: { postType?: 'single' | 'carousel' }) => {
+      const postTypeForNew = options?.postType ?? 'carousel'
       let chatId = id
 
       if (!chatId) {
-        const { data: newChat } = await api.post<ChatType>('/chats', { postType: 'carousel' })
-        chatId = newChat.id
-        qc.invalidateQueries({ queryKey: ['chats'] })
-        navigate(`/chat/${chatId}`, { replace: true })
+        try {
+          const { data: newChat } = await api.post<ChatType>('/chats', {
+            postType: postTypeForNew,
+          })
+          chatId = newChat.id
+          void qc.invalidateQueries({ queryKey: ['chats'] })
+          navigate(`/chat/${chatId}`, { replace: true })
+        } catch (err) {
+          toast.error(messageFromApiError(err, 'Não foi possível criar o chat.'))
+          throw err
+        }
       }
 
       setLastJobFailure(null)
 
-      const { data } = await api.post<{ jobId: string }>(`/chats/${chatId}/messages`, {
-        content: text,
-      })
+      let jobId: string
+      try {
+        const { data } = await api.post<{ jobId: string }>(`/chats/${chatId}/messages`, {
+          content: text,
+        })
+        jobId = data.jobId
+      } catch (err) {
+        toast.error(
+          messageFromApiError(
+            err,
+            'Não foi possível enviar a mensagem. Você pode tentar novamente.',
+          ),
+        )
+        throw err
+      }
 
       await qc.invalidateQueries({ queryKey: ['chats', chatId] })
-
-      setActiveJob({ chatId, jobId: data.jobId, pendingText: text })
+      setActiveJob({ chatId, jobId, pendingText: text })
     },
     [id, navigate, qc],
   )
 
   const handleChipClick = useCallback(
-    (text: string) => {
-      void handleSend(text)
+    (text: string, postType: 'single' | 'carousel') => {
+      void handleSend(text, { postType })
     },
     [handleSend],
   )

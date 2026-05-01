@@ -37,12 +37,14 @@ export function ComposerBar({
     const trimmed = text.trim()
     if (!trimmed || submitting || disabled) return
     setSubmitting(true)
-    setText('')
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'
-    }
     try {
       await onSend(trimmed)
+      setText('')
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto'
+      }
+    } catch {
+      // Parent surfaces errors (e.g. toast); keep draft
     } finally {
       setSubmitting(false)
     }
