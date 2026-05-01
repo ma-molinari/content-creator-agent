@@ -1,4 +1,4 @@
-# Content Creator Agent — Especificação
+# Post Mind — Especificação
 
 **Referência TDD**: `docs/TDD.md`
 

@@ -152,7 +152,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Content Creator Worker",
+    title="Post Mind Worker",
     lifespan=lifespan,
     docs_url=None,
     redoc_url=None,

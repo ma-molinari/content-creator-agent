@@ -1,4 +1,4 @@
-# Content Creator Agent
+# Post Mind
 
 Plataforma web para criação de posts Instagram (single e carrossel) com apoio de LLMs, alinhada à identidade visual e à marca do usuário.
 

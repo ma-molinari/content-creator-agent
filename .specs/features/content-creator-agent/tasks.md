@@ -1,4 +1,4 @@
-# Content Creator Agent — Tasks
+# Post Mind — Tasks
 
 **Design**: `.specs/features/content-creator-agent/design.md`
 **Arquitetura**: `docs/architecture-go-api-langgraph.md`

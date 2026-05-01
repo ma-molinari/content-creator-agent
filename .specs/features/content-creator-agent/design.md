@@ -1,4 +1,4 @@
-# Content Creator Agent — Design
+# Post Mind — Design
 
 **Spec**: `.specs/features/content-creator-agent/spec.md`
 **TDD Completo**: `docs/TDD.md`

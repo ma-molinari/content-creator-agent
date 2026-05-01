@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 
 import { logoutRemote } from '@/api/auth'
+import { HelpButton } from '@/components/onboarding'
 import { NavItem } from '@/components/shell/NavItem'
 import { queryClient } from '@/lib/queryClient'
 import { useAuthStore } from '@/stores/auth'
@@ -29,7 +30,7 @@ export function SidebarRail({ onClose }: Props) {
     >
       <div className="flex items-center justify-between p-4">
         <span className="text-sm font-semibold text-[var(--color-text-primary)]">
-          Content Creator
+          Post Mind
         </span>
         {onClose && (
           <button
@@ -47,7 +48,8 @@ export function SidebarRail({ onClose }: Props) {
         <NavItem to="/history" icon={<IconHistory />} label="Histórico" />
         <NavItem to="/profile" icon={<IconUser />} label="Perfil" />
       </nav>
-      <div className="flex min-h-[var(--app-bottom-shelf-min-height)] items-center border-t border-[var(--color-border-subtle)] p-3">
+      <div className="flex min-h-[var(--app-bottom-shelf-min-height)] items-center gap-1 border-t border-[var(--color-border-subtle)] p-3">
+        <HelpButton />
         <button
           type="button"
           onClick={handleLogout}

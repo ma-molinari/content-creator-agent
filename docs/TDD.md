@@ -1,4 +1,4 @@
-# TDD — Content Creator Agent
+# TDD — Post Mind
 
 | Campo | Valor |
 | ----- | ----- |
@@ -16,7 +16,7 @@ Este documento descreve o desenho técnico. Detalhe de arquivos e localização 
 
 ## Contexto
 
-O **Content Creator Agent** é uma plataforma web que apoia a criação de posts para o **Instagram** com LLMs, respeitando identidade visual e diretrizes de comunicação. O ciclo central são **`chats`**: o usuário envia mensagens, o sistema gera slides (JPEG) armazenados no **S3**, com trabalho assíncrono orquestrado entre a **API Go** e o **worker Python (LangGraph + Playwright)**.
+O **Post Mind** é uma plataforma web que apoia a criação de posts para o **Instagram** com LLMs, respeitando identidade visual e diretrizes de comunicação. O ciclo central são **`chats`**: o usuário envia mensagens, o sistema gera slides (JPEG) armazenados no **S3**, com trabalho assíncrono orquestrado entre a **API Go** e o **worker Python (LangGraph + Playwright)**.
 
 **Stakeholders:** criadores de conteúdo, social media e pequenos negócios que precisam de consistência visual no Instagram.
 

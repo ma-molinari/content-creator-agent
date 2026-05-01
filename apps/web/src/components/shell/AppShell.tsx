@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Outlet } from 'react-router-dom'
 
+import { OnboardingTour } from '@/components/onboarding'
 import { SidebarRail } from '@/components/shell/SidebarRail'
 
 export function AppShell() {
@@ -44,13 +45,14 @@ export function AppShell() {
             <IconMenu />
           </button>
           <span className="text-sm font-semibold text-[var(--color-text-primary)]">
-            Content Creator
+            Post Mind
           </span>
         </div>
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <Outlet />
         </div>
       </main>
+      <OnboardingTour />
     </div>
   )
 }

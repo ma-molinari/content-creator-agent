@@ -1,4 +1,4 @@
-# Estado da Sessão — Content Creator Agent
+# Estado da Sessão — Post Mind
 
 ## Última atualização
 

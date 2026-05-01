@@ -1,4 +1,4 @@
-# Content Creator Agent
+# Post Mind
 
 Um serviço web focado na criação de posts em redes sociais, seguindo boas práticas e a identidade visual do usuário.
 

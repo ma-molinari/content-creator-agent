@@ -1,4 +1,4 @@
-# Runbook — Content Creator Agent
+# Runbook — Post Mind
 
 ## Variáveis obrigatórias em produção
 

@@ -1,4 +1,4 @@
-# Content Creator Agent — Contexto base para LLMs
+# Post Mind — Contexto base para LLMs
 
 Plataforma web para criação de posts Instagram (single e carrossel) com apoio de LLMs,
 respeitando identidade visual e marca do usuário. Monorepo com três serviços independentes
