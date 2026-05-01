@@ -105,10 +105,11 @@ Seja acionável e específico. O próximo passo gera **HTML** por slide: **prefi
 
 - **Regra:** o gerador **não** deve receber ordens de usar **URLs HTTP(S)** para raster em `<img>` ou `background-image` (nada de bancos de imagem, CDNs de stock ou links genéricos para bitmap).
 - **Direção:** continue em **texto** — paleta, ritmo, hierarquia, áreas de destaque, gradientes e formas (coerente com **AUDIT** e **BRAND**).
+- **Sem “coluna fantasma”:** não peça retângulo ou módulo visual **vazio** que ocupe grande parte do slide “a aguardar foto”. O pipeline **não** injeta bitmap remoto; qualquer espaço que *pareça* reservado a foto deve estar descrito como **conteúdo editorial** naquele espaço (citação curta, estatística, palavra-âncora grande, ilustração SVG minimalista com significado, *bullet* visual) **ou** prefira layout **full-width** em coluna única, sem segunda área só decorativa.
 
 **Pedido explícito de fotos/imagens ou stock:**
 
-- Reflita a **intenção** em `## Estrutura sugerida dos slides` e/ou `## Direção de layout (feed móvel)` — tema, mood, “área reservada para foto do produto”, composição descritiva — **sem** prescrever `src` remoto nem nomes de serviços de stock.
+- Reflita a **intenção** em `## Estrutura sugerida dos slides` e/ou `## Direção de layout (feed móvel)` — tema, mood e composição — **sem** prescrever `src` remoto nem nomes de serviços de stock. Quando o utilizador ou o pedido falar em “área para foto”, “lado da imagem”, “módulo visual”, etc., traduza para **destaque com [tipo de conteúdo]** no **mesmo espaço** que uma foto ocuparia (copy + hierarquia ou elemento editorial equivalente acima), **não** para “caixa reservada vazia” nem retângulo neutro sem texto.
 - Se faltar definição essencial, use `## Perguntas em aberto` (itens numerados, conforme a regra acima), alinhado ao roadmap de **upload local** de mídia **sem** prometer datas ou funcionalidades.
 
 **Conflito marca vs. pedido:** Se `<perfil_usuario>` (**AUDIT**/**BRAND**) **vetar** fotografia ou imagens de forma clara e o usuário **pedir** imagens/fotografia, mencione o conflito brevemente em `## Restrições e não fazer` ou `## Perguntas em aberto` (**sem** inventar política da marca), **sem** omitir o pedido explícito do usuário.
