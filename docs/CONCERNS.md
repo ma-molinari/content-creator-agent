@@ -35,25 +35,28 @@ Presigned URLs are generated once on job completion and persisted in `chat_conte
 
 ---
 
-### 3. Jobs can stay permanently in `pending` state
+### 3. Jobs can stay permanently stuck (`processing`, rarely `pending`)
 
 **Files:** `apps/api/internal/chat/post_message.go`, `apps/api/internal/jobs/`
-**Evidence:** When the Go API dispatches to the worker and receives a `202`, the job is set to `processing`. If the worker crashes after accepting the job (or the Docker container OOMs during a long LangGraph run), no mechanism resets or retries the job. The `cron` scheduler only handles chat summarization.
-**Risk:** User-visible "stuck" jobs; manual DB intervention required to recover.
-**Fix:** Add a cron job (or startup check) that marks jobs stuck in `processing` for more than N minutes as `failed`. Optionally add a dead-letter retry mechanism.
+**Evidence:** Jobs are marked `processing` before the worker dispatch returns. If dispatch fails, the API sets `failed`. If the worker accepts the job and then crashes (or the container OOMs during LangGraph), the callback may never run and the row can remain `processing`. A cron marks jobs stuck in `processing` longer than N minutes as `failed` (`RunStuckJobCleanup` / `FailStuckProcessingJobs`).
+
+Previously, the API moved a job to `processing` only *after* a successful dispatch; if that status update failed after dispatch succeeded, the job could remain `pending` while the worker had already accepted work — the callback rejects non-`processing` jobs. That ordering is fixed: `processing` is set before dispatch.
+**Risk:** User-visible stuck or failed jobs after worker incidents; transient API errors during dispatch can still flip a job to `failed` after a brief `processing` state.
+**Fix (remaining):** Optional dead-letter retry; stronger idempotency if the worker may run the same job twice.
 
 ---
 
-### 4. No refresh token rotation or revocation
+### 4. Refresh token server-side session (rotation races mitigated)
 
-**Files:** `apps/api/internal/auth/service.go`
+**Files:** `apps/api/internal/auth/service.go`, `apps/api/internal/auth/repository.go`, `apps/api/cmd/server/main.go`
 **Evidence:**
 ```go
-refreshTokenTTL = 7 * 24 * time.Hour
+// RevokeAndCreateRefreshToken: UPDATE … WHERE jti = ? AND revoked_at IS NULL; RowsAffected must be 1
+// Cron: DeleteExpiredRefreshTokens at 03:00 UTC
 ```
-Refresh tokens are stateless JWTs stored only in HttpOnly cookies. There is no refresh token table, no rotation on use, and no revocation mechanism.
-**Risk:** A stolen refresh token remains valid for up to 7 days. There is no way to log out all sessions or invalidate a compromised token server-side.
-**Fix:** Store refresh token hashes in a `refresh_tokens` table; rotate on each `/auth/refresh` call (issue new token, invalidate old); add a `DELETE /auth/logout` endpoint that deletes the DB row.
+Refresh JWTs embed a JTI persisted in `refresh_tokens`. Login inserts a row; `/auth/refresh` revokes the current JTI and inserts the next in one transaction — **only if exactly one active row was revoked**, so concurrent refresh with the same cookie yields **401** for the loser instead of two valid refresh tokens. Logout revokes the current JTI.
+**Residual risk:** DB outage or manual inconsistency could leave JWT and row out of sync; token purge removes expired rows but does not replace full session audit tooling.
+**Fix (optional hardening):** Device/session lists, revoke-all, anomaly alerts.
 
 ---
 

@@ -116,6 +116,9 @@ func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, raw
 	if err := s.repo.CreateUserMessageAndJob(ctx, userMsg, job, setTitle); err != nil {
 		return nil, err
 	}
+	if err := s.jobsRepo.UpdateStatus(ctx, job.ID, db.JobStatusProcessing, nil); err != nil {
+		return nil, err
+	}
 	payload := jobs.DispatchPayload{
 		JobID:             job.ID,
 		UserID:            userID,
@@ -131,10 +134,7 @@ func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, raw
 		_ = s.jobsRepo.UpdateStatus(ctx, job.ID, db.JobStatusFailed, &msg)
 		return nil, ErrWorkerDispatchFailed
 	}
-	log.Printf("[jobs] dispatch job_id=%s chat_id=%s user_id=%s", job.ID, chatID, userID)
-	if err := s.jobsRepo.UpdateStatus(ctx, job.ID, db.JobStatusProcessing, nil); err != nil {
-		return nil, err
-	}
+	log.Printf("[jobs] dispatch ok job_id=%s chat_id=%s", job.ID, chatID)
 	return &PostMessageResult{JobID: job.ID}, nil
 }
 

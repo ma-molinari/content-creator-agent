@@ -69,17 +69,15 @@ func (c *HTTPWorkerClient) DispatchJob(ctx context.Context, payload DispatchPayl
 	if c.apiKey != "" {
 		req.Header.Set("X-Worker-API-Key", c.apiKey)
 	}
-	log.Printf("[railway-debug] dispatch POST %s/jobs job_id=%s chat_id=%s user_id=%s", c.baseURL, payload.JobID, payload.ChatID, payload.UserID)
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		log.Printf("[railway-debug] dispatch failed job_id=%s err=%v", payload.JobID, err)
+		log.Printf("[jobs] dispatch request failed job_id=%s err=%v", payload.JobID, err)
 		return fmt.Errorf("jobs: dispatch request: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		log.Printf("[railway-debug] dispatch HTTP error job_id=%s status=%d", payload.JobID, resp.StatusCode)
+		log.Printf("[jobs] dispatch worker HTTP error job_id=%s status=%d", payload.JobID, resp.StatusCode)
 		return fmt.Errorf("jobs: worker returned %s", resp.Status)
 	}
-	log.Printf("[railway-debug] dispatch ok job_id=%s status=%d", payload.JobID, resp.StatusCode)
 	return nil
 }

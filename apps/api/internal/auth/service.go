@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -226,6 +227,9 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*RefreshRes
 		return nil, err
 	}
 	if err := s.repo.RevokeAndCreateRefreshToken(ctx, jti, newRT); err != nil {
+		if errors.Is(err, ErrRefreshTokenReuse) {
+			return nil, errStatus(http.StatusUnauthorized, "invalid or expired refresh token")
+		}
 		return nil, err
 	}
 	return &RefreshResult{AccessToken: access, RefreshToken: newRefresh}, nil

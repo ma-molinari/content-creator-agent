@@ -11,6 +11,10 @@ import (
 	"gorm.io/gorm"
 )
 
+// ErrRefreshTokenReuse is returned when rotating would revoke a JTI that is
+// already revoked or missing — e.g. concurrent POST /auth/refresh with the same cookie.
+var ErrRefreshTokenReuse = errors.New("refresh token reuse or concurrent rotation")
+
 type Repository struct {
 	gdb *gorm.DB
 }
@@ -115,10 +119,14 @@ func (r *Repository) DeleteExpiredRefreshTokens(ctx context.Context) (int64, err
 func (r *Repository) RevokeAndCreateRefreshToken(ctx context.Context, oldJTI uuid.UUID, newRT *db.RefreshToken) error {
 	return r.gdb.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		now := time.Now()
-		if err := tx.Model(&db.RefreshToken{}).
+		res := tx.Model(&db.RefreshToken{}).
 			Where("jti = ? AND revoked_at IS NULL", oldJTI).
-			Update("revoked_at", now).Error; err != nil {
-			return err
+			Update("revoked_at", now)
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected != 1 {
+			return ErrRefreshTokenReuse
 		}
 		return tx.Create(newRT).Error
 	})

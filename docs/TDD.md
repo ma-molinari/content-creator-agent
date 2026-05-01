@@ -50,7 +50,7 @@ O **Post Mind** é uma plataforma web que apoia a criação de posts para o **In
 
 ### Futuro (V2+)
 
-- *Onboarding* ainda mais integrado a capturas e fluxo de auditoria (pastas de trabalho do cliente, fora do repositório), automação adicional, Redis para *rate limit* multi-instância, *refresh token* com rotação (ver preocupações em `docs/CONCERNS.md`).
+- *Onboarding* ainda mais integrado a capturas e fluxo de auditoria (pastas de trabalho do cliente, fora do repositório), automação adicional, Redis para *rate limit* multi-instância; endurecimento opcional de sessões (*refresh*: ver estado atual em `docs/CONCERNS.md` §4).
 
 ---
 

@@ -205,7 +205,7 @@ Prioridades resumidas (detalhe completo em `docs/CONCERNS.md`):
 | 1 | HIGH | Rate limit em memória — quebra em múltiplas réplicas |
 | 2 | HIGH | URLs S3 presign expiram (1h) mas ficam na BD |
 | 3 | HIGH | Jobs podem ficar presos em `processing` eternamente |
-| 4 | HIGH | Refresh token sem rotação nem revogação server-side |
+| 4 | MEDIUM | Refresh na BD com rotação/revogação; endurecimento opcional (ver `docs/CONCERNS.md` §4) |
 | 5 | MEDIUM | `go.mod` declara Go 1.25 (não existe) |
 | 6 | MEDIUM | Sem paginação em listagem de chats/mensagens |
 | 7 | MEDIUM | Sumarizador no mesmo processo pode pressionar DB pool |

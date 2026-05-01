@@ -4,7 +4,11 @@ import (
 	"context"
 	"net/http"
 	"testing"
+	"time"
 
+	"content-creator-agent/internal/db"
+
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -145,6 +149,33 @@ func TestRecoverPassword_UnknownEmail_SameAsWrongKey(t *testing.T) {
 	svc := NewService(repo, testJWTAccess, testJWTRefresh, false)
 	err := svc.RecoverPassword(context.Background(), "nobody@example.com", "any-key", "newpassword12")
 	require.NoError(t, err)
+}
+
+func TestRevokeAndCreateRefreshToken_AlreadyRevokedReturnsReuseError(t *testing.T) {
+	gdb := testAuthDB(t)
+	repo := NewRepository(gdb)
+	ctx := context.Background()
+	userID := uuid.New()
+	oldJTI := uuid.New()
+	oldRT := &db.RefreshToken{
+		JTI:       oldJTI,
+		UserID:    userID,
+		ExpiresAt: time.Now().UTC().Add(time.Hour),
+	}
+	require.NoError(t, repo.CreateRefreshToken(ctx, oldRT))
+	newRT := &db.RefreshToken{
+		JTI:       uuid.New(),
+		UserID:    userID,
+		ExpiresAt: time.Now().UTC().Add(24 * time.Hour),
+	}
+	require.NoError(t, repo.RevokeAndCreateRefreshToken(ctx, oldJTI, newRT))
+	newRT2 := &db.RefreshToken{
+		JTI:       uuid.New(),
+		UserID:    userID,
+		ExpiresAt: time.Now().UTC().Add(24 * time.Hour),
+	}
+	err := repo.RevokeAndCreateRefreshToken(ctx, oldJTI, newRT2)
+	require.ErrorIs(t, err, ErrRefreshTokenReuse)
 }
 
 func TestRecoverPassword_Valid(t *testing.T) {

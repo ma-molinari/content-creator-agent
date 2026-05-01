@@ -50,7 +50,6 @@ func (h *Handler) Complete(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid job id")
 	}
-	log.Printf("[railway-debug] internal callback %s job_id=%s", c.Request().Method, jobID)
 	var body CompleteBody
 	if err := c.Bind(&body); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid JSON body")
