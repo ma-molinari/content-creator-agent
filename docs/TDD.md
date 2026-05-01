@@ -8,7 +8,7 @@
 | Figma/Design | `docs/ui-guidelines.md` + `docs/ui/*.png` |
 | Status | Alinhado ao repositório e a `docs/ARCHITECTURE.md`, `docs/INTEGRATIONS.md`, `docs/STRUCTURE.md`, `docs/TESTING.md` |
 | Criado em | 2026-04-10 |
-| Última revisão | 2026-04-25 |
+| Última revisão | 2026-05-01 |
 
 Este documento descreve o desenho técnico. Detalhe de arquivos e localização estão em **`docs/ARCHITECTURE.md`**, **`docs/STRUCTURE.md`** e **`docs/INTEGRATIONS.md`**.
 
@@ -36,7 +36,7 @@ O **Post Mind** é uma plataforma web que apoia a criação de posts para o **In
 - **Perfil na aplicação:** `GET`/`PUT /profile` com textos de auditoria e marca; `POST`/`DELETE` referências de design (S3); `GET /setup/status` antes de enviar mensagens.
 - Chat: CRUD de chats, limite de **5** chats por usuário com remoção do mais antigo ao criar o 6.º.
 - **Geração assíncrona:** `POST /chats/:id/messages` → **202** + `jobId`; *polling* `GET /chats/:id/jobs/:jobId/status`; conclusão via *callback* do worker para a API.
-- Pipeline no **worker:** LangGraph (perfil, descrição de referências, otimização de *brief*, HTML de slides, validação, JPEG via Playwright, *upload* S3, *finalize*).
+- Pipeline no **worker:** LangGraph (perfil, validação de segurança do prompt, descrição de referências, otimização de *brief*, validação do *brief*, HTML de slides, validação de parse, **validação de design estático** (sem JS, sem assets remotos, tipografia Inter/GF, viewport 1080×1350), JPEG via Playwright, *upload* S3, *finalize*).
 - Download de arquivos e ZIP; telas de histórico e chat na SPA (`apps/web`).
 - *Cron* de sumarização diária na **API** (OpenAI), se `OPENAI_API_KEY` estiver definida.
 - Segurança: *rate limit*, sanitização, CORS explícito, medidas descritas em `docs/CONCERNS.md` (dívidas técnicas conhecidas).
@@ -219,7 +219,7 @@ Referência cruzada: **`docs/ARCHITECTURE.md`** (substitui documentos de arquite
 | 1 | Limite de 5 chats | Remoção automática do mais antigo ao criar o 6.º; usuário pode apagar antes. |
 | 2 | Redis | Opcional; *V1* com *rate limit* em memória. |
 | 3 | *Refresh* | HttpOnly *cookie* + *access* em memória. |
-| 4 | Geração de *slides* | LLM gera **HTML** (blocos); **Playwright** no **worker** exporta **JPEG** 1080×1350 (4:5, qualidade ~92). Modelos: ver `docs/INTEGRATIONS.md` (não DALL·E). |
+| 4 | Geração de *slides* | LLM gera **HTML** (blocos); gate `design_validate` verifica estaticamente (sem JS, sem assets remotos, tipografia Inter/GF, viewport 1080×1350, até 3 retentativas); **Playwright** no **worker** exporta **JPEG** 1080×1350 (4:5, qualidade ~92). Modelos: ver `docs/INTEGRATIONS.md` (não DALL·E). |
 | 5 | *Tokens* | *Max tokens* no gerador p.ex. 4000 no nó de *slides*; afinar com dados reais. |
 
 ---

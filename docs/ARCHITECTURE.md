@@ -60,16 +60,21 @@
 **Node sequence:**
 
 ```
-load_profile → describe_references → optimize_prompt → generate_slides
-    → parse_validate ─┬─► render_to_jpeg → upload_assets → finalize → END
-                      └─► generate_slides  (retry on parse failure)
+load_profile → prompt_security_validate ─┬─► describe_references → optimize_prompt → validate_brief ─┬─► generate_slides
+              (rejected → finalize)       │                         (retry → optimize_prompt)          │
+                                          │   parse_validate ─┬─► design_validate ─┬─► render_to_jpeg → upload_assets → finalize → END
+                                          │                   └─► generate_slides  └─► generate_slides
+                                          │   (retry on parse)    (retry on design)
 ```
 
 - `load_profile` — fetches profile context (audit + brand text) from Go API
+- `prompt_security_validate` — deterministic safety checks on the raw user message; routes to `finalize` if rejected
 - `describe_references` — vision model (`REFERENCE_VISION_MODEL`, default `gpt-5.4-mini`) describes S3 design reference images
 - `optimize_prompt` — rewrites the user brief into a structured generation brief
+- `validate_brief` — validates the optimized brief; retries `optimize_prompt` up to a budget, then routes to `generate_slides` or `finalize`
 - `generate_slides` — produces HTML slide blocks via configurable chat model (`OPENAI_CHAT_MODEL`, default `gpt-5.4-mini`)
-- `parse_validate` — parses the delimited HTML output; routes to retry or continue
+- `parse_validate` — parses the delimited HTML output; routes to retry (`generate_slides`) or continue
+- `design_validate` — static HTML/CSS quality gate (`app/slide_design_checks.py`): no JS, no remote raster assets, Google Fonts only, Inter typography, 1080×1350 viewport; up to 3 retries back to `generate_slides`
 - `render_to_jpeg` — runs Playwright (headless Chromium) at 1080×1350 (4:5) to screenshot each slide
 - `upload_assets` — uploads JPEG bytes to S3 under `slides/{jobId}/`
 - `finalize` — calls back the Go API `/internal/jobs/:id/complete` with artifact keys

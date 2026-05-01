@@ -96,20 +96,26 @@ apps/api/
 ```
 apps/worker/
 ├── app/
-│   ├── main.py          # FastAPI app: POST /jobs, GET /health
-│   ├── config.py        # pydantic-settings Config
-│   ├── graph.py         # LangGraph StateGraph construction
-│   ├── state.py         # AgentState TypedDict
+│   ├── main.py              # FastAPI app: POST /jobs, GET /health
+│   ├── config.py            # pydantic-settings Config
+│   ├── graph.py             # LangGraph StateGraph construction
+│   ├── state.py             # AgentState TypedDict (incl. design_retry_count)
+│   ├── slide_design_checks.py  # Static HTML/CSS checks (no JS, remote assets, fonts, viewport)
 │   └── nodes/
-│       ├── load_profile.py          # Fetches audit/brand text from Go API
-│       ├── describe_references.py   # Vision model (default gpt-5.4-mini) on design reference images
-│       ├── optimize_prompt.py       # Rewrites user brief → structured brief
-│       ├── generate_slides.py       # Chat model (default gpt-5.4-mini) → HTML slide blocks
-│       ├── parse_validate.py        # Parses delimited output; triggers retry
-│       ├── render_to_jpeg.py        # Playwright screenshot per slide
-│       ├── upload_assets.py         # boto3 S3 upload
-│       └── finalize.py              # Callback to Go API + assemble caption
+│       ├── load_profile.py              # Fetches audit/brand text from Go API
+│       ├── prompt_security_validate.py  # Deterministic safety gate on raw user message
+│       ├── describe_references.py       # Vision model (default gpt-5.4-mini) on design reference images
+│       ├── optimize_prompt.py           # Rewrites user brief → structured brief
+│       ├── validate_brief.py            # Validates optimized brief; retries or fails
+│       ├── generate_slides.py           # Chat model (default gpt-5.4-mini) → HTML slide blocks
+│       ├── parse_validate.py            # Parses delimited output; triggers retry
+│       ├── design_validate.py           # Static design QA gate (uses slide_design_checks); up to 3 retries
+│       ├── render_to_jpeg.py            # Playwright screenshot per slide
+│       ├── upload_assets.py             # boto3 S3 upload
+│       └── finalize.py                  # Callback to Go API + assemble caption
 ├── prompts/             # System prompt markdown files (loaded at runtime)
+├── tests/
+│   └── test_slide_design_checks.py  # Unit tests for static design check functions
 ├── pyproject.toml
 ├── Dockerfile
 └── .env.example

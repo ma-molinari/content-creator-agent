@@ -25,7 +25,7 @@ React SPA (Vite/TS)  ←— HTTPS/REST + JWT —→  Go API (Echo, :8080)
 | Serviço | Pasta | Responsabilidade |
 |---------|-------|------------------|
 | **API Go** | `apps/api/` | Auth (JWT dual-token), CRUD chats, perfil, S3 presign/ZIP, dispatch de jobs, callback do worker, cron de sumarização |
-| **Worker Python** | `apps/worker/` | Pipeline LangGraph (perfil → describe refs → optimize prompt → generate HTML slides → parse → Playwright JPEG → upload S3 → finalize callback) |
+| **Worker Python** | `apps/worker/` | Pipeline LangGraph (perfil → security validate → describe refs → optimize prompt → validate brief → generate HTML slides → parse → **design validate** → Playwright JPEG → upload S3 → finalize callback) |
 | **SPA React** | `apps/web/` | Auth, perfil, chat, poll de jobs, visualização e download de slides |
 
 ### Fluxo principal (mensagem → slides)
@@ -62,11 +62,13 @@ content-creator-agent/
 │   │
 │   ├── worker/                 # Python LangGraph Worker
 │   │   ├── app/
-│   │   │   ├── main.py         # FastAPI: POST /jobs, GET /health
-│   │   │   ├── graph.py        # LangGraph StateGraph
-│   │   │   ├── state.py        # AgentState TypedDict
-│   │   │   └── nodes/          # Um ficheiro por nó do grafo
-│   │   └── prompts/            # System prompts markdown
+│   │   │   ├── main.py                 # FastAPI: POST /jobs, GET /health
+│   │   │   ├── graph.py                # LangGraph StateGraph
+│   │   │   ├── state.py                # AgentState TypedDict
+│   │   │   ├── slide_design_checks.py  # Static HTML/CSS design checks
+│   │   │   └── nodes/                  # Um ficheiro por nó do grafo
+│   │   ├── prompts/            # System prompts markdown
+│   │   └── tests/              # Unit tests (slide_design_checks, etc.)
 │   │
 │   └── web/                    # React SPA
 │       └── src/
@@ -93,7 +95,7 @@ content-creator-agent/
 
 ### Python Worker
 - Python ≥3.9, FastAPI + Uvicorn, LangGraph ≥0.2, LangChain-OpenAI ≥0.2
-- Playwright (Chromium headless), boto3, httpx, pydantic-settings
+- Playwright (Chromium headless), boto3, httpx, pydantic-settings, beautifulsoup4
 
 ### React SPA
 - React 19, TypeScript, Vite 8, React Router v7, TanStack Query v5
