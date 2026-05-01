@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 
 import { api } from '@/api/client'
 
@@ -9,6 +9,29 @@ type Props = {
   alt: string
   className?: string
   loading?: 'eager' | 'lazy'
+}
+
+type BlobImgProps = {
+  blob: Blob
+  alt: string
+  className?: string
+  loading: 'eager' | 'lazy'
+}
+
+/**
+ * Creates a stable object URL for the blob and revokes it when the blob identity changes or on unmount.
+ * Side effect (createObjectURL) is paired with revoke in an effect cleanup — no setState in effects.
+ */
+function SlideBlobImage({ blob, alt, className, loading }: BlobImgProps) {
+  const objectUrl = useMemo(() => URL.createObjectURL(blob), [blob])
+
+  useEffect(() => {
+    return () => {
+      URL.revokeObjectURL(objectUrl)
+    }
+  }, [objectUrl])
+
+  return <img src={objectUrl} alt={alt} loading={loading} className={className} />
 }
 
 /**
@@ -36,20 +59,6 @@ export function AuthenticatedSlideImage({
     gcTime: 1000 * 60 * 60,
   })
 
-  const [objectUrl, setObjectUrl] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!blob) {
-      setObjectUrl(null)
-      return
-    }
-    const url = URL.createObjectURL(blob)
-    setObjectUrl(url)
-    return () => {
-      URL.revokeObjectURL(url)
-    }
-  }, [blob])
-
   if (isError) {
     return (
       <div
@@ -61,7 +70,7 @@ export function AuthenticatedSlideImage({
     )
   }
 
-  if (isPending || !objectUrl) {
+  if (isPending || !blob) {
     return (
       <div
         className={className}
@@ -71,5 +80,5 @@ export function AuthenticatedSlideImage({
     )
   }
 
-  return <img src={objectUrl} alt={alt} loading={loading} className={className} />
+  return <SlideBlobImage blob={blob} alt={alt} loading={loading} className={className} />
 }
