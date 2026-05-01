@@ -48,3 +48,5 @@ class AgentState(TypedDict):
     prompt_security_rule: NotRequired[str]
     # Failed brief validations before giving up (validate_brief → optimize_prompt retries).
     brief_retry_count: NotRequired[int]
+    # Failed design_validate retries before giving up (separate from retry_count / parse).
+    design_retry_count: NotRequired[int]

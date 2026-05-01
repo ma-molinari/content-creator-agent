@@ -25,7 +25,11 @@ def _read_generate_prompt() -> str:
 def _retry_feedback(errors: list[str] | None) -> str:
     if not errors:
         return ""
-    relevant = [e for e in errors if "parse_validate:" in (e or "")]
+    relevant = [
+        e
+        for e in errors
+        if "parse_validate:" in (e or "") or "design_validate:" in (e or "")
+    ]
     lines = relevant[-8:] if relevant else []
     if not lines:
         return ""
@@ -35,7 +39,7 @@ def _retry_feedback(errors: list[str] | None) -> str:
         f"{bullets}\n\n"
         "Regenerar **todos** os blocos `###SLIDE_FILE:` … `###END_SLIDE###` pedidos; cada slide deve ser "
         "um HTML completo com `<html>` e `</html>`. Não omita arquivos listados como ausentes; corrija HTML "
-        "marcado como inválido."
+        "marcado como inválido e **as regras de design** indicadas acima (CSS autocontido, Inter/GF, viewport 1080×1350px, sem URLs remotas nem JS)."
     )
 
 
@@ -61,7 +65,7 @@ def generate_slides(state: AgentState) -> dict:
         settings,
     )
     # Retries after truncation may need more headroom.
-    if int(state.get("retry_count") or 0) > 0:
+    if int(state.get("retry_count") or 0) > 0 or int(state.get("design_retry_count") or 0) > 0:
         max_tokens = min(max_tokens + _MAX_TOKENS_RETRY_HINT, settings.generate_slides_max_tokens_cap)
 
     user_content = (
