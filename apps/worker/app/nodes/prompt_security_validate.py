@@ -3,7 +3,7 @@
 import logging
 
 from app.prompt_security import USER_PROMPT_REJECT_MESSAGE, validate_user_prompt
-from app.state import AgentState
+from app.state import AgentState, copy_errors
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ def prompt_security_validate(state: AgentState) -> dict:
         jid,
         rule,
     )
-    errors = list(state.get("errors") or [])
+    errors = copy_errors(state)
     errors.append(USER_PROMPT_REJECT_MESSAGE)
     return {
         "errors": errors,

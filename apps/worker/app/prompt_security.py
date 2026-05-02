@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from typing import Optional
 
 from app.config import get_settings
 from app.state import AgentState
@@ -99,13 +98,7 @@ def _has_disallowed_controls(text: str) -> bool:
     return False
 
 
-def _combined_user_text(state: AgentState) -> str:
-    raw = state.get("raw_message") or ""
-    reprompt = state.get("reprompt_context") or ""
-    return f"{raw}\n{reprompt}"
-
-
-def validate_user_prompt(state: AgentState) -> tuple[bool, Optional[str]]:
+def validate_user_prompt(state: AgentState) -> tuple[bool, str | None]:
     """Return (ok, reason_code). reason_code is for logging only when ok is False."""
     settings = get_settings()
     raw = state.get("raw_message") or ""
@@ -118,12 +111,12 @@ def validate_user_prompt(state: AgentState) -> tuple[bool, Optional[str]]:
     if _has_disallowed_controls(raw) or _has_disallowed_controls(reprompt):
         return False, REASON_CONTROL_CHARS
 
-    haystack = _combined_user_text(state).lower()
+    combined = f"{raw}\n{reprompt}"
+    haystack = combined.lower()
     for snippet in _DELIMITER_SNIPPETS:
         if snippet.lower() in haystack:
             return False, REASON_DELIMITER_TAG
 
-    combined = _combined_user_text(state)
     for rx in _SLIDE_MARKER_RES:
         if rx.search(combined):
             return False, REASON_SLIDE_MARKER

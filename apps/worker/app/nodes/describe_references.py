@@ -13,17 +13,13 @@ import boto3
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
-from app.config import PROMPTS_DIR, get_settings
-from app.state import AgentState
+from app.config import get_settings, read_prompt_md
+from app.llm_messages import langchain_message_text
+from app.state import AgentState, copy_errors
 
 logger = logging.getLogger(__name__)
 
 _MAX_IMAGES = 8
-
-
-def _read_prompt() -> str:
-    path = PROMPTS_DIR / "describe_references.md"
-    return path.read_text(encoding="utf-8")
 
 
 def _guess_mime(data: bytes, s3_key: str) -> str:
@@ -43,15 +39,8 @@ def _guess_mime(data: bytes, s3_key: str) -> str:
     return "image/jpeg"
 
 
-def _fetch_bytes_limited(key: str, *, max_bytes: int) -> bytes:
-    settings = get_settings()
-    c = boto3.client(
-        "s3",
-        region_name=settings.aws_region,
-        aws_access_key_id=settings.aws_access_key_id,
-        aws_secret_access_key=settings.aws_secret_access_key,
-    )
-    o = c.get_object(Bucket=settings.aws_s3_bucket, Key=key)
+def _fetch_bytes_limited(client: Any, bucket: str, key: str, max_bytes: int) -> bytes:
+    o = client.get_object(Bucket=bucket, Key=key)
     body = o["Body"]
     chunk = body.read(max_bytes + 1)
     if len(chunk) > max_bytes:
@@ -75,14 +64,25 @@ async def describe_references(state: AgentState) -> dict[str, Any]:
     keys = (state.get("reference_s3_keys") or [])[:_MAX_IMAGES]
     if not keys:
         return {}
+    settings = get_settings()
     job_id = state.get("job_id")
     base = (state.get("profile_text") or "").strip()
-    system = _read_prompt()
-    errors = list(state.get("errors") or [])
+    system = read_prompt_md("describe_references.md")
+    errors = copy_errors(state)
 
-    max_bytes = get_settings().reference_image_max_bytes
+    bucket = settings.aws_s3_bucket
+    max_bytes = settings.reference_image_max_bytes
+    s3_client = boto3.client(
+        "s3",
+        region_name=settings.aws_region,
+        aws_access_key_id=settings.aws_access_key_id,
+        aws_secret_access_key=settings.aws_secret_access_key,
+    )
     fetch_out = await asyncio.gather(
-        *[asyncio.to_thread(_fetch_bytes_limited, key, max_bytes=max_bytes) for key in keys],
+        *[
+            asyncio.to_thread(_fetch_bytes_limited, s3_client, bucket, key, max_bytes)
+            for key in keys
+        ],
         return_exceptions=True,
     )
 
@@ -137,7 +137,6 @@ async def describe_references(state: AgentState) -> dict[str, Any]:
         return {"errors": errors} if errors else {}
 
     human = HumanMessage(content=user_blocks)
-    settings = get_settings()
     llm = ChatOpenAI(
         api_key=settings.openai_api_key,
         model=settings.reference_vision_model,
@@ -149,7 +148,7 @@ async def describe_references(state: AgentState) -> dict[str, Any]:
             human,
         ]
     )
-    text = (getattr(out, "content", None) or str(out) or "").strip()
+    text = langchain_message_text(out)
     if not text:
         logger.warning("describe_references: empty model output job_id=%s", job_id)
         return {"errors": errors} if errors else {}

@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import re
 
-from app.state import AgentState
+from app.state import AgentState, copy_errors
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ def _brief_valid(brief: str) -> bool:
 def validate_brief(state: AgentState) -> dict:
     logger.info("node=validate_brief job_id=%s", state.get("job_id"))
     brief = (state.get("optimized_brief") or "").strip()
-    errors = list(state.get("errors") or [])
+    errors = copy_errors(state)
     count = int(state.get("brief_retry_count") or 0)
 
     if _brief_valid(brief):

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Mapping
+from typing import Mapping
 
 import httpx
 
@@ -34,7 +34,7 @@ def _transport_retryable(exc: BaseException) -> bool:
 async def post_complete_callback(
     url: str,
     *,
-    json_body: Mapping[str, Any] | None,
+    json_body: Mapping[str, object] | None,
     headers: Mapping[str, str] | None,
     timeout: float = 30.0,
     attempts: int = DEFAULT_ATTEMPTS,

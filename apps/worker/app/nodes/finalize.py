@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from typing import Mapping
 
 from app.api_client import post_complete_callback
 from app.config import get_settings
@@ -15,9 +16,11 @@ from app.nodes.finalize_messages import (
 from app.prompt_security import USER_PROMPT_REJECT_MESSAGE
 from app.sanitize import sanitize_brief_output
 from app.slide_artifact_cleanup import delete_slide_artifact_keys_sync
-from app.state import AgentState, ArtifactRef
+from app.state import AgentState, ArtifactRef, copy_errors
 
 logger = logging.getLogger(__name__)
+
+_FALLBACK_BODY: Mapping[str, str] = {"error": JOB_FAILURE_CALLBACK_TRANSPORT}
 
 
 def _compute_expected_delivery(state: AgentState) -> int:
@@ -54,11 +57,47 @@ def _build_assistant_text(state: AgentState) -> str:
     return "Conteúdo do carrossel foi gerado; veja as imagens anexas."
 
 
+async def _post_complete_with_transport_fallback(
+    *,
+    url: str,
+    headers: dict[str, str],
+    json_body: dict[str, object] | Mapping[str, str] | None,
+    errors: list[str],
+    timeout: float,
+    fallback_timeout: float,
+) -> None:
+    try:
+        r = await post_complete_callback(url, json_body=json_body, headers=headers, timeout=timeout)
+        if r.status_code >= 400:
+            errors.append(f"finalize callback failed: {r.status_code} {r.text}")
+            try:
+                await post_complete_callback(
+                    url,
+                    json_body=dict(_FALLBACK_BODY),
+                    headers=headers,
+                    timeout=fallback_timeout,
+                )
+            except Exception as retry_exc:
+                logger.error("failed to send error callback: %s", retry_exc)
+    except Exception as exc:
+        logger.error("finalize callback error: %s", exc)
+        errors.append(f"finalize callback error: {exc}")
+        try:
+            await post_complete_callback(
+                url,
+                json_body=dict(_FALLBACK_BODY),
+                headers=headers,
+                timeout=fallback_timeout,
+            )
+        except Exception as retry_exc:
+            logger.error("failed to send error callback: %s", retry_exc)
+
+
 async def finalize(state: AgentState) -> dict:
     logger.info("node=finalize job_id=%s", state.get("job_id"))
     settings = get_settings()
     job_id = state.get("job_id") or ""
-    errors = list(state.get("errors") or [])
+    errors = copy_errors(state)
     artifacts: list[ArtifactRef] = list(state.get("artifacts") or [])
     expected = _compute_expected_delivery(state)
     mismatch = expected > 0 and len(artifacts) != expected
@@ -85,36 +124,19 @@ async def finalize(state: AgentState) -> dict:
                 logger.error("finalize: slide cleanup failed job_id=%s err=%s", job_id, exc)
 
         api_error = _failure_message_for_callback(errors, mismatch_delivery=mismatch)
-        body = {"error": api_error}
-        try:
-            r = await post_complete_callback(url, json_body=body, headers=headers, timeout=15.0)
-            if r.status_code >= 400:
-                errors.append(f"finalize callback failed: {r.status_code} {r.text}")
-                try:
-                    await post_complete_callback(
-                        url,
-                        json_body={"error": JOB_FAILURE_CALLBACK_TRANSPORT},
-                        headers=headers,
-                        timeout=10.0,
-                    )
-                except Exception as retry_exc:
-                    logger.error("failed to send error callback: %s", retry_exc)
-        except Exception as exc:
-            logger.error("finalize callback error: %s", exc)
-            errors.append(f"finalize callback error: {exc}")
-            try:
-                await post_complete_callback(
-                    url,
-                    json_body={"error": JOB_FAILURE_CALLBACK_TRANSPORT},
-                    headers=headers,
-                    timeout=10.0,
-                )
-            except Exception as retry_exc:
-                logger.error("failed to send error callback: %s", retry_exc)
+        body: dict[str, object] = {"error": api_error}
+        await _post_complete_with_transport_fallback(
+            url=url,
+            headers=headers,
+            json_body=body,
+            errors=errors,
+            timeout=15.0,
+            fallback_timeout=10.0,
+        )
         return {"errors": errors, "artifacts": []}
 
     assistant = _build_assistant_text(state)
-    payload = {
+    payload: dict[str, object] = {
         "assistantText": assistant,
         "artifacts": [
             {"s3Key": a["s3_key"], "slideNumber": a["slide_number"]} for a in artifacts
@@ -122,30 +144,13 @@ async def finalize(state: AgentState) -> dict:
         "error": None,
     }
 
-    try:
-        r = await post_complete_callback(url, json_body=payload, headers=headers, timeout=15.0)
-        if r.status_code >= 400:
-            errors.append(f"finalize callback failed: {r.status_code} {r.text}")
-            try:
-                await post_complete_callback(
-                    url,
-                    json_body={"error": JOB_FAILURE_CALLBACK_TRANSPORT},
-                    headers=headers,
-                    timeout=10.0,
-                )
-            except Exception as retry_exc:
-                logger.error("failed to send error callback: %s", retry_exc)
-    except Exception as exc:
-        logger.error("finalize callback error: %s", exc)
-        errors.append(f"finalize callback error: {exc}")
-        try:
-            await post_complete_callback(
-                url,
-                json_body={"error": JOB_FAILURE_CALLBACK_TRANSPORT},
-                headers=headers,
-                timeout=10.0,
-            )
-        except Exception as retry_exc:
-            logger.error("failed to send error callback: %s", retry_exc)
+    await _post_complete_with_transport_fallback(
+        url=url,
+        headers=headers,
+        json_body=payload,
+        errors=errors,
+        timeout=15.0,
+        fallback_timeout=10.0,
+    )
 
     return {"errors": errors}

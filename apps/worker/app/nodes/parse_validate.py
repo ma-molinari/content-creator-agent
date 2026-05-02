@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import re
 
-from app.state import AgentState, SlideItem
+from app.state import AgentState, SlideItem, copy_errors
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +112,7 @@ def parse_validate(state: AgentState) -> dict:
     parsed = _parse_slides(raw)
     valid: list[SlideItem] = [s for s in parsed if _valid_slide(s)]
 
-    errors = list(state.get("errors") or [])
+    errors = copy_errors(state)
     retry_count = int(state.get("retry_count") or 0)
 
     mismatch, req_n, got = _requested_count_mismatch(state, valid)

@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 
 from app.slide_design_checks import collect_design_violations
-from app.state import AgentState
+from app.state import AgentState, copy_errors
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ _DESIGN_RETRY_CEILING = 3
 def design_validate(state: AgentState) -> dict:
     logger.info("node=design_validate job_id=%s", state.get("job_id"))
     slides = state.get("slides_html") or []
-    errors = list(state.get("errors") or [])
+    errors = copy_errors(state)
     prescription_blob = f"{state.get('brand_text') or ''}\n{state.get('optimized_brief') or ''}"
 
     diagnostics: list[str] = []

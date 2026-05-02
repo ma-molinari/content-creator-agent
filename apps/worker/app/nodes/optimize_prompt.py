@@ -7,22 +7,18 @@ import logging
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
-from app.config import PROMPTS_DIR, get_settings
+from app.config import get_settings, read_prompt_md
+from app.llm_messages import langchain_message_text
 from app.parse_optimize_output import split_optimize_response
 from app.state import AgentState
 
 logger = logging.getLogger(__name__)
 
 
-def _read_optimize_prompt() -> str:
-    path = PROMPTS_DIR / "optimize_prompt.md"
-    return path.read_text(encoding="utf-8")
-
-
-async def optimize_prompt(state: AgentState) -> dict:
+async def optimize_prompt(state: AgentState) -> dict[str, object]:
     logger.info("node=optimize_prompt job_id=%s", state.get("job_id"))
     settings = get_settings()
-    system = _read_optimize_prompt()
+    system = read_prompt_md("optimize_prompt.md")
     profile = state.get("profile_text") or ""
     raw = state.get("raw_message") or ""
     reprompt = (state.get("reprompt_context") or "").strip()
@@ -67,9 +63,9 @@ async def optimize_prompt(state: AgentState) -> dict:
             HumanMessage(content=user_content),
         ]
     )
-    text = (msg.content or "").strip() if hasattr(msg, "content") else str(msg)
+    text = langchain_message_text(msg)
     brief, user_msg = split_optimize_response(text)
-    out: dict = {"optimized_brief": brief}
+    out: dict[str, object] = {"optimized_brief": brief}
     if user_msg:
         out["assistant_text"] = user_msg
     return out

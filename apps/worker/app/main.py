@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import logging
 from contextlib import asynccontextmanager
-from typing import Optional
 from uuid import UUID
 
 from dotenv import load_dotenv
@@ -94,10 +93,10 @@ def _initial_state(payload: DispatchPayload) -> AgentState:
 
 async def _run_job(state: AgentState) -> None:
     jid = state.get("job_id", "")
-    logger.info("[railway-debug] graph_start job_id=%s", jid)
+    logger.debug("[railway-debug] graph_start job_id=%s", jid)
     try:
         await graph.ainvoke(state)
-        logger.info("[railway-debug] graph_done job_id=%s", jid)
+        logger.debug("[railway-debug] graph_done job_id=%s", jid)
     except Exception as exc:
         logger.exception("job failed: job_id=%s", state.get("job_id"))
         jid = state.get("job_id")
@@ -141,11 +140,10 @@ async def _run_job_safe(state: AgentState) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
     logging.basicConfig(level=logging.INFO)
     logger.info("Worker starting up")
     yield
-    # Shutdown: give in-flight background tasks a grace period to complete
+    # Brief grace window so accepted background jobs can finish during shutdown.
     logger.info("Worker shutting down, waiting for in-flight tasks...")
     await asyncio.sleep(5)  # Grace period for background tasks to finish
     logger.info("Worker shutdown complete")
@@ -169,7 +167,7 @@ def health():
 async def post_jobs(
     payload: DispatchPayload,
     background_tasks: BackgroundTasks,
-    x_worker_api_key: Optional[str] = Header(default=None, alias="X-Worker-API-Key"),
+    x_worker_api_key: str | None = Header(default=None, alias="X-Worker-API-Key"),
 ):
     from app.config import get_settings
 
@@ -179,7 +177,7 @@ async def post_jobs(
         raise HTTPException(status_code=401, detail="invalid worker API key")
 
     state = _initial_state(payload)
-    logger.info(
+    logger.debug(
         "[railway-debug] accepted job_id=%s chat_id=%s user_id=%s",
         payload.job_id,
         payload.chat_id,

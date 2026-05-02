@@ -6,7 +6,7 @@ import logging
 from playwright.async_api import Browser, Route, async_playwright
 
 from app.slide_render_html import enhance_slide_html_for_render
-from app.state import AgentState, RenderedSlide, SlideItem
+from app.state import AgentState, RenderedSlide, SlideItem, copy_errors
 
 logger = logging.getLogger(__name__)
 
@@ -39,8 +39,8 @@ async def _render_one_slide(browser: Browser, item: SlideItem) -> tuple[Rendered
             await page.set_content(html, wait_until="domcontentloaded", timeout=_TIMEOUT_MS)
             try:
                 await page.evaluate("() => document.fonts.ready")
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("render_to_jpeg: document.fonts.ready skipped (%s)", exc)
             data = await page.screenshot(
                 type="jpeg",
                 quality=_JPEG_QUALITY,
@@ -58,7 +58,7 @@ async def _render_one_slide(browser: Browser, item: SlideItem) -> tuple[Rendered
 async def render_to_jpeg(state: AgentState) -> dict:
     logger.info("node=render_to_jpeg job_id=%s", state.get("job_id"))
     slides = state.get("slides_html") or []
-    errors = list(state.get("errors") or [])
+    errors = copy_errors(state)
     rendered: list[RenderedSlide] = []
 
     if not slides:

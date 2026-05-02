@@ -7,19 +7,15 @@ import logging
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
-from app.config import PROMPTS_DIR, get_settings
+from app.config import get_settings, read_prompt_md
 from app.generate_slides_tokens import compute_max_output_tokens
-from app.sanitize import sanitize_brief_output  # noqa: F401 (re-exported for tests)
+from app.llm_messages import langchain_message_text
+from app.sanitize import sanitize_brief_output
 from app.state import AgentState
 
 logger = logging.getLogger(__name__)
 
 _MAX_TOKENS_RETRY_HINT = 800
-
-
-def _read_generate_prompt() -> str:
-    path = PROMPTS_DIR / "generate_slides.md"
-    return path.read_text(encoding="utf-8")
 
 
 def _retry_feedback(errors: list[str] | None) -> str:
@@ -53,10 +49,10 @@ def _count_instruction(requested: int | None) -> str:
     )
 
 
-async def generate_slides(state: AgentState) -> dict:
+async def generate_slides(state: AgentState) -> dict[str, object]:
     logger.info("node=generate_slides job_id=%s", state.get("job_id"))
     settings = get_settings()
-    system = _read_generate_prompt()
+    system = read_prompt_md("generate_slides.md")
     profile = state.get("profile_text") or ""
     brief = sanitize_brief_output(state.get("optimized_brief") or "")
     requested = state.get("requested_slide_count")
@@ -105,5 +101,5 @@ async def generate_slides(state: AgentState) -> dict:
             HumanMessage(content=user_content),
         ]
     )
-    raw = (msg.content or "").strip() if hasattr(msg, "content") else str(msg)
+    raw = langchain_message_text(msg)
     return {"raw_slide_output": raw}

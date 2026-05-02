@@ -50,3 +50,7 @@ class AgentState(TypedDict):
     brief_retry_count: NotRequired[int]
     # Failed design_validate retries before giving up (separate from retry_count / parse).
     design_retry_count: NotRequired[int]
+
+
+def copy_errors(state: AgentState) -> list[str]:
+    return list(state.get("errors") or [])

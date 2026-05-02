@@ -14,6 +14,12 @@ _WORKER_ROOT = Path(__file__).resolve().parent.parent
 PROMPTS_DIR = _WORKER_ROOT / "prompts"
 
 
+@lru_cache(maxsize=None)
+def read_prompt_md(relative_name: str) -> str:
+    """Load a markdown prompt from prompts/. Cached per process."""
+    return (PROMPTS_DIR / relative_name).read_text(encoding="utf-8")
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=(".env",),

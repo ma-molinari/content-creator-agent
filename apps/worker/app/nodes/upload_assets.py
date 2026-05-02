@@ -3,13 +3,12 @@
 import asyncio
 import logging
 import re
-from typing import Optional
 
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 
 from app.config import get_settings
-from app.state import AgentState, ArtifactRef
+from app.state import AgentState, ArtifactRef, copy_errors
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +30,7 @@ def _put_object_sync(client, bucket: str, key: str, body: bytes) -> None:
 
 async def _upload_with_retry(client, bucket: str, key: str, body: bytes) -> None:
     delay = 0.5
-    last: Optional[Exception] = None
+    last: Exception | None = None
     for attempt in range(_MAX_ATTEMPTS):
         try:
             await asyncio.to_thread(_put_object_sync, client, bucket, key, body)
@@ -50,7 +49,7 @@ async def upload_assets(state: AgentState) -> dict:
     settings = get_settings()
     job_id = state.get("job_id") or ""
     rendered = state.get("rendered_slides") or []
-    errors = list(state.get("errors") or [])
+    errors = copy_errors(state)
 
     if not rendered:
         return {"artifacts": [], "errors": errors}
