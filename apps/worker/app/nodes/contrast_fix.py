@@ -14,6 +14,13 @@ logger = logging.getLogger(__name__)
 
 _TIMEOUT_MS = 60_000
 
+# Trade-off vs compositing precise layer-by-layer:
+# Transparent background-color + linear/radial-gradient is evaluated by extracting
+# all stop RGBs from the computed background-image string; contrast is the WCAG ratio
+# of the foreground against each stop luminance — we keep the worst (minimum) ratio so
+# text that crosses a mostly-dark gradient fails even though the fallback root was white.
+# This is pessimistic when the glyph only occupies a uniformly light stripe of that gradient.
+
 _CONTRAST_FIX_JS = """
 () => {
   const STYLE_ID = '__pipeline_contrast_fix';
@@ -25,6 +32,82 @@ _CONTRAST_FIX_JS = """
     const b = +m[3];
     if (m[4] !== undefined && parseFloat(m[4]) < 0.99) return null;
     return { r, g, b };
+  }
+  function parseHex(hex) {
+    let h = String(hex).slice(1);
+    if (h.length === 3) {
+      h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    }
+    if (!/^[0-9a-fA-F]{6}$/.test(h)) return null;
+    const n = parseInt(h, 16);
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+  }
+  /** Parse hsl(...) / hsla(...) from computed styles (degrees + commas or slash alpha). */
+  function parseHsl(s) {
+    const m = String(s).match(/hsla?\\(\\s*([0-9.+-]+)\\s*(?:deg)?\\s*[ ,]\\s*([0-9.]+)%\\s*[ ,]\\s*([0-9.]+)%(?:\\s*[,/]\\s*([0-9.]+))?\\s*\\)/i);
+    if (!m) return null;
+    if (m[4] !== undefined && parseFloat(m[4]) < 0.99) return null;
+    let h = parseFloat(m[1]);
+    while (h < 0) h += 360;
+    h = ((h % 360) + 360) % 360;
+    const Sat = parseFloat(m[2]) / 100;
+    const Lig = parseFloat(m[3]) / 100;
+    const hue2rgb = (p, q, t) => {
+      let tt = t;
+      if (tt < 0) tt += 1;
+      if (tt > 1) tt -= 1;
+      if (tt < 1 / 6) return p + (q - p) * 6 * tt;
+      if (tt < 1 / 2) return q;
+      if (tt < 2 / 3) return p + (q - p) * (2 / 3 - tt) * 6;
+      return p;
+    };
+    let R;
+    let G;
+    let B;
+    if (Sat === 0) {
+      R = G = B = Lig;
+    } else {
+      const q = Lig < 0.5 ? Lig * (1 + Sat) : Lig + Sat - Lig * Sat;
+      const p = 2 * Lig - q;
+      R = hue2rgb(p, q, h / 360 + 1 / 3);
+      G = hue2rgb(p, q, h / 360);
+      B = hue2rgb(p, q, h / 360 - 1 / 3);
+    }
+    return { r: Math.round(R * 255), g: Math.round(G * 255), b: Math.round(B * 255) };
+  }
+  /** Collect rgb stops from Chromium-style linear-gradient(...) / radial-gradient(...) string. */
+  function colorsFromBackgroundImage(bgImage) {
+    const bi = String(bgImage || '');
+    if (!/gradient\\(/i.test(bi)) return [];
+    const out = [];
+    const seen = new Set();
+    const push = (rgb) => {
+      if (!rgb) return;
+      const k = `${rgb.r},${rgb.g},${rgb.b}`;
+      if (seen.has(k)) return;
+      seen.add(k);
+      out.push(rgb);
+    };
+    let m;
+    const reRgb =
+      /rgba?\\(\\s*(\\d+)\\s*,\\s*(\\d+)\\s*,\\s*(\\d+)(?:\\s*,\\s*([0-9.]+))?\\s*\\)/gi;
+    while ((m = reRgb.exec(bi))) {
+      const a = m[4] !== undefined ? parseFloat(m[4]) : 1;
+      if (a >= 0.99) push({ r: +m[1], g: +m[2], b: +m[3] });
+    }
+    const reHex = /#([0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\\b/gi;
+    while ((m = reHex.exec(bi))) {
+      const raw = m[1];
+      if (raw.length === 8) {
+        push(parseHex(`#${raw.slice(0, 6)}`));
+      } else {
+        push(parseHex(`#${raw}`));
+      }
+    }
+    const reHsl =
+      /hsla?\\(\\s*([0-9.+-]+)\\s*(?:deg)?\\s*[ ,]\\s*([0-9.]+)%\\s*[ ,]\\s*([0-9.]+)%(?:\\s*[,/]\\s*([0-9.]+))?\\s*\\)/gi;
+    while ((m = reHsl.exec(bi))) push(parseHsl(m[0]));
+    return out;
   }
   function relLum(r, g, b) {
     const lin = (c) => {
@@ -38,15 +121,42 @@ _CONTRAST_FIX_JS = """
     const lo = Math.min(l1, l2);
     return (hi + 0.05) / (lo + 0.05);
   }
-  function effectiveBgRgb(el) {
+  /**
+   * Minimum WCAG contrast of fg vs background stack: first opaque background-color wins;
+   * otherwise transparent + gradient(...) uses pessimistic min over extracted stop luminances.
+   */
+  function foregroundVsWorstBackdrop(el, fgL) {
     let cur = el;
     while (cur && cur !== document.documentElement) {
-      const bg = getComputedStyle(cur).backgroundColor;
-      const parsed = parseRgb(bg);
-      if (parsed) return parsed;
+      const cs = getComputedStyle(cur);
+      const parsedBg = parseRgb(cs.backgroundColor);
+      if (parsedBg) {
+        const bgL = relLum(parsedBg.r, parsedBg.g, parsedBg.b);
+        return {
+          ratio: contrastRatio(fgL, bgL),
+          bgDark: bgL < 0.5,
+        };
+      }
+      const stops = colorsFromBackgroundImage(cs.backgroundImage);
+      if (stops.length > 0) {
+        let minRatio = Infinity;
+        let darkestL = 1;
+        for (let i = 0; i < stops.length; i++) {
+          const rgb = stops[i];
+          const L = relLum(rgb.r, rgb.g, rgb.b);
+          const r = contrastRatio(fgL, L);
+          if (r < minRatio) minRatio = r;
+          if (L < darkestL) darkestL = L;
+        }
+        return {
+          ratio: minRatio,
+          bgDark: darkestL < 0.5,
+        };
+      }
       cur = cur.parentElement;
     }
-    return { r: 255, g: 255, b: 255 };
+    const whiteL = relLum(255, 255, 255);
+    return { ratio: contrastRatio(fgL, whiteL), bgDark: false };
   }
   function threshold(fs, bold) {
     if (fs >= 24) return 3.0;
@@ -83,15 +193,12 @@ _CONTRAST_FIX_JS = """
     seen.add(el);
     const fg = parseRgb(st.color);
     if (!fg) continue;
-    const bgRgb = effectiveBgRgb(el);
     const fgL = relLum(fg.r, fg.g, fg.b);
-    const bgL = relLum(bgRgb.r, bgRgb.g, bgRgb.b);
-    const ratio = contrastRatio(fgL, bgL);
+    const { ratio, bgDark } = foregroundVsWorstBackdrop(el, fgL);
     const thr = threshold(fontSizePx(el), isBold(el));
     /* Use tiny epsilon so float noise does not false-positive. */
     if (ratio >= thr - 1e-6) continue;
     hadViolations = true;
-    const bgDark = bgL < 0.5;
     el.setAttribute('data-cf', bgDark ? '1' : '2');
   }
   if (hadViolations && !document.getElementById(STYLE_ID)) {

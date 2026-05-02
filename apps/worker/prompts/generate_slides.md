@@ -48,6 +48,11 @@ Se `<perfil_usuario>` contiver **`REFERÊNCIAS_VISUAIS`** (resumo derivado das i
 
 **Gradiente / camadas:** se o texto cruza faixa escura e clara do gradiente, **caixa interna** com fundo semi-opaco ou overlay único sob o bloco de texto.
 
+**Blocos de código / terminal** (painéis com fundo escuro `#0*`–`#1*`, sintaxe colorida):
+
+- Todo o texto de leitura do bloco — comentários, identificadores, condicionais num `if`, parâmetros — deve usar cores **explicitamente** **≥ ao piso** já usado no pipeline para corpo sobre fundos escuros (`#e2e8f0` ou mais claro como `#f1f5f9`). Não bastam keywords em accent/brilhante como único trecho legível em meio de cinzas.
+- **Proibido** nesses trechos — como cor predominante ou “skin” tipo VS Code sobre canvas escuro — os mesmos cinzas já vetados nesta secção para texto corpo (**`#334155`**, **`#475569`**, **`#64748b`**, **`#1e293b`** e equivalentes sutis sobre fundo técnico escuro).
+
 **Implementação:** o wrapper principal (`body` ou primeiro bloco de fluxo principal) deve definir `color: #…` coerente com o modo; cartões internos não reintroduzam `color` escuro sem fundo claro correspondente.
 
 Os limites numéricos WCAG (4.5:1 / 3:1), piso `#94a3b8` para muted e uso de overlay `rgba(...)` mantêm-se no **item 4** abaixo e no **checklist**.
