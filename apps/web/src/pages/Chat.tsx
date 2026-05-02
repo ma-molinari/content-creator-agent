@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 
@@ -44,11 +44,16 @@ function messageFromApiError(err: unknown, fallback: string): string {
 
 export default function Chat() {
   const { id } = useParams()
+  const location = useLocation()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const chatHintDismissed = useOnboardingStore((s) => s.dismissedHints.has('chat-composer'))
+  const prevChatIdRef = useRef<string | undefined>(undefined)
 
-  const [activeJob, setActiveJob] = useState<ActiveJob | null>(null)
+  const [activeJob, setActiveJob] = useState<ActiveJob | null>(() => {
+    const s = location.state as { pendingJob?: ActiveJob } | null
+    return s?.pendingJob ?? null
+  })
   const [lastJobFailure, setLastJobFailure] = useState<LastJobFailure | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [isDownloadingZip, setIsDownloadingZip] = useState(false)
@@ -69,9 +74,21 @@ export default function Chat() {
   }, [id, qc])
 
   useEffect(() => {
-    setActiveJob(null)
-    setLastJobFailure(null)
+    const prev = prevChatIdRef.current
+    if (prev !== undefined && prev !== id) {
+      setActiveJob(null)
+      setLastJobFailure(null)
+    }
+    prevChatIdRef.current = id
   }, [id])
+
+  useEffect(() => {
+    if ((location.state as { pendingJob?: unknown } | null)?.pendingJob) {
+      navigate(location.pathname, { replace: true, state: null })
+    }
+    // Intentionally once on mount: strip pendingJob from history so refresh does not restore it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const jobStatus = useJobStatus(activeJob?.chatId ?? null, activeJob?.jobId ?? null)
   const currentStatus: JobStatus | undefined = jobStatus.data?.status
@@ -119,7 +136,6 @@ export default function Chat() {
           })
           chatId = newChat.id
           void qc.invalidateQueries({ queryKey: ['chats'] })
-          navigate(`/chat/${chatId}`, { replace: true })
         } catch (err) {
           toast.error(messageFromApiError(err, 'Não foi possível criar o chat.'))
           throw err
@@ -145,14 +161,25 @@ export default function Chat() {
       }
 
       await qc.invalidateQueries({ queryKey: ['chats', chatId] })
-      setActiveJob({ chatId, jobId, pendingText: text })
+
+      const pending: ActiveJob = { chatId, jobId, pendingText: text }
+      if (!id) {
+        navigate(`/chat/${chatId}`, {
+          replace: true,
+          state: { pendingJob: pending },
+        })
+      } else {
+        setActiveJob(pending)
+      }
     },
     [id, navigate, qc],
   )
 
   const handleChipClick = useCallback(
     (text: string, postType: 'single' | 'carousel') => {
-      void handleSend(text, { postType })
+      handleSend(text, { postType }).catch(() => {
+        /* toast + errors handled inside handleSend */
+      })
     },
     [handleSend],
   )
@@ -161,7 +188,11 @@ export default function Chat() {
     const text = activeJob?.pendingText ?? lastJobFailure?.pendingText
     setLastJobFailure(null)
     setActiveJob(null)
-    if (text) void handleSend(text)
+    if (text) {
+      handleSend(text).catch(() => {
+        /* toast + errors handled inside handleSend */
+      })
+    }
   }, [activeJob, lastJobFailure, handleSend])
 
   async function handleDelete() {
