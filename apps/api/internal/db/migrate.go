@@ -31,10 +31,12 @@ func RunMigrations(databaseURL string) error {
 	sqlDB := stdlib.OpenDB(*cfg)
 	driver, err := postgres.WithInstance(sqlDB, &postgres.Config{})
 	if err != nil {
+		_ = sqlDB.Close()
 		return fmt.Errorf("postgres migrate driver: %w", err)
 	}
 	m, err := migrate.NewWithInstance("iofs", d, "postgres", driver)
 	if err != nil {
+		_ = sqlDB.Close()
 		return fmt.Errorf("migrate: %w", err)
 	}
 	defer m.Close()
@@ -60,10 +62,12 @@ func RollbackAllMigrations(databaseURL string) error {
 	sqlDB := stdlib.OpenDB(*cfg)
 	driver, err := postgres.WithInstance(sqlDB, &postgres.Config{})
 	if err != nil {
+		_ = sqlDB.Close()
 		return fmt.Errorf("postgres migrate driver: %w", err)
 	}
 	m, err := migrate.NewWithInstance("iofs", d, "postgres", driver)
 	if err != nil {
+		_ = sqlDB.Close()
 		return fmt.Errorf("migrate: %w", err)
 	}
 	defer m.Close()
