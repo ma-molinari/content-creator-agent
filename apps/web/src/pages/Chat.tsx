@@ -13,6 +13,8 @@ import {
   useSetupStatus,
 } from '@/api/chats'
 import { downloadBlob } from '@/lib/downloadBlob'
+import { IconDownload, IconTrash } from '@/components/ui/action-icons'
+import { InlineSpinner } from '@/components/ui/InlineSpinner'
 import { AlertDialog } from '@/components/ui/AlertDialog'
 import { ChatThread } from '@/components/chat/ChatThread'
 import { ComposerBar } from '@/components/composer/ComposerBar'
@@ -68,6 +70,18 @@ function messageFromApiError(err: unknown, fallback: string): string {
     }
   }
   return fallback
+}
+
+function resolveJobError(
+  activeJob: ActiveJob | null,
+  currentStatus: JobStatus | undefined,
+  pollError: string | null | undefined,
+  lastFailure: LastJobFailure | null,
+): string | null {
+  if (activeJob && currentStatus === 'failed') {
+    return pollError ?? UNKNOWN_JOB_ERROR
+  }
+  return lastFailure?.error ?? null
 }
 
 export default function Chat() {
@@ -137,25 +151,26 @@ export default function Chat() {
     if (prevStatusRef.current === currentStatus) return
     prevStatusRef.current = currentStatus
 
+    const clearActiveJobSoon = (hydrateId: string | undefined) => {
+      queueMicrotask(() => {
+        removeActiveJobHydrate(qc, hydrateId)
+        setActiveJob(null)
+      })
+    }
+
     if (currentStatus === 'done') {
       const hydrateId = activeJob?.chatId
       if (activeJob) {
         void qc.invalidateQueries({ queryKey: ['chats', activeJob.chatId] })
         setLastJobFailure(null)
       }
-      queueMicrotask(() => {
-        removeActiveJobHydrate(qc, hydrateId)
-        setActiveJob(null)
-      })
+      clearActiveJobSoon(hydrateId)
     } else if (currentStatus === 'failed' && activeJob) {
       const err = jobStatus.data?.error ?? UNKNOWN_JOB_ERROR
       const hydrateId = activeJob.chatId
       setLastJobFailure({ error: err, pendingText: activeJob.pendingText })
       toast.error('Não foi possível gerar o post.')
-      queueMicrotask(() => {
-        removeActiveJobHydrate(qc, hydrateId)
-        setActiveJob(null)
-      })
+      clearActiveJobSoon(hydrateId)
     }
   }, [currentStatus, activeJob, qc, jobStatus.data?.error])
 
@@ -168,12 +183,12 @@ export default function Chat() {
     ? (currentStatus ?? 'pending')
     : undefined
 
-  const jobError: string | null =
-    (activeJob && currentStatus === 'failed'
-      ? (jobStatus.data?.error ?? UNKNOWN_JOB_ERROR)
-      : null) ??
-    lastJobFailure?.error ??
-    null
+  const jobError = resolveJobError(
+    activeJob,
+    currentStatus,
+    jobStatus.data?.error,
+    lastJobFailure,
+  )
 
   const handleSend = useCallback(
     async (text: string, options?: { postType?: 'single' | 'carousel' }) => {
@@ -211,7 +226,7 @@ export default function Chat() {
         throw err
       }
 
-      await qc.invalidateQueries({ queryKey: ['chats', chatId] })
+      void qc.invalidateQueries({ queryKey: ['chats', chatId] })
 
       const pending: ActiveJob = { chatId, jobId, pendingText: text }
       if (!id) {
@@ -229,9 +244,7 @@ export default function Chat() {
 
   const handleChipClick = useCallback(
     (text: string, postType: 'single' | 'carousel') => {
-      handleSend(text, { postType }).catch(() => {
-        /* toast + errors handled inside handleSend */
-      })
+      void handleSend(text, { postType }).catch(() => undefined)
     },
     [handleSend],
   )
@@ -241,9 +254,7 @@ export default function Chat() {
     setLastJobFailure(null)
     setActiveJob(null)
     if (text) {
-      handleSend(text).catch(() => {
-        /* toast + errors handled inside handleSend */
-      })
+      void handleSend(text).catch(() => undefined)
     }
   }, [activeJob, lastJobFailure, handleSend])
 
@@ -276,7 +287,7 @@ export default function Chat() {
   if (setup.isLoading) {
     return (
       <div className="flex min-h-0 flex-1 items-center justify-center py-20">
-        <Spinner />
+        <InlineSpinner size={24} />
       </div>
     )
   }
@@ -284,7 +295,7 @@ export default function Chat() {
   const setupConfigured = setup.data?.configured ?? true
 
   const chatLoading = !!id && (chat.isLoading || chat.isFetching)
-  const messageCount = id && chat.data ? chat.data.contents.length : 0
+  const messageCount = id ? (chat.data?.contents.length ?? 0) : 0
   const showComposerHint =
     !chatHintDismissed &&
     !showJobLoading &&
@@ -307,7 +318,6 @@ export default function Chat() {
           </div>
         )}
 
-        {/* Chat header — only when viewing an existing chat */}
         {id && (
           <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] px-4 py-2">
             <p className="line-clamp-1 text-sm font-medium text-[var(--color-text-secondary)]">
@@ -321,7 +331,11 @@ export default function Chat() {
                 title="Baixar todos os slides (ZIP)"
                 className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-md)] text-[var(--color-text-muted)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text-primary)] disabled:opacity-40"
               >
-                {isDownloadingZip ? <Spinner size={16} /> : <IconDownload />}
+                {isDownloadingZip ? (
+                  <InlineSpinner size={16} ariaLabel="A baixar" />
+                ) : (
+                  <IconDownload />
+                )}
               </button>
               <button
                 type="button"
@@ -340,7 +354,7 @@ export default function Chat() {
             <EmptyChatState onChipClick={setupConfigured ? handleChipClick : undefined} />
           ) : chat.isLoading && !showJobLoading ? (
             <div className="flex items-center justify-center py-20">
-              <Spinner />
+              <InlineSpinner size={24} />
             </div>
           ) : (
             <ChatThread
@@ -384,57 +398,5 @@ export default function Chat() {
         onCancel={() => setConfirmDelete(false)}
       />
     </>
-  )
-}
-
-function Spinner({ size = 24 }: { size?: number }) {
-  const label = size <= 16 ? 'A baixar' : 'Carregando'
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-label={label}
-      className="animate-spin text-[var(--color-text-muted)]"
-    >
-      <circle
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeDasharray="40 60"
-      />
-    </svg>
-  )
-}
-
-function IconDownload() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
-function IconTrash() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M3 6h18M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6M10 11v6M14 11v6M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
   )
 }

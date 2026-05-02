@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import type { Chat } from '@/api/chats'
 import { fetchChatFilesZip, useChats, useDeleteChat } from '@/api/chats'
+import { IconDownload, IconTrash } from '@/components/ui/action-icons'
+import { InlineSpinner } from '@/components/ui/InlineSpinner'
 import { downloadBlob } from '@/lib/downloadBlob'
 import { OnboardingHint } from '@/components/onboarding'
 import { AlertDialog } from '@/components/ui/AlertDialog'
@@ -48,7 +50,7 @@ export default function History() {
 
             {isLoading ? (
               <div className="flex justify-center py-16">
-                <Spinner />
+                <InlineSpinner />
               </div>
             ) : !chats || chats.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -153,7 +155,7 @@ function ChatListItem({ chat, deleting, onOpen, onDelete }: ChatListItemProps) {
         title="Baixar ZIP"
         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-md)] text-[var(--color-text-muted)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text-primary)] disabled:opacity-40"
       >
-        {isDownloadingZip ? <Spinner size={14} /> : <IconDownload />}
+        {isDownloadingZip ? <InlineSpinner size={14} ariaLabel="A baixar" /> : <IconDownload />}
       </button>
 
       <button
@@ -163,59 +165,8 @@ function ChatListItem({ chat, deleting, onOpen, onDelete }: ChatListItemProps) {
         title="Excluir"
         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-md)] text-[var(--color-text-muted)] hover:bg-red-50 hover:text-red-600 disabled:opacity-40 dark:hover:bg-red-900/20"
       >
-        {deleting ? <Spinner size={14} /> : <IconTrash />}
+        {deleting ? <InlineSpinner size={14} /> : <IconTrash />}
       </button>
     </li>
-  )
-}
-
-function Spinner({ size = 20 }: { size?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-label="Carregando"
-      className="animate-spin"
-    >
-      <circle
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeDasharray="40 60"
-      />
-    </svg>
-  )
-}
-
-function IconDownload() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
-function IconTrash() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M3 6h18M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6M10 11v6M14 11v6M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
   )
 }

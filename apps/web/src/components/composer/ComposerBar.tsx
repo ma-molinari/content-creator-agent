@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react'
 
+import { InlineSpinner } from '@/components/ui/InlineSpinner'
+
 type Props = {
   onSend: (text: string) => Promise<void>
   disabled?: boolean
@@ -91,7 +93,11 @@ export function ComposerBar({
               aria-label="Enviar"
               className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-md)] bg-[var(--color-brand-primary)] text-white transition-opacity hover:bg-[var(--color-brand-primary-hover)] disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {submitting ? <Spinner /> : <IconSend />}
+              {submitting ? (
+                <InlineSpinner size={16} ariaHidden className="text-white" />
+              ) : (
+                <IconSend />
+              )}
             </button>
           </div>
         </div>
@@ -109,29 +115,6 @@ function IconSend() {
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
-function Spinner() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-hidden
-      className="animate-spin"
-    >
-      <circle
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeDasharray="40 60"
       />
     </svg>
   )

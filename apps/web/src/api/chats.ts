@@ -209,32 +209,11 @@ export function useChat(id: string | undefined) {
   })
 }
 
-export function useCreateChat() {
-  const qc = useQueryClient()
-  return useMutation<Chat, Error, { postType: 'single' | 'carousel' }>({
-    mutationFn: (vars) => api.post<Chat>('/chats', vars).then((r) => r.data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['chats'] }),
-  })
-}
-
 export function useDeleteChat() {
   const qc = useQueryClient()
   return useMutation<void, Error, string>({
     mutationFn: (id) => api.delete(`/chats/${id}`).then(() => undefined),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['chats'] }),
-  })
-}
-
-// ── Messages ───────────────────────────────────────────────────────────────
-
-type PostMessageResult = { jobId: string }
-
-export function usePostMessage() {
-  return useMutation<PostMessageResult, Error, { chatId: string; content: string }>({
-    mutationFn: ({ chatId, content }) =>
-      api
-        .post<PostMessageResult>(`/chats/${chatId}/messages`, { content })
-        .then((r) => r.data),
   })
 }
 

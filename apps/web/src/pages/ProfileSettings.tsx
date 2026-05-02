@@ -7,6 +7,7 @@ import {
   useSaveProfile,
   useUploadReference,
 } from '@/api/profile'
+import { InlineSpinner } from '@/components/ui/InlineSpinner'
 import { OnboardingHint } from '@/components/onboarding'
 import { ProfileBrandGuide } from '@/components/profile/ProfileBrandGuide'
 import { toast } from '@/lib/toast'
@@ -95,7 +96,7 @@ export default function ProfileSettings() {
 
           {profile.isLoading ? (
             <div className="flex justify-center py-16">
-              <Spinner />
+              <InlineSpinner size={32} />
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="flex flex-col gap-6">
@@ -260,14 +261,5 @@ export default function ProfileSettings() {
         </div>
       </div>
     </div>
-  )
-}
-
-function Spinner() {
-  return (
-    <div
-      className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--color-border-subtle)] border-t-[var(--color-brand-primary)]"
-      aria-hidden
-    />
   )
 }
