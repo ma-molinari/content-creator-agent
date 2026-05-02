@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
+import { type QueryClient, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 
 import { api } from '@/api/client'
@@ -32,6 +32,34 @@ type LastJobFailure = {
   pendingText: string
 }
 
+/** Survives remount after `/` → `/chat/:id` where router `state.pendingJob` may be stripped before rerender. */
+function activeJobHydrateKey(chatId: string) {
+  return ['hydrate-active-job', chatId] as const
+}
+
+function removeActiveJobHydrate(qc: QueryClient, chatId: string | undefined) {
+  if (chatId) {
+    qc.removeQueries({ queryKey: activeJobHydrateKey(chatId), exact: true })
+  }
+}
+
+function pendingJobFromLocationState(state: unknown): ActiveJob | null {
+  const raw = (state as { pendingJob?: ActiveJob } | null | undefined)?.pendingJob
+  return raw ?? null
+}
+
+function activeJobForChat(
+  chatId: string,
+  fromRouter: ActiveJob | null,
+  fromCache: ActiveJob | null,
+): ActiveJob | null {
+  if (fromRouter?.chatId === chatId) return fromRouter
+  if (fromCache?.chatId === chatId) return fromCache
+  return null
+}
+
+const UNKNOWN_JOB_ERROR = 'Erro desconhecido'
+
 function messageFromApiError(err: unknown, fallback: string): string {
   if (isAxiosError(err)) {
     const data = err.response?.data as { message?: string } | undefined
@@ -50,10 +78,7 @@ export default function Chat() {
   const chatHintDismissed = useOnboardingStore((s) => s.dismissedHints.has('chat-composer'))
   const prevChatIdRef = useRef<string | undefined>(undefined)
 
-  const [activeJob, setActiveJob] = useState<ActiveJob | null>(() => {
-    const s = location.state as { pendingJob?: ActiveJob } | null
-    return s?.pendingJob ?? null
-  })
+  const [activeJob, setActiveJob] = useState<ActiveJob | null>(null)
   const [lastJobFailure, setLastJobFailure] = useState<LastJobFailure | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [isDownloadingZip, setIsDownloadingZip] = useState(false)
@@ -73,17 +98,30 @@ export default function Chat() {
     return () => window.removeEventListener('pageshow', onPageShow)
   }, [id, qc])
 
-  useEffect(() => {
+  /** Apply route transition + hydrate `activeJob` before paint so the first `/chat/:id` frame tracks the new job (lazy route + stripping `location.state`). */
+  useLayoutEffect(() => {
     const prev = prevChatIdRef.current
     if (prev !== undefined && prev !== id) {
+      qc.removeQueries({ queryKey: activeJobHydrateKey(prev), exact: true })
       setActiveJob(null)
       setLastJobFailure(null)
     }
     prevChatIdRef.current = id
-  }, [id])
+
+    if (!id || id.length === 0) return
+
+    const picked = activeJobForChat(
+      id,
+      pendingJobFromLocationState(location.state),
+      qc.getQueryData<ActiveJob>(activeJobHydrateKey(id)) ?? null,
+    )
+    if (picked !== null) {
+      setActiveJob(picked)
+    }
+  }, [id, qc, location.key, location.state])
 
   useEffect(() => {
-    if ((location.state as { pendingJob?: unknown } | null)?.pendingJob) {
+    if (pendingJobFromLocationState(location.state) !== null) {
       navigate(location.pathname, { replace: true, state: null })
     }
     // Intentionally once on mount: strip pendingJob from history so refresh does not restore it.
@@ -100,16 +138,24 @@ export default function Chat() {
     prevStatusRef.current = currentStatus
 
     if (currentStatus === 'done') {
+      const hydrateId = activeJob?.chatId
       if (activeJob) {
         void qc.invalidateQueries({ queryKey: ['chats', activeJob.chatId] })
         setLastJobFailure(null)
       }
-      queueMicrotask(() => setActiveJob(null))
+      queueMicrotask(() => {
+        removeActiveJobHydrate(qc, hydrateId)
+        setActiveJob(null)
+      })
     } else if (currentStatus === 'failed' && activeJob) {
-      const err = jobStatus.data?.error ?? 'Erro desconhecido'
+      const err = jobStatus.data?.error ?? UNKNOWN_JOB_ERROR
+      const hydrateId = activeJob.chatId
       setLastJobFailure({ error: err, pendingText: activeJob.pendingText })
       toast.error('Não foi possível gerar o post.')
-      queueMicrotask(() => setActiveJob(null))
+      queueMicrotask(() => {
+        removeActiveJobHydrate(qc, hydrateId)
+        setActiveJob(null)
+      })
     }
   }, [currentStatus, activeJob, qc, jobStatus.data?.error])
 
@@ -117,9 +163,14 @@ export default function Chat() {
     !!activeJob &&
     (currentStatus === 'pending' || currentStatus === 'processing' || currentStatus === undefined)
 
+  /** Normalize for thread UI: first poll frame has no `status` yet; show same pending bubble as upstream. */
+  const assistantThreadJobStatus: JobStatus | undefined = showJobLoading
+    ? (currentStatus ?? 'pending')
+    : undefined
+
   const jobError: string | null =
     (activeJob && currentStatus === 'failed'
-      ? (jobStatus.data?.error ?? 'Erro desconhecido')
+      ? (jobStatus.data?.error ?? UNKNOWN_JOB_ERROR)
       : null) ??
     lastJobFailure?.error ??
     null
@@ -164,6 +215,7 @@ export default function Chat() {
 
       const pending: ActiveJob = { chatId, jobId, pendingText: text }
       if (!id) {
+        qc.setQueryData(activeJobHydrateKey(chatId), pending)
         navigate(`/chat/${chatId}`, {
           replace: true,
           state: { pendingJob: pending },
@@ -269,7 +321,7 @@ export default function Chat() {
                 title="Baixar todos os slides (ZIP)"
                 className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-md)] text-[var(--color-text-muted)] hover:bg-[var(--color-bg-muted)] hover:text-[var(--color-text-primary)] disabled:opacity-40"
               >
-                {isDownloadingZip ? <SpinnerSmall /> : <IconDownload />}
+                {isDownloadingZip ? <Spinner size={16} /> : <IconDownload />}
               </button>
               <button
                 type="button"
@@ -286,7 +338,7 @@ export default function Chat() {
         <div className="min-h-0 flex-1 overflow-y-auto">
           {!id ? (
             <EmptyChatState onChipClick={setupConfigured ? handleChipClick : undefined} />
-          ) : chat.isLoading ? (
+          ) : chat.isLoading && !showJobLoading ? (
             <div className="flex items-center justify-center py-20">
               <Spinner />
             </div>
@@ -294,7 +346,7 @@ export default function Chat() {
             <ChatThread
               chat={chat.data}
               pendingText={showJobLoading ? (activeJob?.pendingText ?? null) : null}
-              jobStatus={showJobLoading ? currentStatus : undefined}
+              jobStatus={assistantThreadJobStatus}
               jobError={jobError}
               onRetry={jobError != null ? handleRetry : undefined}
             />
@@ -335,37 +387,15 @@ export default function Chat() {
   )
 }
 
-function SpinnerSmall() {
+function Spinner({ size = 24 }: { size?: number }) {
+  const label = size <= 16 ? 'A baixar' : 'Carregando'
   return (
     <svg
-      width="16"
-      height="16"
+      width={size}
+      height={size}
       viewBox="0 0 24 24"
       fill="none"
-      aria-label="A baixar"
-      className="animate-spin text-[var(--color-text-muted)]"
-    >
-      <circle
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeDasharray="40 60"
-      />
-    </svg>
-  )
-}
-
-function Spinner() {
-  return (
-    <svg
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      aria-label="Carregando"
+      aria-label={label}
       className="animate-spin text-[var(--color-text-muted)]"
     >
       <circle
