@@ -68,7 +68,8 @@ func NewService(
 	}
 }
 
-func textsConfigured(audit, brand string) bool {
+// TextsConfigured is true when both audit and brand texts are non-empty after TrimSpace.
+func TextsConfigured(audit, brand string) bool {
 	return strings.TrimSpace(audit) != "" && strings.TrimSpace(brand) != ""
 }
 
@@ -82,7 +83,7 @@ func (s *Service) GetProfile(ctx context.Context, userID uuid.UUID) (ProfileView
 	if p != nil {
 		out.AuditText = p.AuditText
 		out.BrandText = p.BrandText
-		out.Configured = textsConfigured(p.AuditText, p.BrandText)
+		out.Configured = TextsConfigured(p.AuditText, p.BrandText)
 	}
 	if s.refRepo == nil || s.store == nil {
 		return out, nil

@@ -69,13 +69,6 @@ func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, raw
 	if err != nil {
 		return nil, err
 	}
-	ok, err := s.IsProfileConfigured(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
-	if !ok {
-		return nil, ErrSetupRequired
-	}
 	auditText, brandText, err := s.loadAuditBrandTexts(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -105,7 +98,7 @@ func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, raw
 		ID:     uuid.New(),
 		ChatID: chatID,
 		UserID: userID,
-		Status: db.JobStatusPending,
+		Status: db.JobStatusProcessing,
 	}
 	var setTitle *string
 	if chatNeedsTitle(chatRow) {
@@ -114,9 +107,6 @@ func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, raw
 		}
 	}
 	if err := s.repo.CreateUserMessageAndJob(ctx, userMsg, job, setTitle); err != nil {
-		return nil, err
-	}
-	if err := s.jobsRepo.UpdateStatus(ctx, job.ID, db.JobStatusProcessing, nil); err != nil {
 		return nil, err
 	}
 	payload := jobs.DispatchPayload{

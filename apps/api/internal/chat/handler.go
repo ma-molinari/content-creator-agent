@@ -70,6 +70,7 @@ func chatToJSON(c *db.Chat) chatJSON {
 			Content:   row.Content,
 			CreatedAt: row.CreatedAt,
 			UpdatedAt: row.UpdatedAt,
+			Images:    make([]chatContentImgJSON, 0, len(row.Images)),
 		}
 		for _, im := range row.Images {
 			item.Images = append(item.Images, chatContentImgJSON{

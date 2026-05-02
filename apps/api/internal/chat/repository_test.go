@@ -50,7 +50,7 @@ func TestCreateUserMessageAndJob_setsTitleWhenEmpty(t *testing.T) {
 		ID:        uuid.New(),
 		ChatID:    chat.ID,
 		UserID:    u.ID,
-		Status:    db.JobStatusPending,
+		Status:    db.JobStatusProcessing,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
@@ -85,7 +85,7 @@ func TestCreateUserMessageAndJob_doesNotOverwriteExistingTitle(t *testing.T) {
 		ID:        uuid.New(),
 		ChatID:    chat.ID,
 		UserID:    u.ID,
-		Status:    db.JobStatusPending,
+		Status:    db.JobStatusProcessing,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
@@ -114,7 +114,7 @@ func TestCreateUserMessageAndJob_nilSetTitleNoUpdate(t *testing.T) {
 		ID:        uuid.New(),
 		ChatID:    chat.ID,
 		UserID:    u.ID,
-		Status:    db.JobStatusPending,
+		Status:    db.JobStatusProcessing,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
@@ -145,7 +145,7 @@ func TestCreateUserMessageAndJob_createsJobRow(t *testing.T) {
 		ID:        jobID,
 		ChatID:    chat.ID,
 		UserID:    u.ID,
-		Status:    db.JobStatusPending,
+		Status:    db.JobStatusProcessing,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
@@ -156,7 +156,7 @@ func TestCreateUserMessageAndJob_createsJobRow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if j.Status != db.JobStatusPending {
+	if j.Status != db.JobStatusProcessing {
 		t.Fatalf("job status: %s", j.Status)
 	}
 }

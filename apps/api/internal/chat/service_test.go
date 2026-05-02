@@ -130,8 +130,8 @@ func TestChatLimit_fourThenFifthNoEviction(t *testing.T) {
 	if _, err := svc.CreateChat(ctx, u.ID, "single"); err != nil {
 		t.Fatal(err)
 	}
-	n, err := repo.CountByUser(ctx, u.ID)
-	if err != nil {
+	var n int64
+	if err := gdb.WithContext(ctx).Model(&db.Chat{}).Where("user_id = ?", u.ID).Count(&n).Error; err != nil {
 		t.Fatal(err)
 	}
 	if n != 5 {
@@ -172,12 +172,12 @@ func TestChatLimit_sixthEvictsOldest(t *testing.T) {
 	if err == nil || !ErrRecordNotFound(err) {
 		t.Fatal("oldest chat should be removed")
 	}
-	n, err := repo.CountByUser(ctx, u.ID)
-	if err != nil {
+	var nAfter int64
+	if err := gdb.WithContext(ctx).Model(&db.Chat{}).Where("user_id = ?", u.ID).Count(&nAfter).Error; err != nil {
 		t.Fatal(err)
 	}
-	if n != 5 {
-		t.Fatalf("want 5 chats after eviction, got %d", n)
+	if nAfter != 5 {
+		t.Fatalf("want 5 chats after eviction, got %d", nAfter)
 	}
 }
 

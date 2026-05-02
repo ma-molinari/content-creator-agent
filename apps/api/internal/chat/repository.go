@@ -33,39 +33,6 @@ func (r *Repository) ListByUser(ctx context.Context, userID uuid.UUID, limit int
 	return chats, err
 }
 
-// CountByUser returns how many chats the user has.
-func (r *Repository) CountByUser(ctx context.Context, userID uuid.UUID) (int64, error) {
-	var n int64
-	err := r.db.WithContext(ctx).Model(&db.Chat{}).Where("user_id = ?", userID).Count(&n).Error
-	return n, err
-}
-
-// OldestChatID returns the id of the user's oldest chat by created_at.
-func (r *Repository) OldestChatID(ctx context.Context, userID uuid.UUID) (uuid.UUID, error) {
-	var c db.Chat
-	err := r.db.WithContext(ctx).
-		Where("user_id = ?", userID).
-		Order("created_at ASC").
-		First(&c).Error
-	if err != nil {
-		return uuid.Nil, err
-	}
-	return c.ID, nil
-}
-
-// Create inserts a new chat row.
-func (r *Repository) Create(ctx context.Context, userID uuid.UUID, postType db.PostType) (*db.Chat, error) {
-	c := db.Chat{
-		ID:       uuid.New(),
-		UserID:   userID,
-		PostType: postType,
-	}
-	if err := r.db.WithContext(ctx).Create(&c).Error; err != nil {
-		return nil, err
-	}
-	return &c, nil
-}
-
 // CreateChatEvicting atomically counts the user's chats, evicts the oldest when
 // the count is at or above the limit, and inserts the new chat — all inside a
 // single serialisable transaction to prevent TOCTOU races.
@@ -224,7 +191,7 @@ func (r *Repository) CreateContentWithImages(ctx context.Context, userContent *d
 	})
 }
 
-// CreateUserMessageAndJob inserts the user message row and a pending job in one transaction.
+// CreateUserMessageAndJob inserts the user message row and a job (caller sets status, e.g. processing) in one transaction.
 // When setTitle is non-empty, updates the chat title only if it is still unset (NULL or blank).
 func (r *Repository) CreateUserMessageAndJob(ctx context.Context, userContent *db.ChatContent, job *db.Job, setTitle *string) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {

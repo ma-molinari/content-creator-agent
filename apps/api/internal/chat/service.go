@@ -86,7 +86,7 @@ func parsePostType(s string) (db.PostType, error) {
 
 // GetChat returns a chat with contents when the user owns it.
 func (s *Service) GetChat(ctx context.Context, userID, chatID uuid.UUID) (*db.Chat, error) {
-	c, err := s.repo.GetByID(ctx, chatID)
+	c, err := s.repo.GetByIDWithContents(ctx, chatID)
 	if ErrRecordNotFound(err) {
 		return nil, ErrNotFound
 	}
@@ -95,10 +95,6 @@ func (s *Service) GetChat(ctx context.Context, userID, chatID uuid.UUID) (*db.Ch
 	}
 	if c.UserID != userID {
 		return nil, ErrForbidden
-	}
-	c, err = s.repo.GetByIDWithContents(ctx, chatID)
-	if err != nil {
-		return nil, err
 	}
 	if err := s.refreshContentImageURLs(ctx, c); err != nil {
 		return nil, err

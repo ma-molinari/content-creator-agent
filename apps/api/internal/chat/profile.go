@@ -2,14 +2,11 @@ package chat
 
 import (
 	"context"
-	"strings"
+
+	"content-creator-agent/internal/profile"
 
 	"github.com/google/uuid"
 )
-
-func textsNonEmpty(audit, brand string) bool {
-	return strings.TrimSpace(audit) != "" && strings.TrimSpace(brand) != ""
-}
 
 // IsProfileConfigured reports whether profile text exists in the database (both non-empty after TrimSpace).
 // When profileRepo is nil, the profile is never considered configured.
@@ -21,7 +18,7 @@ func (s *Service) IsProfileConfigured(ctx context.Context, userID uuid.UUID) (bo
 	if err != nil {
 		return false, err
 	}
-	if p == nil || !textsNonEmpty(p.AuditText, p.BrandText) {
+	if p == nil || !profile.TextsConfigured(p.AuditText, p.BrandText) {
 		return false, nil
 	}
 	return true, nil
@@ -35,7 +32,7 @@ func (s *Service) loadAuditBrandTexts(ctx context.Context, userID uuid.UUID) (au
 	if err != nil {
 		return "", "", err
 	}
-	if p == nil || !textsNonEmpty(p.AuditText, p.BrandText) {
+	if p == nil || !profile.TextsConfigured(p.AuditText, p.BrandText) {
 		return "", "", ErrSetupRequired
 	}
 	return p.AuditText, p.BrandText, nil

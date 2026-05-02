@@ -56,8 +56,8 @@ func TestGetProfile_notConfiguredIfOneEmpty(t *testing.T) {
 }
 
 func TestTextsConfigured(t *testing.T) {
-	require.True(t, textsConfigured("a", "b"))
-	require.False(t, textsConfigured("", "b"))
-	require.False(t, textsConfigured("a", ""))
-	require.False(t, textsConfigured(" ", "\t"))
+	require.True(t, TextsConfigured("a", "b"))
+	require.False(t, TextsConfigured("", "b"))
+	require.False(t, TextsConfigured("a", ""))
+	require.False(t, TextsConfigured(" ", "\t"))
 }
