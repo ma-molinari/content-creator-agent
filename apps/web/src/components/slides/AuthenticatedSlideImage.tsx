@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 
-import { api } from '@/api/client'
+import { fetchChatSlideJpeg } from '@/api/chats'
 
 type Props = {
   chatId: string
@@ -11,32 +11,12 @@ type Props = {
   loading?: 'eager' | 'lazy'
 }
 
-type BlobImgProps = {
-  blob: Blob
-  alt: string
-  className?: string
-  loading: 'eager' | 'lazy'
-}
-
-/**
- * Creates a stable object URL for the blob and revokes it when the blob identity changes or on unmount.
- * Side effect (createObjectURL) is paired with revoke in an effect cleanup — no setState in effects.
- */
-function SlideBlobImage({ blob, alt, className, loading }: BlobImgProps) {
-  const objectUrl = useMemo(() => URL.createObjectURL(blob), [blob])
-
-  useEffect(() => {
-    return () => {
-      URL.revokeObjectURL(objectUrl)
-    }
-  }, [objectUrl])
-
-  return <img src={objectUrl} alt={alt} loading={loading} className={className} />
-}
-
 /**
  * Renders a slide JPEG via GET /chats/:id/files/:fileId (Bearer auth), not presigned S3 URLs.
- * Uses React Query to dedupe fetches; revokes the object URL for this mount on cleanup.
+ * Uses React Query to dedupe fetches.
+ *
+ * createObjectURL / revokeObjectURL run in useEffect (not useMemo): pairing blob URLs with React
+ * commit lifecycle avoids side effects during render and flaky img loads under Strict Mode.
  */
 export function AuthenticatedSlideImage({
   chatId,
@@ -47,17 +27,29 @@ export function AuthenticatedSlideImage({
 }: Props) {
   const { data: blob, isPending, isError } = useQuery({
     queryKey: ['chat-file', chatId, fileId],
-    queryFn: async ({ signal }) => {
-      const res = await api.get<Blob>(`/chats/${chatId}/files/${fileId}`, {
-        responseType: 'blob',
-        signal,
-      })
-      return res.data
-    },
+    queryFn: ({ signal }) => fetchChatSlideJpeg(chatId, fileId, signal),
     enabled: !!chatId && !!fileId,
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: 1000 * 60 * 60,
   })
+
+  const [objectUrl, setObjectUrl] = useState<string | null>(null)
+
+  /* Blob URLs must be created/revoked in an effect paired with DOM usage; putting createObjectURL in useMemo
+     side-effects during render and was brittle under Strict Mode. setState-here intentionally syncs display URL with blob. */
+  /* eslint-disable react-hooks/set-state-in-effect -- createObjectURL + revoke lifecycle */
+  useEffect(() => {
+    if (!blob) {
+      setObjectUrl(null)
+      return
+    }
+    const url = URL.createObjectURL(blob)
+    setObjectUrl(url)
+    return () => {
+      URL.revokeObjectURL(url)
+    }
+  }, [blob])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   if (isError) {
     return (
@@ -65,12 +57,13 @@ export function AuthenticatedSlideImage({
         className={className}
         style={{ minHeight: 48, background: 'var(--color-bg-muted)' }}
         role="img"
-        aria-label={alt}
+        aria-label={`Falha ao carregar imagem: ${alt}`}
+        title="Falha ao carregar imagem"
       />
     )
   }
 
-  if (isPending || !blob) {
+  if (isPending || !blob || !objectUrl) {
     return (
       <div
         className={className}
@@ -80,5 +73,5 @@ export function AuthenticatedSlideImage({
     )
   }
 
-  return <SlideBlobImage blob={blob} alt={alt} loading={loading} className={className} />
+  return <img src={objectUrl} alt={alt} loading={loading} className={className} />
 }

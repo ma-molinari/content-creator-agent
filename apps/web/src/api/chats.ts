@@ -1,7 +1,79 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { isAxiosError } from 'axios'
+import { isAxiosError, type AxiosResponse } from 'axios'
 
 import { api } from './client'
+
+const JPEG_SOI_MARKER = Object.freeze([0xff, 0xd8, 0xff] as const)
+
+/** User-facing errors for invalid slide payloads (routing/HTML/JSON posing as JPEG). */
+const SLIDE_BLOB_INVALID_MSG = 'Resposta inválida ao carregar o slide.' as const
+
+function normalizeContentType(raw: unknown): string | undefined {
+  if (typeof raw !== 'string') return undefined
+  const trimmed = raw.split(';')[0]?.trim().toLowerCase()
+  return trimmed || undefined
+}
+
+function isClearlyNonImageContentType(ct: string): boolean {
+  if (ct.startsWith('image/')) return false
+  if (ct === 'application/octet-stream') return false
+  return (
+    ct.startsWith('text/') ||
+    ct === 'application/json' ||
+    ct.endsWith('+json') ||
+    ct === 'application/xml' ||
+    ct === 'text/xml'
+  )
+}
+
+/**
+ * Validates a successful blob response from GET `/chats/:id/files/:fileId` contains JPEG magic bytes.
+ * Rejects SPA fallbacks/HTML/JSON and empty bodies even when status is 2xx.
+ */
+async function assertValidSlideJpegResponse(
+  res: AxiosResponse<Blob>,
+): Promise<Blob> {
+  const { status, data: blob } = res
+  if (status < 200 || status >= 300) {
+    throw new Error(SLIDE_BLOB_INVALID_MSG)
+  }
+  if (!(blob instanceof Blob)) {
+    throw new Error(SLIDE_BLOB_INVALID_MSG)
+  }
+  if (blob.size === 0) {
+    throw new Error(SLIDE_BLOB_INVALID_MSG)
+  }
+
+  const ct = normalizeContentType(res.headers?.['content-type'])
+  if (ct && isClearlyNonImageContentType(ct)) {
+    throw new Error(SLIDE_BLOB_INVALID_MSG)
+  }
+
+  const head = await blob.slice(0, 3).arrayBuffer()
+  const bytes = new Uint8Array(head)
+  if (
+    bytes.length < JPEG_SOI_MARKER.length ||
+    bytes[0] !== JPEG_SOI_MARKER[0] ||
+    bytes[1] !== JPEG_SOI_MARKER[1] ||
+    bytes[2] !== JPEG_SOI_MARKER[2]
+  ) {
+    throw new Error(SLIDE_BLOB_INVALID_MSG)
+  }
+
+  return blob
+}
+
+export async function fetchChatSlideJpeg(
+  chatId: string,
+  fileId: string,
+  signal?: AbortSignal,
+): Promise<Blob> {
+  const axiosRes = await api.get<Blob>(`/chats/${chatId}/files/${fileId}`, {
+    responseType: 'blob',
+    signal,
+  })
+  return assertValidSlideJpegResponse(axiosRes)
+}
 
 function parseFilenameFromContentDisposition(header: string | undefined): string | null {
   if (!header) return null
