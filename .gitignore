@@ -9,6 +9,7 @@ dist/
 # Python
 .venv/
 venv/
+venv_bg/
 __pycache__/
 *.py[cod]
 
