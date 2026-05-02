@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"content-creator-agent/internal/httperr"
+
 	"github.com/labstack/echo/v4"
 )
 
@@ -143,5 +145,5 @@ func mapAuthError(err error) error {
 	if errors.As(err, &se) {
 		return echo.NewHTTPError(se.HTTPStatus, se.Message)
 	}
-	return echo.NewHTTPError(http.StatusInternalServerError, "internal error")
+	return httperr.Internal("[auth]", err)
 }

@@ -23,8 +23,6 @@ const (
 	AccessTokenTTL = 4 * time.Hour
 	// RefreshTokenTTL is the signed refresh JWT and Set-Cookie MaxAge.
 	RefreshTokenTTL = 7 * 24 * time.Hour
-	accessTokenTTL  = AccessTokenTTL
-	refreshTokenTTL = RefreshTokenTTL
 
 	loginMaxAttempts   = 5
 	loginLockoutWindow = 15 * time.Minute
@@ -143,7 +141,7 @@ func (s *Service) signTokens(userID uuid.UUID) (access string, refresh string, r
 	accessClaims := jwt.RegisteredClaims{
 		Subject:   userID.String(),
 		IssuedAt:  jwt.NewNumericDate(now),
-		ExpiresAt: jwt.NewNumericDate(now.Add(accessTokenTTL)),
+		ExpiresAt: jwt.NewNumericDate(now.Add(AccessTokenTTL)),
 	}
 	at := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
 	access, err = at.SignedString(s.jwtSecret)
@@ -151,7 +149,7 @@ func (s *Service) signTokens(userID uuid.UUID) (access string, refresh string, r
 		return "", "", nil, err
 	}
 	jti := uuid.New()
-	expiresAt := now.Add(refreshTokenTTL)
+	expiresAt := now.Add(RefreshTokenTTL)
 	refreshClaims := jwt.RegisteredClaims{
 		Subject:   userID.String(),
 		ID:        jti.String(),
@@ -164,6 +162,24 @@ func (s *Service) signTokens(userID uuid.UUID) (access string, refresh string, r
 		return "", "", nil, err
 	}
 	return access, refresh, &db.RefreshToken{JTI: jti, UserID: userID, ExpiresAt: expiresAt}, nil
+}
+
+func (s *Service) parseRefreshClaims(raw string) (*jwt.RegisteredClaims, error) {
+	parser := jwt.NewParser(jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
+	tok, err := parser.ParseWithClaims(raw, &jwt.RegisteredClaims{}, func(t *jwt.Token) (interface{}, error) {
+		if t.Method != jwt.SigningMethodHS256 {
+			return nil, fmt.Errorf("unexpected signing method")
+		}
+		return s.jwtRefreshSecret, nil
+	})
+	if err != nil || !tok.Valid {
+		return nil, fmt.Errorf("invalid refresh token")
+	}
+	claims, ok := tok.Claims.(*jwt.RegisteredClaims)
+	if !ok {
+		return nil, fmt.Errorf("invalid refresh token claims")
+	}
+	return claims, nil
 }
 
 func (s *Service) issueTokens(ctx context.Context, userID uuid.UUID) (access string, refresh string, err error) {
@@ -186,18 +202,11 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*RefreshRes
 	if refreshToken == "" {
 		return nil, errStatus(http.StatusUnauthorized, "missing refresh token")
 	}
-	parser := jwt.NewParser(jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
-	tok, err := parser.ParseWithClaims(refreshToken, &jwt.RegisteredClaims{}, func(t *jwt.Token) (interface{}, error) {
-		if t.Method != jwt.SigningMethodHS256 {
-			return nil, fmt.Errorf("unexpected signing method")
-		}
-		return s.jwtRefreshSecret, nil
-	})
-	if err != nil || !tok.Valid {
+	claims, err := s.parseRefreshClaims(refreshToken)
+	if err != nil {
 		return nil, errStatus(http.StatusUnauthorized, "invalid or expired refresh token")
 	}
-	claims, ok := tok.Claims.(*jwt.RegisteredClaims)
-	if !ok || claims.Subject == "" || claims.ID == "" {
+	if claims.Subject == "" || claims.ID == "" {
 		return nil, errStatus(http.StatusUnauthorized, "invalid refresh token")
 	}
 	userID, err := uuid.Parse(claims.Subject)
@@ -240,15 +249,8 @@ func (s *Service) Logout(ctx context.Context, refreshToken string) {
 	if refreshToken == "" {
 		return
 	}
-	parser := jwt.NewParser(jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
-	tok, err := parser.ParseWithClaims(refreshToken, &jwt.RegisteredClaims{}, func(t *jwt.Token) (interface{}, error) {
-		return s.jwtRefreshSecret, nil
-	})
-	if err != nil || !tok.Valid {
-		return
-	}
-	claims, ok := tok.Claims.(*jwt.RegisteredClaims)
-	if !ok || claims.ID == "" {
+	claims, err := s.parseRefreshClaims(refreshToken)
+	if err != nil || claims.ID == "" {
 		return
 	}
 	jti, err := uuid.Parse(claims.ID)
