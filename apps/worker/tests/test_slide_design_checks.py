@@ -5,14 +5,20 @@ from __future__ import annotations
 import unittest
 
 from app.nodes.design_validate import design_validate, route_after_design
-from app.slide_design_checks import check_remote_assets, collect_design_violations
+from app.slide_design_checks import (
+    check_reference_colors,
+    check_remote_assets,
+    collect_design_violations,
+)
 from app.state import AgentState
 
+_PJS_GF_URL = "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap"
 
-def _minimal_valid_slide(variant: str = "inter") -> str:
-    if variant == "inter":
-        gf = "@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');"
-        ff = "'Inter', system-ui, sans-serif"
+
+def _minimal_valid_slide(variant: str = "default") -> str:
+    if variant == "default":
+        gf = f"@import url('{_PJS_GF_URL}');"
+        ff = "'Plus Jakarta Sans', system-ui, sans-serif"
     else:
         gf = "@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');"
         ff = "'Roboto', sans-serif"
@@ -25,11 +31,11 @@ font-family:{ff};font-weight:500;}}
 
 
 class TestSlideDesignChecks(unittest.TestCase):
-    def test_valid_inter_slide_passes(self) -> None:
-        self.assertEqual(collect_design_violations(_minimal_valid_slide("inter")), [])
+    def test_valid_plus_jakarta_sans_slide_passes(self) -> None:
+        self.assertEqual(collect_design_violations(_minimal_valid_slide("default")), [])
 
     def test_valid_roboto_slide_passes(self) -> None:
-        """Alternate GF family loaded and used passes without Inter."""
+        """Alternate GF family loaded and used passes without Plus Jakarta Sans."""
         self.assertEqual(collect_design_violations(_minimal_valid_slide("roboto")), [])
 
     def test_script_rejected(self) -> None:
@@ -59,8 +65,21 @@ class TestSlideDesignChecks(unittest.TestCase):
         msgs = check_remote_assets(html)
         self.assertGreaterEqual(len(msgs), 2)
 
-    def test_missing_inter_rejected(self) -> None:
-        html = _minimal_valid_slide().replace("'Inter', system-ui", "system-ui")
+    def test_missing_default_font_rejected(self) -> None:
+        """Slide without Plus Jakarta Sans and without any other GF family triggers tipografia error."""
+        html = _minimal_valid_slide().replace("'Plus Jakarta Sans', system-ui", "system-ui")
+        msgs = collect_design_violations(html)
+        self.assertTrue(any("tipografia" in m.lower() for m in msgs))
+
+    def test_inter_without_pjs_rejected(self) -> None:
+        """Inter import alone (legacy font) is not sufficient — must use Plus Jakarta Sans or explicit alternate."""
+        html = (
+            "<!DOCTYPE html><html lang='pt-BR'><head><meta charset='utf-8'/><style>"
+            "@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');"
+            "body{margin:0;padding:0;width:1080px;height:1350px;overflow:hidden;"
+            "font-family:'Inter',system-ui,sans-serif;font-weight:500;}"
+            "</style></head><body><main><p>Conteúdo.</p></main></body></html>"
+        )
         msgs = collect_design_violations(html)
         self.assertTrue(any("tipografia" in m.lower() for m in msgs))
 
@@ -76,6 +95,46 @@ class TestSlideDesignChecks(unittest.TestCase):
         )
         msgs = collect_design_violations(html)
         self.assertTrue(any("link" in m.lower() or "google fonts" in m.lower() for m in msgs))
+
+
+class TestCheckReferenceColors(unittest.TestCase):
+    _prescription = "Paleta: #1a1a2e (fundo escuro), #e94560 (accent), #0f3460 (mid-dark)"
+
+    def _slide_with_colors(self, *hex_values: str) -> str:
+        color_css = " ".join(f"color:{h};" for h in hex_values)
+        return (
+            f"<!DOCTYPE html><html><head><style>"
+            f"@import url('{_PJS_GF_URL}');"
+            f"body{{margin:0;padding:0;width:1080px;height:1350px;overflow:hidden;"
+            f"font-family:'Plus Jakarta Sans',sans-serif;{color_css}}}"
+            f"</style></head><body><main><p>ok</p></main></body></html>"
+        )
+
+    def test_matching_reference_color_passes(self) -> None:
+        """Slide containing a hex close to one in the prescription emits no warning."""
+        html = self._slide_with_colors("#1a1a2e", "#ffffff")
+        self.assertEqual(check_reference_colors(html, self._prescription), [])
+
+    def test_approximate_color_match_passes(self) -> None:
+        """Color within ±15 per channel is accepted (#1a1a2e → #201f35: diffs 6,5,7)."""
+        html = self._slide_with_colors("#201f35", "#ffffff")
+        self.assertEqual(check_reference_colors(html, self._prescription), [])
+
+    def test_no_reference_colors_warns(self) -> None:
+        """Slide with completely unrelated palette triggers the warning."""
+        html = self._slide_with_colors("#aabbcc", "#ddeeff")
+        msgs = check_reference_colors(html, self._prescription)
+        self.assertTrue(any("referências visuais" in m.lower() for m in msgs))
+
+    def test_empty_prescription_skipped(self) -> None:
+        """Empty prescription blob produces no violations."""
+        html = self._slide_with_colors("#aabbcc")
+        self.assertEqual(check_reference_colors(html, ""), [])
+
+    def test_few_hex_in_prescription_skipped(self) -> None:
+        """Fewer than 3 hex values in prescription — check is skipped."""
+        html = self._slide_with_colors("#aabbcc")
+        self.assertEqual(check_reference_colors(html, "apenas #ff0000 aqui"), [])
 
 
 class TestDesignValidateNode(unittest.TestCase):

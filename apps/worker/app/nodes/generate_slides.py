@@ -39,7 +39,7 @@ def _retry_feedback(errors: list[str] | None) -> str:
         f"{bullets}\n\n"
         "Regenerar **todos** os blocos `###SLIDE_FILE:` … `###END_SLIDE###` pedidos; cada slide deve ser "
         "um HTML completo com `<html>` e `</html>`. Não omita arquivos listados como ausentes; corrija HTML "
-        "marcado como inválido e **as regras de design** indicadas acima (CSS autocontido, Inter/GF, viewport 1080×1350px, sem URLs remotas nem JS)."
+        "marcado como inválido e **as regras de design** indicadas acima (CSS autocontido, Plus Jakarta Sans/GF, viewport 1080×1350px, sem URLs remotas nem JS)."
     )
 
 
@@ -77,6 +77,14 @@ async def generate_slides(state: AgentState) -> dict:
         "</brief_otimizado>"
     )
     user_content += _count_instruction(requested if isinstance(requested, int) else None)
+    if "REFERÊNCIAS_VISUAIS" in profile:
+        user_content += (
+            "\n\n---\n\n**⚠ Referências visuais obrigatórias:** "
+            "`<perfil_usuario>` contém `## REFERÊNCIAS_VISUAIS (resumo)`. "
+            "O CSS de **cada slide** (paleta, accent, gradientes, sombras, ritmo claro/escuro) "
+            "**deve refletir** esse resumo e a tradução do brief — "
+            "não use look neutro genérico que ignore a paleta indicada."
+        )
     user_content += _retry_feedback(state.get("errors"))
 
     logger.info(

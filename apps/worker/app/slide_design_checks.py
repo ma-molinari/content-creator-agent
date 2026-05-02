@@ -1,8 +1,8 @@
 """Static HTML/CSS design checks for carousel slides (Phase 1 — no browser).
 
 Aligned with ``prompts/generate_slides.md``: no JS, no remote raster/CDN assets,
-Google Fonts only as external CSS, Inter default unless another GF family is
-clearly loaded and used, and viewport dimensions 1080×1350.
+Google Fonts only as external CSS, Plus Jakarta Sans default unless another GF family
+is clearly loaded and used, and viewport dimensions 1080×1350.
 
 This module implements a **verifiable subset** of that prompt; it complements
 human-facing guidance in ``.cursor/rules/design/`` (UI image designer,
@@ -20,6 +20,11 @@ from urllib.parse import parse_qs, unquote, urlparse
 from bs4 import BeautifulSoup
 
 _ALLOWED_FONT_NETLOCS = frozenset({"fonts.googleapis.com", "fonts.gstatic.com"})
+
+_DEFAULT_FONT_FAMILY = "plus jakarta sans"
+# Fonts that are no longer accepted as default or as alternate (legacy pipeline fonts).
+_BLOCKED_LEGACY_FONTS = frozenset({"inter"})
+_HEX_COLOR = re.compile(r"#([0-9a-fA-F]{6})\b")
 
 _SCRIPT_TAG = re.compile(r"<\s*script\b", re.I)
 _INLINE_HANDLER = re.compile(r"\bon[a-z][a-z0-9_]*\s*=", re.I)
@@ -82,13 +87,14 @@ def _google_font_family_names(url: str) -> list[str]:
     return names
 
 
-def _imports_inter_from_googleapis(urls: list[str]) -> bool:
+def _imports_default_font_from_googleapis(urls: list[str]) -> bool:
     for u in urls:
         if "fonts.googleapis.com" not in u.lower():
             continue
-        if any(n == "inter" for n in _google_font_family_names(u)):
+        if any(n == _DEFAULT_FONT_FAMILY for n in _google_font_family_names(u)):
             return True
-        if "family=inter" in u.lower():
+        u_lower = u.lower()
+        if "plus+jakarta+sans" in u_lower or "plus%20jakarta%20sans" in u_lower:
             return True
     return False
 
@@ -97,9 +103,8 @@ def _font_family_blocks(html: str, css_blob: str) -> str:
     return f"{html}\n{css_blob}"
 
 
-def _mentions_inter_in_font_family(html: str, css_blob: str) -> bool:
-    blob = _font_family_blocks(html, css_blob)
-    return bool(re.search(r"font-family\s*:\s*[^;{}]{0,400}\binter\b", blob, re.I))
+def _mentions_default_font_in_font_family(html: str, css_blob: str) -> bool:
+    return _mentions_family_name(html, css_blob, _DEFAULT_FONT_FAMILY)
 
 
 def _mentions_family_name(html: str, css_blob: str, family_lower: str) -> bool:
@@ -178,24 +183,24 @@ def check_external_stylesheets(html: str) -> list[str]:
     return []
 
 
-def check_inter_typography(html: str) -> list[str]:
-    """Inter via Google Fonts + ``font-family``, or another GF family clearly imported and used."""
+def check_default_typography(html: str) -> list[str]:
+    """Plus Jakarta Sans via Google Fonts + ``font-family``, or another GF family clearly imported and used."""
     css_blob = _extract_css_blob(html)
     text_blob = f"{html}\n{css_blob}"
 
     gf_urls = list(dict.fromkeys(_HTTP_URL.findall(text_blob)))
     gf_urls = [u for u in gf_urls if "fonts.googleapis.com" in u.lower()]
 
-    inter_import = _imports_inter_from_googleapis(gf_urls)
-    inter_used = _mentions_inter_in_font_family(html, css_blob)
+    default_import = _imports_default_font_from_googleapis(gf_urls)
+    default_used = _mentions_default_font_in_font_family(html, css_blob)
 
-    if inter_import and inter_used:
+    if default_import and default_used:
         return []
 
     alternate_ok = False
     for u in gf_urls:
         for fam in _google_font_family_names(u):
-            if fam == "inter":
+            if fam == _DEFAULT_FONT_FAMILY or fam in _BLOCKED_LEGACY_FONTS:
                 continue
             if _mentions_family_name(html, css_blob, fam):
                 alternate_ok = True
@@ -207,8 +212,35 @@ def check_inter_typography(html: str) -> list[str]:
         return []
 
     return [
-        "tipografia: importe Inter via fonts.googleapis.com e use "
-        "'Inter' em font-family no body (ou outra família explicitamente carregada em GF e usada)"
+        "tipografia: importe Plus Jakarta Sans via fonts.googleapis.com e use "
+        "'Plus Jakarta Sans' em font-family no body (ou outra família explicitamente carregada em GF e usada)"
+    ]
+
+
+def _hex_to_rgb(h: str) -> tuple[int, int, int]:
+    return int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+
+
+def _colors_close(h1: str, h2: str, tolerance: int = 15) -> bool:
+    r1, g1, b1 = _hex_to_rgb(h1)
+    r2, g2, b2 = _hex_to_rgb(h2)
+    return abs(r1 - r2) <= tolerance and abs(g1 - g2) <= tolerance and abs(b1 - b2) <= tolerance
+
+
+def check_reference_colors(html: str, prescription_blob: str) -> list[str]:
+    """Warn when none of the reference hex colors (from the prescription blob) appear in slide CSS."""
+    if not prescription_blob:
+        return []
+    ref_hexes = [m.group(1).lower() for m in _HEX_COLOR.finditer(prescription_blob)]
+    if len(ref_hexes) < 3:
+        return []
+    css_blob = _extract_css_blob(html)
+    slide_hexes = [m.group(1).lower() for m in _HEX_COLOR.finditer(f"{html}\n{css_blob}")]
+    for ref in ref_hexes:
+        if any(_colors_close(ref, s) for s in slide_hexes):
+            return []
+    return [
+        "referências visuais: nenhuma cor do resumo detectada no CSS do slide — verifique paleta"
     ]
 
 
@@ -222,12 +254,13 @@ def check_viewport_canvas(html: str) -> list[str]:
     return []
 
 
-def collect_design_violations(html: str, _prescription_blob: str = "") -> list[str]:
+def collect_design_violations(html: str, prescription_blob: str = "") -> list[str]:
     """Return human-readable violation messages (without ``design_validate:`` prefix)."""
     errs: list[str] = []
     errs.extend(check_no_javascript(html))
     errs.extend(check_remote_assets(html))
     errs.extend(check_external_stylesheets(html))
-    errs.extend(check_inter_typography(html))
+    errs.extend(check_default_typography(html))
     errs.extend(check_viewport_canvas(html))
+    errs.extend(check_reference_colors(html, prescription_blob))
     return errs

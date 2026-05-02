@@ -93,7 +93,7 @@ Estrutura sugerida interna a este bloco:
 
 Seja acionável e específico. O próximo passo gera **HTML** por slide: **prefira** descrever a direção visual em texto (mood, paleta, composição, tipografia) para o gerador alinhar com AUDIT/BRAND.
 
-- **Regra (tipografia):** família **Inter** (Google Fonts), padrão do gerador.
+- **Regra (tipografia):** família **Plus Jakarta Sans** (Google Fonts), padrão do gerador.
 - **Exceção:** se **BRAND** ou o pedido no brief **nomear** explicitamente outra família, prescreva essa família de forma clara.
 
 **Feed móvel (1080px fixo, proporção 4:5, sem responsividade real):**
