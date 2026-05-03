@@ -56,6 +56,7 @@ func testCompleteSchemaDB(t *testing.T) *gorm.DB {
 			s3_key TEXT NOT NULL,
 			url TEXT NOT NULL,
 			slide_number INTEGER NOT NULL,
+			html_s3_key TEXT,
 			created_at DATETIME,
 			updated_at DATETIME,
 			FOREIGN KEY (chat_content_id) REFERENCES chat_content(id)
@@ -162,6 +163,46 @@ func TestCompleteAssistantReply_successThenIdempotent(t *testing.T) {
 	var j db.Job
 	require.NoError(t, gdb.First(&j, "id = ?", jobID).Error)
 	require.Equal(t, db.JobStatusDone, j.Status)
+}
+
+func TestCompleteAssistantReply_persistsHtmlS3KeyWhenPresent(t *testing.T) {
+	gdb := testCompleteSchemaDB(t)
+	ctx := context.Background()
+	jobID := uuid.New()
+	chatID := uuid.New()
+	userID := uuid.New()
+	now := time.Now().UTC()
+	require.NoError(t, gdb.Create(&db.Chat{
+		ID:        chatID,
+		UserID:    userID,
+		PostType:  db.PostTypeSingle,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}).Error)
+	require.NoError(t, gdb.Create(&db.Job{
+		ID:        jobID,
+		ChatID:    chatID,
+		UserID:    userID,
+		Status:    db.JobStatusProcessing,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}).Error)
+
+	jpegKey := "slides/" + jobID.String() + "/slide_01.jpeg"
+	htmlKey := "slides/" + jobID.String() + "/slide_01.html"
+	artifacts := []ArtifactRef{{
+		S3Key:       jpegKey,
+		SlideNumber: 1,
+		HtmlS3Key:   &htmlKey,
+	}}
+
+	_, err := CompleteAssistantReply(ctx, gdb, jobID, "reply with html", artifacts, testStore{})
+	require.NoError(t, err)
+
+	var img db.ChatContentImage
+	require.NoError(t, gdb.First(&img, "s3_key = ?", jpegKey).Error)
+	require.NotNil(t, img.HtmlS3Key)
+	require.Equal(t, htmlKey, *img.HtmlS3Key)
 }
 
 func TestApplyWorkerFailure_noopWhenDone(t *testing.T) {

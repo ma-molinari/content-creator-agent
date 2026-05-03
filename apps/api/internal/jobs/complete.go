@@ -31,6 +31,7 @@ var (
 type ArtifactRef struct {
 	S3Key       string
 	SlideNumber int
+	HtmlS3Key   *string // optional HTML source key under slides/{jobID}/
 }
 
 // CompleteAssistantReply persists the assistant message, slide images, and marks the job done.
@@ -81,6 +82,15 @@ func CompleteAssistantReply(ctx context.Context, gdb *gorm.DB, jobID uuid.UUID, 
 				S3Key:         key,
 				URL:           url,
 				SlideNumber:   a.SlideNumber,
+			}
+			if a.HtmlS3Key != nil {
+				hk := strings.TrimSpace(*a.HtmlS3Key)
+				if hk != "" {
+					if e := validateSlideArtifactKey(job.ID, hk); e != nil {
+						return e
+					}
+					img.HtmlS3Key = &hk
+				}
 			}
 			if e := tx.Create(&img).Error; e != nil {
 				return e

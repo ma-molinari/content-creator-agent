@@ -21,8 +21,9 @@ const workerAPIKeyHeader = "X-Worker-API-Key"
 type CompleteBody struct {
 	AssistantText *string `json:"assistantText"`
 	Artifacts     []struct {
-		S3Key       string `json:"s3Key"`
-		SlideNumber int    `json:"slideNumber"`
+		S3Key       string  `json:"s3Key"`
+		SlideNumber int     `json:"slideNumber"`
+		HTMLS3Key   *string `json:"htmlS3Key,omitempty"`
 	} `json:"artifacts"`
 	Error *string `json:"error"`
 }
@@ -81,7 +82,7 @@ func (h *Handler) Complete(c echo.Context) error {
 		if key == "" {
 			return echo.NewHTTPError(http.StatusBadRequest, "each artifact must include s3Key")
 		}
-		artifacts = append(artifacts, ArtifactRef{S3Key: key, SlideNumber: a.SlideNumber})
+		artifacts = append(artifacts, ArtifactRef{S3Key: key, SlideNumber: a.SlideNumber, HtmlS3Key: a.HTMLS3Key})
 	}
 	alreadyDone, err := CompleteAssistantReply(ctx, h.gdb, jobID, assistantText, artifacts, h.store)
 	if err != nil {
