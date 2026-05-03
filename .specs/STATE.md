@@ -2,17 +2,25 @@
 
 ## Última atualização
 
-2026-04-13
+2026-05-03
 
 ## Feature em foco
+
+| Item | Valor |
+|------|--------|
+| Feature | `iterative-slide-refinement` |
+| Spec | `.specs/features/iterative-slide-refinement/spec.md` |
+| Context | `.specs/features/iterative-slide-refinement/context.md` |
+| Design | `.specs/features/iterative-slide-refinement/design.md` |
+| Tasks | `.specs/features/iterative-slide-refinement/tasks.md` |
+
+### Feature anterior (concluída)
 
 | Item | Valor |
 |------|--------|
 | Spec | `.specs/features/content-creator-agent/spec.md` |
 | Design | `.specs/features/content-creator-agent/design.md` |
 | Tasks | `.specs/features/content-creator-agent/tasks.md` |
-| TDD | `docs/TDD.md` |
-| Arquitetura | `docs/architecture-go-api-langgraph.md` |
 
 ## Status vs plano de tasks
 
@@ -83,8 +91,8 @@ Entradas cronológicas do que foi efetivamente construído em código frente à 
 
 | Feature | Marco | Notas |
 |---------|--------|-------|
-| content-creator-agent | Pós–Fase 6 | Fases 1–6 concluídas em código. Opcional: ativar E2E compose no CI (`e2e-compose`), marcar tasks no `tasks.md`. |
-| content-creator-agent | Opcional | Fechar gaps menores T9 (`DeleteMany` backoff) e TP6 (contagem de retry) se quiser aderência literal ao `tasks.md`. |
+| iterative-slide-refinement | Tasks concluídas | Spec + context + design + tasks aprovados. Pronto para Execute. |
+| content-creator-agent | Pós–Fase 6 | Fases 1–6 concluídas. Opcional: ativar E2E compose no CI, fechar gaps T9/TP6. |
 
 ## Decisões registradas
 
