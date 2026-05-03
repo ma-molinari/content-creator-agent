@@ -97,14 +97,65 @@ func (r *Repository) GetByIDWithContents(ctx context.Context, id uuid.UUID) (*db
 	return &c, nil
 }
 
-// CollectS3KeysForChat returns all s3_key values for images in the chat.
+// CollectS3KeysForChat returns all s3_key values for images in the chat,
+// plus distinct html_s3_key values when set (for eviction/delete cleanup).
 func (r *Repository) CollectS3KeysForChat(ctx context.Context, chatID uuid.UUID) ([]string, error) {
 	var keys []string
 	sub := r.db.WithContext(ctx).Model(&db.ChatContent{}).Select("id").Where("chat_id = ?", chatID)
-	err := r.db.WithContext(ctx).Model(&db.ChatContentImage{}).
+	if err := r.db.WithContext(ctx).Model(&db.ChatContentImage{}).
 		Where("chat_content_id IN (?)", sub).
-		Pluck("s3_key", &keys).Error
-	return keys, err
+		Pluck("s3_key", &keys).Error; err != nil {
+		return nil, err
+	}
+	var htmlKeys []string
+	if err := r.db.WithContext(ctx).Model(&db.ChatContentImage{}).
+		Where("chat_content_id IN (?) AND html_s3_key IS NOT NULL AND html_s3_key != ''", sub).
+		Pluck("html_s3_key", &htmlKeys).Error; err != nil {
+		return nil, err
+	}
+	seen := make(map[string]struct{}, len(keys)+len(htmlKeys))
+	out := make([]string, 0, len(keys)+len(htmlKeys))
+	for _, k := range keys {
+		if _, ok := seen[k]; ok {
+			continue
+		}
+		seen[k] = struct{}{}
+		out = append(out, k)
+	}
+	for _, k := range htmlKeys {
+		if _, ok := seen[k]; ok {
+			continue
+		}
+		seen[k] = struct{}{}
+		out = append(out, k)
+	}
+	return out, nil
+}
+
+// GetLatestAssistantHTMLKeys returns html_s3_key values from the most recent assistant
+// turn that has at least one non-null html_s3_key, ordered by slide_number.
+func (r *Repository) GetLatestAssistantHTMLKeys(ctx context.Context, chatID uuid.UUID) ([]string, error) {
+	var contentID uuid.UUID
+	sub := r.db.WithContext(ctx).
+		Model(&db.ChatContent{}).
+		Select("chat_content.id").
+		Joins("JOIN chat_content_image ON chat_content_image.chat_content_id = chat_content.id").
+		Where("chat_content.chat_id = ? AND chat_content.role = ? AND chat_content_image.html_s3_key IS NOT NULL", chatID, db.ChatContentRoleAssistant).
+		Order("chat_content.created_at DESC").
+		Limit(1)
+	if err := sub.Scan(&contentID).Error; err != nil {
+		return nil, err
+	}
+	if contentID == uuid.Nil {
+		return nil, nil
+	}
+	var htmlKeys []string
+	err := r.db.WithContext(ctx).
+		Model(&db.ChatContentImage{}).
+		Where("chat_content_id = ? AND html_s3_key IS NOT NULL", contentID).
+		Order("slide_number ASC").
+		Pluck("html_s3_key", &htmlKeys).Error
+	return htmlKeys, err
 }
 
 // DeleteChat hard-deletes the chat row (DB cascades to related rows).
