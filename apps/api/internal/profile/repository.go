@@ -43,7 +43,7 @@ func (r *Repository) Upsert(ctx context.Context, userID uuid.UUID, auditText, br
 		BrandText: brandText,
 	}
 	return r.db.WithContext(ctx).Clauses(clause.OnConflict{
-		Columns: []clause.Column{{Name: "user_id"}},
+		Columns:   []clause.Column{{Name: "user_id"}},
 		DoUpdates: clause.AssignmentColumns([]string{"audit_text", "brand_text", "updated_at"}),
 	}).Create(&row).Error
 }

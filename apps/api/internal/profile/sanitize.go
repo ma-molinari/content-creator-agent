@@ -10,9 +10,9 @@ import (
 const maxProfileTextBytes = 20_000
 
 var (
-	profileHTMLTagPattern    = regexp.MustCompile(`<[^>]+>`)
-	slideMarkerPattern       = regexp.MustCompile(`(?i)###SLIDE_FILE:[^\n]*`)
-	endSlideMarkerPattern    = regexp.MustCompile(`(?i)###END_SLIDE###`)
+	profileHTMLTagPattern = regexp.MustCompile(`<[^>]+>`)
+	slideMarkerPattern    = regexp.MustCompile(`(?i)###SLIDE_FILE:[^\n]*`)
+	endSlideMarkerPattern = regexp.MustCompile(`(?i)###END_SLIDE###`)
 )
 
 func profileStripHTML(s string) string {

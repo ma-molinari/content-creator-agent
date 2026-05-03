@@ -211,4 +211,3 @@ func extForImageType(ct string) (ext string, ok bool) {
 		return "", false
 	}
 }
-
