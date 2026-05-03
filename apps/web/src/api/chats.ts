@@ -127,6 +127,41 @@ export async function fetchChatFilesZip(
   }
 }
 
+/**
+ * Fetches a ZIP of slides for one assistant message. Rejects with Error (user-facing message) on failure.
+ */
+export async function downloadContentZip(
+  chatId: string,
+  contentId: string,
+): Promise<{ blob: Blob; filename: string }> {
+  try {
+    const res = await api.get<Blob>(
+      `/chats/${chatId}/contents/${contentId}/download`,
+      { responseType: 'blob' },
+    )
+    const headerVal = res.headers['content-disposition']
+    const fromHeader = parseFilenameFromContentDisposition(
+      typeof headerVal === 'string' ? headerVal : undefined,
+    )
+    const filename = fromHeader ?? `slides-${contentId}.zip`
+    return { blob: res.data, filename }
+  } catch (err) {
+    if (isAxiosError(err) && err.response?.data instanceof Blob) {
+      const status = err.response.status
+      const serverMsg = await messageFromErrorBlob(err.response.data)
+      if (status === 404) {
+        throw new Error(
+          serverMsg === 'no files' || !serverMsg
+            ? 'Não há ficheiros nesta mensagem para baixar.'
+            : serverMsg,
+        )
+      }
+      throw new Error(serverMsg ?? 'Não foi possível baixar o ZIP. Tente novamente.')
+    }
+    throw new Error('Não foi possível baixar o ZIP. Tente novamente.')
+  }
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────
 
 export type ChatContentImage = {
