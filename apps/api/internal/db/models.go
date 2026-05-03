@@ -73,6 +73,7 @@ type ChatContentImage struct {
 	S3Key         string      `gorm:"column:s3_key;size:512;not null"`
 	URL           string      `gorm:"size:1024;not null"`
 	SlideNumber   int         `gorm:"column:slide_number;not null"`
+	HtmlS3Key     *string     `gorm:"column:html_s3_key;size:512"`
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }
