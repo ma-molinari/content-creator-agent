@@ -18,6 +18,7 @@ class RenderedSlide(TypedDict):
 class ArtifactRef(TypedDict):
     s3_key: str
     slide_number: int
+    html_s3_key: NotRequired[Optional[str]]
 
 
 class AgentState(TypedDict):
@@ -50,6 +51,10 @@ class AgentState(TypedDict):
     brief_retry_count: NotRequired[int]
     # Failed design_validate retries before giving up (separate from retry_count / parse).
     design_retry_count: NotRequired[int]
+    # Iterative refinement: HTML S3 keys from API, loaded HTML, and edit vs generate path.
+    existing_slide_html_s3_keys: NotRequired[list[str]]
+    existing_slide_html: NotRequired[list[SlideItem]]
+    is_refinement: NotRequired[bool]
 
 
 def copy_errors(state: AgentState) -> list[str]:
