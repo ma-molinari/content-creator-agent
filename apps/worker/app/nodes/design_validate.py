@@ -61,10 +61,10 @@ def design_validate(state: AgentState) -> dict:
 
 
 def route_after_design(state: AgentState) -> str:
-    """Return ``retry``, ``continue``, or ``fail`` for conditional edges from design_validate."""
+    """Return retry target, ``continue``, or ``fail`` for conditional edges from design_validate."""
     slides = state.get("slides_html") or []
     if slides:
         return "continue"
     if int(state.get("design_retry_count") or 0) < _DESIGN_RETRY_CEILING:
-        return "retry"
+        return "retry_edit" if state.get("is_refinement") else "retry_new"
     return "fail"

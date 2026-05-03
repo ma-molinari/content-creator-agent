@@ -131,10 +131,10 @@ def parse_validate(state: AgentState) -> dict:
 
 
 def route_after_parse(state: AgentState) -> str:
-    """Return 'retry', 'continue', or 'fail' for conditional edges from parse_validate."""
+    """Return 'retry_edit', 'retry_new', 'continue', or 'fail' for conditional edges from parse_validate."""
     slides = state.get("slides_html") or []
     if slides:
         return "continue"
     if int(state.get("retry_count") or 0) < 3:
-        return "retry"
+        return "retry_edit" if state.get("is_refinement") else "retry_new"
     return "fail"

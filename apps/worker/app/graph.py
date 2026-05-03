@@ -3,6 +3,8 @@
 from langgraph.graph import END, StateGraph
 
 from app.nodes.describe_references import describe_references
+from app.nodes.detect_intent import detect_intent
+from app.nodes.edit_slides import edit_slides
 from app.nodes.finalize import finalize
 from app.nodes.generate_slides import generate_slides
 from app.nodes.load_profile import load_profile
@@ -23,7 +25,9 @@ def build_graph():
     builder.add_node("describe_references", describe_references)
     builder.add_node("optimize_prompt", optimize_prompt)
     builder.add_node("validate_brief", validate_brief)
+    builder.add_node("detect_intent", detect_intent)
     builder.add_node("generate_slides", generate_slides)
+    builder.add_node("edit_slides", edit_slides)
     builder.add_node("parse_validate", parse_validate)
     builder.add_node("design_validate", design_validate)
     builder.add_node("render_to_jpeg", render_to_jpeg)
@@ -42,18 +46,38 @@ def build_graph():
     builder.add_conditional_edges(
         "validate_brief",
         route_after_validate_brief,
-        {"ok": "generate_slides", "retry": "optimize_prompt", "fail": "finalize"},
+        {"ok": "detect_intent", "retry": "optimize_prompt", "fail": "finalize"},
+    )
+
+    def route_after_detect_intent(state: AgentState) -> str:
+        return "edit" if state.get("is_refinement") else "new"
+
+    builder.add_conditional_edges(
+        "detect_intent",
+        route_after_detect_intent,
+        {"edit": "edit_slides", "new": "generate_slides"},
     )
     builder.add_edge("generate_slides", "parse_validate")
+    builder.add_edge("edit_slides", "parse_validate")
     builder.add_conditional_edges(
         "parse_validate",
         route_after_parse,
-        {"retry": "generate_slides", "continue": "design_validate", "fail": "finalize"},
+        {
+            "retry_edit": "edit_slides",
+            "retry_new": "generate_slides",
+            "continue": "design_validate",
+            "fail": "finalize",
+        },
     )
     builder.add_conditional_edges(
         "design_validate",
         route_after_design,
-        {"retry": "generate_slides", "continue": "render_to_jpeg", "fail": "finalize"},
+        {
+            "retry_edit": "edit_slides",
+            "retry_new": "generate_slides",
+            "continue": "render_to_jpeg",
+            "fail": "finalize",
+        },
     )
     builder.add_edge("render_to_jpeg", "upload_assets")
     builder.add_edge("upload_assets", "finalize")
