@@ -112,7 +112,14 @@ async def finalize(state: AgentState) -> dict:
     }
 
     if send_failure_payload:
-        removal_keys = [a["s3_key"] for a in artifacts if (a.get("s3_key") or "").strip()]
+        removal_keys: list[str] = []
+        for a in artifacts:
+            sk = (a.get("s3_key") or "").strip()
+            if sk:
+                removal_keys.append(sk)
+            hk = a.get("html_s3_key")
+            if hk and str(hk).strip():
+                removal_keys.append(str(hk).strip())
         if mismatch and removal_keys:
             try:
                 await asyncio.to_thread(
@@ -139,7 +146,12 @@ async def finalize(state: AgentState) -> dict:
     payload: dict[str, object] = {
         "assistantText": assistant,
         "artifacts": [
-            {"s3Key": a["s3_key"], "slideNumber": a["slide_number"]} for a in artifacts
+            {
+                "s3Key": a["s3_key"],
+                "slideNumber": a["slide_number"],
+                "htmlS3Key": a.get("html_s3_key"),
+            }
+            for a in artifacts
         ],
         "error": None,
     }
