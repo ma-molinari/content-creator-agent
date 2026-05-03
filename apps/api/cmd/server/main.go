@@ -146,6 +146,7 @@ func main() {
 	protected.GET("/chats/:id", ch.GetChat)
 	protected.DELETE("/chats/:id", ch.DeleteChat)
 	protected.GET("/chats/:id/files/download", ch.DownloadZip)
+	protected.GET("/chats/:id/contents/:contentId/download", ch.DownloadContentZip)
 	protected.GET("/chats/:id/files", ch.ListFiles)
 	protected.GET("/chats/:id/files/:fileId", ch.GetFile)
 	protected.GET("/setup/status", ch.SetupStatus)

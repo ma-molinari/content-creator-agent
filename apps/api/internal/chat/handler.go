@@ -183,6 +183,29 @@ func (h *Handler) DownloadZip(c echo.Context) error {
 	return c.Blob(http.StatusOK, "application/zip", data)
 }
 
+// DownloadContentZip handles GET /chats/:id/contents/:contentId/download.
+func (h *Handler) DownloadContentZip(c echo.Context) error {
+	chatID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid chat id")
+	}
+	contentID, err := uuid.Parse(c.Param("contentId"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid content id")
+	}
+	uid := middleware.UserID(c)
+	data, filename, err := h.svc.BuildContentZip(c.Request().Context(), uid, chatID, contentID)
+	if err != nil {
+		if errors.Is(err, ErrNoFiles) {
+			return echo.NewHTTPError(http.StatusNotFound, "no files")
+		}
+		return mapChatErr(err)
+	}
+	c.Response().Header().Set(echo.HeaderContentType, "application/zip")
+	c.Response().Header().Set(echo.HeaderContentDisposition, `attachment; filename="`+filename+`"`)
+	return c.Blob(http.StatusOK, "application/zip", data)
+}
+
 // GetFile handles GET /chats/:id/files/:fileId.
 func (h *Handler) GetFile(c echo.Context) error {
 	chatID, err := uuid.Parse(c.Param("id"))

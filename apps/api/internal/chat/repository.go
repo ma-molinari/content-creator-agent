@@ -158,6 +158,17 @@ func (r *Repository) GetLatestAssistantHTMLKeys(ctx context.Context, chatID uuid
 	return htmlKeys, err
 }
 
+// ListImagesForContent returns images for a single assistant (or any) content row in the chat.
+func (r *Repository) ListImagesForContent(ctx context.Context, chatID, contentID uuid.UUID) ([]db.ChatContentImage, error) {
+	var imgs []db.ChatContentImage
+	err := r.db.WithContext(ctx).
+		Joins("JOIN chat_content ON chat_content.id = chat_content_image.chat_content_id").
+		Where("chat_content_image.chat_content_id = ? AND chat_content.chat_id = ?", contentID, chatID).
+		Order("chat_content_image.slide_number ASC").
+		Find(&imgs).Error
+	return imgs, err
+}
+
 // DeleteChat hard-deletes the chat row (DB cascades to related rows).
 func (r *Repository) DeleteChat(ctx context.Context, chatID uuid.UUID) error {
 	res := r.db.WithContext(ctx).Unscoped().Delete(&db.Chat{}, "id = ?", chatID)

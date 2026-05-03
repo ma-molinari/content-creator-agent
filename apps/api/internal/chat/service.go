@@ -210,6 +210,43 @@ func (s *Service) BuildChatZip(ctx context.Context, userID, chatID uuid.UUID) ([
 	return buf.Bytes(), filename, nil
 }
 
+// BuildContentZip builds a ZIP of JPEG slides for one assistant turn (contentId).
+func (s *Service) BuildContentZip(ctx context.Context, userID, chatID, contentID uuid.UUID) ([]byte, string, error) {
+	if err := s.assertChatOwner(ctx, userID, chatID); err != nil {
+		return nil, "", err
+	}
+	imgs, err := s.repo.ListImagesForContent(ctx, chatID, contentID)
+	if err != nil {
+		return nil, "", err
+	}
+	if len(imgs) == 0 {
+		return nil, "", ErrNoFiles
+	}
+	buf := new(bytes.Buffer)
+	zw := zip.NewWriter(buf)
+	for _, img := range imgs {
+		data, err := s.store.GetObject(ctx, img.S3Key)
+		if err != nil {
+			_ = zw.Close()
+			return nil, "", err
+		}
+		w, err := zw.Create(imageArchiveFileName(img))
+		if err != nil {
+			_ = zw.Close()
+			return nil, "", err
+		}
+		if _, err := w.Write(data); err != nil {
+			_ = zw.Close()
+			return nil, "", err
+		}
+	}
+	if err := zw.Close(); err != nil {
+		return nil, "", err
+	}
+	filename := fmt.Sprintf("slides-%s.zip", contentID.String())
+	return buf.Bytes(), filename, nil
+}
+
 // GetImageJPEG returns raw JPEG bytes when the file belongs to the user's chat.
 func (s *Service) GetImageJPEG(ctx context.Context, userID, chatID, fileID uuid.UUID) ([]byte, error) {
 	c, err := s.repo.GetByID(ctx, chatID)
