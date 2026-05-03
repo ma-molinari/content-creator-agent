@@ -24,6 +24,10 @@ export function ChatThread({ chat, pendingText, jobStatus, jobError, onRetry }: 
   }, [chat?.contents?.length, pendingText])
 
   const contents = chat?.contents ?? []
+  const lastAssistantWithImagesId = [...contents]
+    .reverse()
+    .find((m) => m.role === 'assistant' && (m.images?.length ?? 0) > 0)?.id
+
   const showPendingBubble =
     pendingText != null &&
     pendingText.length > 0 &&
@@ -35,7 +39,13 @@ export function ChatThread({ chat, pendingText, jobStatus, jobError, onRetry }: 
         msg.role === 'user' ? (
           <MessageBubbleUser key={msg.id} content={msg.content} createdAt={msg.createdAt} />
         ) : (
-          <MessageAssistant key={msg.id} message={msg} />
+          <MessageAssistant
+            key={msg.id}
+            message={msg}
+            isLatestVersion={
+              (msg.images?.length ?? 0) === 0 || msg.id === lastAssistantWithImagesId
+            }
+          />
         ),
       )}
 
