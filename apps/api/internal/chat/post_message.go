@@ -109,15 +109,21 @@ func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, raw
 	if err := s.repo.CreateUserMessageAndJob(ctx, userMsg, job, setTitle); err != nil {
 		return nil, err
 	}
+	existingHTMLKeys, err := s.latestAssistantHTMLKeys(ctx, chatID)
+	if err != nil {
+		log.Printf("[chat] latest html keys chat_id=%s err=%v", chatID, err)
+		existingHTMLKeys = nil
+	}
 	payload := jobs.DispatchPayload{
-		JobID:             job.ID,
-		UserID:            userID,
-		ChatID:            chatID,
-		RawMessage:        body,
-		AuditText:         auditText,
-		BrandText:         brandText,
-		RepromptContext:   history,
-		ReferenceS3Keys:   refKeys,
+		JobID:                 job.ID,
+		UserID:                userID,
+		ChatID:                chatID,
+		RawMessage:            body,
+		AuditText:             auditText,
+		BrandText:             brandText,
+		RepromptContext:       history,
+		ReferenceS3Keys:       refKeys,
+		ExistingSlideHTMLKeys: existingHTMLKeys,
 	}
 	if err := s.worker.DispatchJob(ctx, payload); err != nil {
 		msg := err.Error()

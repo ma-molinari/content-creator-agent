@@ -2,18 +2,31 @@ package chat
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
 
 	"content-creator-agent/internal/db"
 	"content-creator-agent/internal/jobs"
+	"content-creator-agent/internal/profile"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
+
+type mockDispatchWorker struct {
+	fn func(*jobs.DispatchPayload) error
+}
+
+func (m *mockDispatchWorker) DispatchJob(ctx context.Context, p jobs.DispatchPayload) error {
+	if m.fn != nil {
+		return m.fn(&p)
+	}
+	return nil
+}
 
 type mockStorage struct {
 	deleteManyCalls int
@@ -79,6 +92,7 @@ func testDBWithUser(t *testing.T) (*gorm.DB, *db.User) {
 			s3_key TEXT NOT NULL,
 			url TEXT NOT NULL,
 			slide_number INTEGER NOT NULL,
+			html_s3_key TEXT,
 			created_at DATETIME,
 			updated_at DATETIME,
 			FOREIGN KEY (chat_content_id) REFERENCES chat_content(id)
@@ -229,4 +243,60 @@ func TestGetChat_refreshesPresignedURLsPerImage(t *testing.T) {
 	require.Len(t, chat.Contents[0].Images, 1)
 	require.Equal(t, "https://example.com/signed-1", chat.Contents[0].Images[0].URL)
 	require.Equal(t, 1, store.signedURLCalls)
+}
+
+func TestPostMessage_latestHTMLKeysError_degradesGracefully(t *testing.T) {
+	gdb, u := testDBWithUser(t)
+	for _, ddl := range []string{
+		`CREATE TABLE user_profiles (
+			id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL UNIQUE,
+			audit_text TEXT NOT NULL DEFAULT '',
+			brand_text TEXT NOT NULL DEFAULT '',
+			created_at DATETIME,
+			updated_at DATETIME,
+			FOREIGN KEY (user_id) REFERENCES users(id)
+		)`,
+		`CREATE TABLE jobs (
+			id TEXT PRIMARY KEY,
+			chat_id TEXT NOT NULL,
+			user_id TEXT NOT NULL,
+			status TEXT NOT NULL,
+			error_msg TEXT,
+			created_at DATETIME,
+			updated_at DATETIME,
+			FOREIGN KEY (user_id) REFERENCES users(id),
+			FOREIGN KEY (chat_id) REFERENCES chats(id)
+		)`,
+	} {
+		require.NoError(t, gdb.Exec(ddl).Error)
+	}
+	require.NoError(t, gdb.Create(&db.UserProfile{
+		ID:        uuid.New(),
+		UserID:    u.ID,
+		AuditText: "audit",
+		BrandText: "brand",
+	}).Error)
+	repo := NewRepository(gdb)
+	jobsRepo := jobs.NewRepository(gdb)
+	profileRepo := profile.NewRepository(gdb)
+	chat := &db.Chat{ID: uuid.New(), UserID: u.ID, PostType: db.PostTypeSingle}
+	require.NoError(t, gdb.Create(chat).Error)
+
+	var dispatched jobs.DispatchPayload
+	worker := &mockDispatchWorker{
+		fn: func(p *jobs.DispatchPayload) error {
+			dispatched = *p
+			return nil
+		},
+	}
+	svc := NewService(repo, jobsRepo, &mockStorage{}, profileRepo, nil, worker)
+	svc.latestAssistantHTMLKeys = func(context.Context, uuid.UUID) ([]string, error) {
+		return nil, errors.New("simulated html keys query failure")
+	}
+
+	res, err := svc.PostMessage(context.Background(), u.ID, chat.ID, "hello world")
+	require.NoError(t, err)
+	require.NotNil(t, res)
+	require.Nil(t, dispatched.ExistingSlideHTMLKeys)
 }

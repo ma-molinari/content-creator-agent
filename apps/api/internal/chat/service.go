@@ -39,6 +39,9 @@ type Service struct {
 	profileRepo *profile.Repository
 	profileSvc  *profile.Service
 	worker      jobs.WorkerClient
+
+	// latestAssistantHTMLKeys defaults to repo.GetLatestAssistantHTMLKeys; tests may replace it to simulate failures.
+	latestAssistantHTMLKeys func(context.Context, uuid.UUID) ([]string, error)
 }
 
 // NewService constructs a chat service. worker may be nil (message routes unavailable).
@@ -46,7 +49,11 @@ type Service struct {
 // profileSvc may be nil; when set, its reference S3 keys are sent on job dispatch.
 // Profile copy lives in the database only (PUT /profile); there is no disk fallback.
 func NewService(repo *Repository, jobsRepo *jobs.Repository, store storage.StorageService, profileRepo *profile.Repository, profileSvc *profile.Service, worker jobs.WorkerClient) *Service {
-	return &Service{repo: repo, jobsRepo: jobsRepo, store: store, profileRepo: profileRepo, profileSvc: profileSvc, worker: worker}
+	svc := &Service{repo: repo, jobsRepo: jobsRepo, store: store, profileRepo: profileRepo, profileSvc: profileSvc, worker: worker}
+	if repo != nil {
+		svc.latestAssistantHTMLKeys = repo.GetLatestAssistantHTMLKeys
+	}
+	return svc
 }
 
 // ListChats returns up to 5 chats for the user.
