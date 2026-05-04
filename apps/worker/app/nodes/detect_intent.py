@@ -1,23 +1,120 @@
-"""Classify edit vs new generation; load prior HTML from S3 when refining."""
+"""Load prior HTML from S3; when present, always take the refinement path.
+
+If ``existing_slide_html_s3_keys`` is set and every object loads successfully, the pipeline
+uses stored HTML as the single source of truth and routes to ``edit_slides`` — no LLM
+intent step and no full ``optimize_prompt`` / ``generate_slides`` flow. Scope for
+``edit_slides`` (copy vs layout vs visual) is inferred heuristically from the user message.
+"""
 
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_openai import ChatOpenAI
 
-from app.config import get_settings, read_prompt_md
-from app.llm_messages import langchain_message_text
+from app.config import get_settings
 from app.state import AgentState, SlideItem
 
 logger = logging.getLogger(__name__)
 
 _MAX_HTML_BYTES = 3_000_000
+_COPY_HINTS = (
+    "título",
+    "titulo",
+    "cta",
+    "traduz",
+    "tradução",
+    "traducao",
+    "reescrev",
+    "texto do",
+    "mudar o texto",
+    "legenda",
+    "typo",
+    " errata",
+    "palavra ",
+    "frase",
+    "copy",
+    "corrigir texto",
+    "corrige o texto",
+    "troca o título",
+    "troca o titulo",
+    "novo título",
+    "novo titulo",
+    "altera o texto",
+    "muda o texto",
+    "alterar",
+    "atualizar"
+)
+_LAYOUT_HINTS = (
+    "reorganiz",
+    "reposicion",
+    "nova coluna",
+    "layout",
+    "mover o",
+    "mover a",
+    " ordem ",
+    "cartão",
+    "cartao",
+    "blocos",
+    "posição",
+    "posicao",
+    "nova secção",
+    "nova secao",
+    "outra estrutura",
+    "grid diferente",
+    "nova linha",
+)
+_VISUAL_HINTS = (
+    " cor ",
+    " cores",
+    "cor de",
+    "coloração",
+    "coloracao",
+    "tema",
+    " rosa",
+    " azul",
+    " azuis",
+    " cinza",
+    " cinzas",
+    " vermelho",
+    " verde",
+    " amarelo",
+    " branco",
+    " preto",
+    " roxo",
+    " laranja",
+    "escuro",
+    " claro",
+    "dark mode",
+    "fundo",
+    "background",
+    "borda",
+    "gradiente",
+    "sombra",
+    "paleta",
+    "accent",
+    "#",
+    "hex ",
+)
+
+
+def _infer_refinement_scope(message: str) -> str:
+    """Infer refinement_scope from simple PT keyword hints in the user message."""
+    m = f" {(message or '').lower()} "
+    has_copy = any(h in m for h in _COPY_HINTS)
+    has_layout = any(h in m for h in _LAYOUT_HINTS)
+    has_visual = any(h in m for h in _VISUAL_HINTS)
+    if has_copy and (has_layout or has_visual):
+        return "mixed"
+    if has_copy:
+        return "copy"
+    if has_layout:
+        return "layout"
+    if has_visual:
+        return "visual_only"
+    return "mixed"
 
 
 def _filename_from_key(key: str) -> str:
@@ -69,38 +166,25 @@ async def detect_intent(state: AgentState) -> dict[str, object]:
         return {"is_refinement": False, "existing_slide_html": []}
 
     settings = get_settings()
-    system = read_prompt_md("detect_intent.md")
-    llm = ChatOpenAI(
-        api_key=settings.openai_api_key,
-        model=settings.openai_chat_model,
-        temperature=0,
-        max_tokens=50,
-    )
-    msg = await llm.ainvoke(
-        [
-            SystemMessage(content=system),
-            HumanMessage(content=state.get("raw_message") or ""),
-        ]
-    )
-    try:
-        parsed = json.loads(langchain_message_text(msg).strip())
-        intent = str(parsed.get("intent", "edit")).strip().lower()
-    except (json.JSONDecodeError, TypeError, ValueError):
-        intent = "edit"
-
-    if intent != "edit":
-        return {"is_refinement": False, "existing_slide_html": []}
-
     slides = await _fetch_html_slides(keys, settings, jid)
     if not slides:
         logger.warning(
-            "node=detect_intent job_id=%s refinement aborted (html fetch failed or incomplete)",
+            "node=detect_intent job_id=%s refinement aborted (S3 HTML fetch failed or incomplete)",
             jid,
         )
         return {"is_refinement": False, "existing_slide_html": []}
 
+    raw_message = state.get("raw_message") or ""
+    refinement_scope = _infer_refinement_scope(raw_message)
+
+    logger.info(
+        "node=detect_intent job_id=%s refinement_scope=%s (from S3 HTML, no intent LLM)",
+        jid,
+        refinement_scope,
+    )
     return {
         "is_refinement": True,
         "existing_slide_html": slides,
         "requested_slide_count": len(slides),
+        "refinement_scope": refinement_scope,
     }

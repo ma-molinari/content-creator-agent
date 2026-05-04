@@ -88,7 +88,7 @@ class TestParseValidateCount(unittest.TestCase):
         self.assertIn("expected 3 slides", err_joined)
         self.assertEqual(out.get("retry_count"), 1)
         st2 = {**state, **out}
-        self.assertEqual(route_after_parse(st2), "retry")
+        self.assertEqual(route_after_parse(st2), "retry_new")
 
     def test_exhausted_retries_routes_to_fail(self) -> None:
         state = {

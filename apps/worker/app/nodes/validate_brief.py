@@ -39,7 +39,7 @@ def validate_brief(state: AgentState) -> dict:
 
 
 def route_after_validate_brief(state: AgentState) -> str:
-    """Route from validate_brief: ok → detect_intent, retry → optimize_prompt, fail → finalize."""
+    """Route from validate_brief: ok → generate_slides, retry → optimize_prompt, fail → finalize."""
     if _brief_valid((state.get("optimized_brief") or "").strip()):
         return "ok"
     c = int(state.get("brief_retry_count") or 0)

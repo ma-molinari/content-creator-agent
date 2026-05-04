@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 
 from app.nodes.finalize import finalize
-from app.nodes.finalize_messages import JOB_FAILURE_INCOMPLETE_CAROUSEL
+from app.nodes.finalize_messages import JOB_FAILURE_HTML_ARTIFACT, JOB_FAILURE_INCOMPLETE_CAROUSEL
 from app.prompt_security import USER_PROMPT_REJECT_MESSAGE
 
 
@@ -40,6 +40,7 @@ class TestFinalize(IsolatedAsyncioTestCase):
         settings_mock = MagicMock()
         settings_mock.go_api_url = "http://api"
         settings_mock.worker_api_key = "k"
+        settings_mock.require_html_artifact_upload = False
 
         artifacts = [
             {"s3_key": "slides/job-1/slide_01.jpeg", "slide_number": 1},
@@ -76,6 +77,7 @@ class TestFinalize(IsolatedAsyncioTestCase):
         settings_mock = MagicMock()
         settings_mock.go_api_url = "http://api"
         settings_mock.worker_api_key = "k"
+        settings_mock.require_html_artifact_upload = False
 
         artifacts = [{"s3_key": "slides/job-1/slide_01.jpeg", "slide_number": 1}]
         rendered = [
@@ -114,6 +116,7 @@ class TestFinalize(IsolatedAsyncioTestCase):
         settings_mock = MagicMock()
         settings_mock.go_api_url = "http://api"
         settings_mock.worker_api_key = "k"
+        settings_mock.require_html_artifact_upload = False
 
         with (
             patch("app.nodes.finalize.get_settings", return_value=settings_mock),
@@ -128,4 +131,41 @@ class TestFinalize(IsolatedAsyncioTestCase):
 
         body = post.await_args.kwargs["json_body"]
         self.assertEqual(body["error"], USER_PROMPT_REJECT_MESSAGE)
+
+    async def test_require_html_gap_triggers_failure_callback_and_cleanup(self) -> None:
+        resp = httpx.Response(204)
+        settings_mock = MagicMock()
+        settings_mock.go_api_url = "http://api"
+        settings_mock.worker_api_key = "k"
+        settings_mock.require_html_artifact_upload = True
+
+        artifacts = [
+            {"s3_key": "slides/job-1/slide_01.jpeg", "slide_number": 1},
+        ]
+        rendered = [{"filename": "slide_01.jpeg", "jpeg_bytes": b"a"}]
+        cleanup_called = {"n": 0}
+
+        async def fake_to_thread(fn, *args):  # noqa: ANN001
+            if getattr(fn, "__name__", None) == "delete_slide_artifact_keys_sync":
+                cleanup_called["n"] += 1
+            return None
+
+        with (
+            patch("app.nodes.finalize.get_settings", return_value=settings_mock),
+            patch("app.nodes.finalize.post_complete_callback", new_callable=AsyncMock) as post,
+            patch("app.nodes.finalize.asyncio.to_thread", new_callable=AsyncMock, side_effect=fake_to_thread),
+        ):
+            post.return_value = resp
+            await finalize(
+                _minimal_state(
+                    artifacts=artifacts,
+                    rendered_slides=rendered,
+                    errors=[],
+                ),
+            )
+
+        first = post.await_args_list[0].kwargs["json_body"]
+        self.assertIn("error", first)
+        self.assertEqual(first["error"], JOB_FAILURE_HTML_ARTIFACT)
+        self.assertEqual(cleanup_called["n"], 1)
 

@@ -52,7 +52,8 @@ class Settings(BaseSettings):
     generate_slides_max_tokens: Optional[int] = Field(default=None)
     # Max combined length (characters) of raw_message + reprompt_context before LLM nodes.
     user_prompt_max_chars: int = Field(default=48_000, ge=4096)
-
+    # When true: every slide artifact must have a successful HTML upload; finalize fails + cleans up S3 if any html_s3_key is missing.
+    require_html_artifact_upload: bool = Field(default=False)
 
 @lru_cache
 def get_settings() -> Settings:

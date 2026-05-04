@@ -10,7 +10,7 @@ from app.api_client import post_complete_callback
 from app.config import get_settings
 from app.nodes.finalize_messages import (
     JOB_FAILURE_CALLBACK_TRANSPORT,
-    JOB_FAILURE_GENERIC,
+    JOB_FAILURE_HTML_ARTIFACT,
     JOB_FAILURE_INCOMPLETE_CAROUSEL,
 )
 from app.prompt_security import USER_PROMPT_REJECT_MESSAGE
@@ -40,11 +40,24 @@ def _compute_expected_delivery(state: AgentState) -> int:
     return max(n_rendered, requested_n)
 
 
-def _failure_message_for_callback(errors: list[str], *, mismatch_delivery: bool) -> str:
+def _artifacts_missing_required_html_keys(artifacts: list[ArtifactRef]) -> bool:
+    if not artifacts:
+        return False
+    return any(not str(a.get("html_s3_key") or "").strip() for a in artifacts)
+
+
+def _failure_message_for_callback(
+    errors: list[str],
+    *,
+    mismatch_delivery: bool,
+    html_artifact_delivery_failed: bool,
+) -> str:
     if any(e == USER_PROMPT_REJECT_MESSAGE for e in errors):
         return USER_PROMPT_REJECT_MESSAGE
     if mismatch_delivery:
         return JOB_FAILURE_INCOMPLETE_CAROUSEL
+    if html_artifact_delivery_failed:
+        return JOB_FAILURE_HTML_ARTIFACT
     return JOB_FAILURE_GENERIC
 
 
@@ -102,7 +115,8 @@ async def finalize(state: AgentState) -> dict:
     expected = _compute_expected_delivery(state)
     mismatch = expected > 0 and len(artifacts) != expected
     failure_no_output = len(artifacts) == 0 and bool(errors)
-    send_failure_payload = mismatch or failure_no_output
+    html_gap = settings.require_html_artifact_upload and _artifacts_missing_required_html_keys(artifacts)
+    send_failure_payload = mismatch or failure_no_output or html_gap
 
     base = settings.go_api_url.rstrip("/")
     url = f"{base}/internal/jobs/{job_id}/complete"
@@ -120,7 +134,8 @@ async def finalize(state: AgentState) -> dict:
             hk = a.get("html_s3_key")
             if hk and str(hk).strip():
                 removal_keys.append(str(hk).strip())
-        if mismatch and removal_keys:
+        orphan_uploads_to_delete = bool(removal_keys) and (mismatch or html_gap)
+        if orphan_uploads_to_delete:
             try:
                 await asyncio.to_thread(
                     delete_slide_artifact_keys_sync,
@@ -130,7 +145,11 @@ async def finalize(state: AgentState) -> dict:
             except Exception as exc:
                 logger.error("finalize: slide cleanup failed job_id=%s err=%s", job_id, exc)
 
-        api_error = _failure_message_for_callback(errors, mismatch_delivery=mismatch)
+        api_error = _failure_message_for_callback(
+            errors,
+            mismatch_delivery=mismatch,
+            html_artifact_delivery_failed=html_gap,
+        )
         body: dict[str, object] = {"error": api_error}
         await _post_complete_with_transport_fallback(
             url=url,

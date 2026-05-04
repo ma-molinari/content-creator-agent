@@ -17,6 +17,31 @@ from app.state import AgentState
 logger = logging.getLogger(__name__)
 
 _MAX_TOKENS_RETRY_HINT = 800
+# When refining from S3 HTML, avoid injecting thread reprompt — only user instruction + profile.
+_EDIT_PRESERVE_BRIEF = (
+    "Mantenha o conteúdo e a estrutura dos slides existentes. "
+    "Aplique apenas as alterações pedidas na instrução do usuário; "
+    "não reescreva o carrossel nem derive novo copy ou layout a partir de resumos de conversa."
+)
+
+
+def brief_text_for_edit(state: AgentState) -> str:
+    """Brief block for edit_slides: optimized brief when present, else a minimal preserve directive.
+
+    For ``visual_only`` scope, narrative context is omitted so the model does not rewrite copy.
+
+    Stored HTML from S3 is the source of truth; thread ``reprompt_context`` is not injected here
+    so the model does not regenerate slides from conversation summaries.
+    """
+    if (state.get("refinement_scope") or "").strip().lower() == "visual_only":
+        return (
+            "Contexto narrativo omitido: edição estritamente visual. "
+            "Preserve o texto visível (P0); altere apenas CSS/cores/fundos conforme a instrução."
+        )
+    optimized = sanitize_brief_output(state.get("optimized_brief") or "").strip()
+    if optimized:
+        return optimized
+    return _EDIT_PRESERVE_BRIEF
 
 
 async def edit_slides(state: AgentState) -> dict[str, object]:
@@ -24,7 +49,7 @@ async def edit_slides(state: AgentState) -> dict[str, object]:
     settings = get_settings()
     system = read_prompt_md("edit_slides.md")
     profile = state.get("profile_text") or ""
-    brief = sanitize_brief_output(state.get("optimized_brief") or "")
+    brief = brief_text_for_edit(state)
     requested = state.get("requested_slide_count")
     max_tokens = compute_max_output_tokens(
         requested if isinstance(requested, int) else None,
@@ -68,6 +93,7 @@ async def edit_slides(state: AgentState) -> dict[str, object]:
     llm = ChatOpenAI(
         api_key=settings.openai_api_key,
         model=settings.openai_chat_model,
+        temperature=0,
         max_tokens=max_tokens,
     )
     msg = await llm.ainvoke(

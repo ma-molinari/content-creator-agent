@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import re
 
+from app.refinement_validate import existing_slides_index, visual_copy_preserved
 from app.state import AgentState, SlideItem, copy_errors
 
 logger = logging.getLogger(__name__)
@@ -126,6 +127,20 @@ def parse_validate(state: AgentState) -> dict:
     if not valid:
         head = "parse_validate: no valid slides after parsing markers"
         return _failure_return(errors, retry_count, [head] + diag)
+
+    if (
+        state.get("is_refinement")
+        and (state.get("refinement_scope") or "").strip().lower() == "visual_only"
+    ):
+        idx = existing_slides_index(state.get("existing_slide_html"))
+        ok_copy, copy_errs = visual_copy_preserved(idx, valid)
+        if not ok_copy:
+            logger.info(
+                "node=parse_validate job_id=%s copy_preservation failed count=%s",
+                state.get("job_id"),
+                len(copy_errs),
+            )
+            return _failure_return(errors, retry_count, copy_errs)
 
     return {"slides_html": valid, "errors": errors}
 

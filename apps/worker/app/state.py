@@ -55,6 +55,8 @@ class AgentState(TypedDict):
     existing_slide_html_s3_keys: NotRequired[list[str]]
     existing_slide_html: NotRequired[list[SlideItem]]
     is_refinement: NotRequired[bool]
+    # iterative refinement: visual_only | copy | layout | mixed (from detect_intent)
+    refinement_scope: NotRequired[str]
 
 
 def copy_errors(state: AgentState) -> list[str]:

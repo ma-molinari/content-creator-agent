@@ -116,6 +116,9 @@ async def upload_assets(state: AgentState) -> dict:
                         html_key,
                         e,
                     )
+                    errors.append(f"upload_assets {html_key}: {e!s}")
+            elif settings.require_html_artifact_upload:
+                errors.append(f"upload_assets missing html source for {fname} (expected {html_key})")
             artifacts.append(
                 {
                     "s3_key": key,
