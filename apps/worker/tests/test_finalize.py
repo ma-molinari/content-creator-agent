@@ -20,7 +20,6 @@ def _minimal_state(**kwargs: object) -> dict:
         "raw_message": "",
         "audit_text": "",
         "brand_text": "",
-        "reprompt_context": "",
         "profile_text": "",
         "optimized_brief": "",
         "raw_slide_output": "",

@@ -44,12 +44,20 @@ def build_graph():
     builder.add_edge("describe_references", "detect_intent")
 
     def route_after_detect_intent(state: AgentState) -> str:
-        return "edit" if state.get("is_refinement") else "new"
+        if state.get("refinement_context_unavailable"):
+            return "fail"
+        if state.get("is_refinement"):
+            return "edit"
+        return "new"
 
     builder.add_conditional_edges(
         "detect_intent",
         route_after_detect_intent,
-        {"edit": "edit_slides", "new": "optimize_prompt"},
+        {
+            "fail": "finalize",
+            "edit": "edit_slides",
+            "new": "optimize_prompt",
+        },
     )
     builder.add_edge("optimize_prompt", "validate_brief")
     builder.add_conditional_edges(

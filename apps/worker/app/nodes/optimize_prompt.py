@@ -21,7 +21,6 @@ async def optimize_prompt(state: AgentState) -> dict[str, object]:
     system = read_prompt_md("optimize_prompt.md")
     profile = state.get("profile_text") or ""
     raw = state.get("raw_message") or ""
-    reprompt = (state.get("reprompt_context") or "").strip()
     requested = state.get("requested_slide_count")
     user_parts = [
         "<perfil_usuario>",
@@ -38,16 +37,6 @@ async def optimize_prompt(state: AgentState) -> dict[str, object]:
                 "",
                 f"**Quantidade de slides (obrigatória):** o carrossel deve ter **exatamente {requested} slides** — "
                 "o brief e a estrutura narrativa devem respeitar esse N (nem a mais, nem a menos).",
-            ]
-        )
-    if reprompt:
-        user_parts.extend(["", "<contexto_anterior>", reprompt, "</contexto_anterior>"])
-        user_parts.extend(
-            [
-                "",
-                "Refinamento: preserve o tema comercial/narrativo do contexto anterior; trate o pedido atual "
-                "como especificações de layout/visual (seções Direção de layout e Restrições), não como novo "
-                "tópico que substitua o arco anterior.",
             ]
         )
     user_content = "\n".join(user_parts)

@@ -10,8 +10,10 @@ from app.api_client import post_complete_callback
 from app.config import get_settings
 from app.nodes.finalize_messages import (
     JOB_FAILURE_CALLBACK_TRANSPORT,
+    JOB_FAILURE_GENERIC,
     JOB_FAILURE_HTML_ARTIFACT,
     JOB_FAILURE_INCOMPLETE_CAROUSEL,
+    JOB_FAILURE_REFINEMENT_CONTEXT,
 )
 from app.prompt_security import USER_PROMPT_REJECT_MESSAGE
 from app.sanitize import sanitize_brief_output
@@ -54,6 +56,8 @@ def _failure_message_for_callback(
 ) -> str:
     if any(e == USER_PROMPT_REJECT_MESSAGE for e in errors):
         return USER_PROMPT_REJECT_MESSAGE
+    if any(e == JOB_FAILURE_REFINEMENT_CONTEXT for e in errors):
+        return JOB_FAILURE_REFINEMENT_CONTEXT
     if mismatch_delivery:
         return JOB_FAILURE_INCOMPLETE_CAROUSEL
     if html_artifact_delivery_failed:

@@ -17,7 +17,7 @@ from app.state import AgentState
 logger = logging.getLogger(__name__)
 
 _MAX_TOKENS_RETRY_HINT = 800
-# When refining from S3 HTML, avoid injecting thread reprompt — only user instruction + profile.
+# Refinement uses S3 HTML + user instruction + profile (no chat transcript).
 _EDIT_PRESERVE_BRIEF = (
     "Mantenha o conteúdo e a estrutura dos slides existentes. "
     "Aplique apenas as alterações pedidas na instrução do usuário; "
@@ -30,8 +30,7 @@ def brief_text_for_edit(state: AgentState) -> str:
 
     For ``visual_only`` scope, narrative context is omitted so the model does not rewrite copy.
 
-    Stored HTML from S3 is the source of truth; thread ``reprompt_context`` is not injected here
-    so the model does not regenerate slides from conversation summaries.
+    Stored HTML from S3 is the source of truth for what to preserve or edit.
     """
     if (state.get("refinement_scope") or "").strip().lower() == "visual_only":
         return (

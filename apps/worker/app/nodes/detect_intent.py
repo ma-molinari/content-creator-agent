@@ -1,9 +1,7 @@
-"""Load prior HTML from S3; when present, always take the refinement path.
+"""Load prior HTML from S3; refinement when the API signals a follow-up (`expects_slide_refinement`)
 
-If ``existing_slide_html_s3_keys`` is set and every object loads successfully, the pipeline
-uses stored HTML as the single source of truth and routes to ``edit_slides`` — no LLM
-intent step and no full ``optimize_prompt`` / ``generate_slides`` flow. Scope for
-``edit_slides`` (copy vs layout vs visual) is inferred heuristically from the user message.
+or when `existing_slide_html_s3_keys` is populated. Scope for ``edit_slides`` (copy vs layout vs
+visual) is inferred heuristically from the user message.
 """
 
 from __future__ import annotations
@@ -15,7 +13,8 @@ import boto3
 from botocore.exceptions import BotoCoreError, ClientError
 
 from app.config import get_settings
-from app.state import AgentState, SlideItem
+from app.nodes.finalize_messages import JOB_FAILURE_REFINEMENT_CONTEXT
+from app.state import AgentState, SlideItem, copy_errors
 
 logger = logging.getLogger(__name__)
 
@@ -161,30 +160,55 @@ async def _fetch_html_slides(keys: list[str], settings, job_id: str) -> list[Sli
 async def detect_intent(state: AgentState) -> dict[str, object]:
     jid = state.get("job_id") or ""
     logger.info("node=detect_intent job_id=%s", jid)
+    expects = bool(state.get("expects_slide_refinement"))
     keys = list(state.get("existing_slide_html_s3_keys") or [])
+    settings = get_settings()
+
+    def blocked() -> dict[str, object]:
+        return {
+            "is_refinement": False,
+            "existing_slide_html": [],
+            "refinement_context_unavailable": True,
+            "errors": copy_errors(state) + [JOB_FAILURE_REFINEMENT_CONTEXT],
+        }
+
+    async def build_refinement(html_keys: list[str]) -> dict[str, object] | None:
+        slides = await _fetch_html_slides(html_keys, settings, jid)
+        if not slides or len(slides) != len(html_keys):
+            logger.warning(
+                "node=detect_intent job_id=%s refinement aborted (S3 HTML fetch failed or incomplete)",
+                jid,
+            )
+            return None
+        raw_message = state.get("raw_message") or ""
+        refinement_scope = _infer_refinement_scope(raw_message)
+        logger.info(
+            "node=detect_intent job_id=%s refinement_scope=%s (from S3 HTML, no intent LLM)",
+            jid,
+            refinement_scope,
+        )
+        return {
+            "is_refinement": True,
+            "existing_slide_html": slides,
+            "requested_slide_count": len(slides),
+            "refinement_scope": refinement_scope,
+        }
+
+    if expects:
+        if not keys:
+            logger.warning(
+                "node=detect_intent job_id=%s expects_slide_refinement but no html s3 keys", jid
+            )
+            return blocked()
+        refined = await build_refinement(keys)
+        if refined is None:
+            return blocked()
+        return refined
+
     if not keys:
         return {"is_refinement": False, "existing_slide_html": []}
 
-    settings = get_settings()
-    slides = await _fetch_html_slides(keys, settings, jid)
-    if not slides:
-        logger.warning(
-            "node=detect_intent job_id=%s refinement aborted (S3 HTML fetch failed or incomplete)",
-            jid,
-        )
+    refined = await build_refinement(keys)
+    if refined is None:
         return {"is_refinement": False, "existing_slide_html": []}
-
-    raw_message = state.get("raw_message") or ""
-    refinement_scope = _infer_refinement_scope(raw_message)
-
-    logger.info(
-        "node=detect_intent job_id=%s refinement_scope=%s (from S3 HTML, no intent LLM)",
-        jid,
-        refinement_scope,
-    )
-    return {
-        "is_refinement": True,
-        "existing_slide_html": slides,
-        "requested_slide_count": len(slides),
-        "refinement_scope": refinement_scope,
-    }
+    return refined

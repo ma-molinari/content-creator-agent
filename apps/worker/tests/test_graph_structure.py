@@ -59,6 +59,7 @@ def test_graph_isr_ordering() -> None:
     assert ("describe_references", "optimize_prompt") not in edges
 
     detect = next(m for loc, m in conditionals if loc == "detect_intent")
+    assert detect["fail"] == "finalize"
     assert detect["edit"] == "edit_slides"
     assert detect["new"] == "optimize_prompt"
 

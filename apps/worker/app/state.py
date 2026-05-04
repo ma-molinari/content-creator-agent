@@ -28,7 +28,6 @@ class AgentState(TypedDict):
     raw_message: str
     audit_text: str
     brand_text: str
-    reprompt_context: str
     profile_text: str
     optimized_brief: str
     raw_slide_output: str
@@ -57,6 +56,10 @@ class AgentState(TypedDict):
     is_refinement: NotRequired[bool]
     # iterative refinement: visual_only | copy | layout | mixed (from detect_intent)
     refinement_scope: NotRequired[str]
+    # API: chat already had assistant slides before this job — must use edit path or fail clearly.
+    expects_slide_refinement: NotRequired[bool]
+    # detect_intent: cannot load HTML for a required refinement — route early to finalize.
+    refinement_context_unavailable: NotRequired[bool]
 
 
 def copy_errors(state: AgentState) -> list[str]:

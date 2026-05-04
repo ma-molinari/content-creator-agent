@@ -24,7 +24,7 @@ REASON_DELIMITER_TAG = "delimiter_tag"
 REASON_SLIDE_MARKER = "slide_marker"
 REASON_INJECTION_PHRASE = "injection_phrase"
 
-# Substrings that must not appear inside raw_message / reprompt_context (pipeline/XML escapes).
+# Substrings that must not appear inside raw_message (pipeline/XML escapes).
 _DELIMITER_SNIPPETS = (
     "</perfil_usuario>",
     "<perfil_usuario>",
@@ -102,16 +102,14 @@ def validate_user_prompt(state: AgentState) -> tuple[bool, str | None]:
     """Return (ok, reason_code). reason_code is for logging only when ok is False."""
     settings = get_settings()
     raw = state.get("raw_message") or ""
-    reprompt = state.get("reprompt_context") or ""
 
-    total_len = len(raw) + len(reprompt)
-    if total_len > settings.user_prompt_max_chars:
+    if len(raw) > settings.user_prompt_max_chars:
         return False, REASON_MAX_LENGTH
 
-    if _has_disallowed_controls(raw) or _has_disallowed_controls(reprompt):
+    if _has_disallowed_controls(raw):
         return False, REASON_CONTROL_CHARS
 
-    combined = f"{raw}\n{reprompt}"
+    combined = raw
     haystack = combined.lower()
     for snippet in _DELIMITER_SNIPPETS:
         if snippet.lower() in haystack:

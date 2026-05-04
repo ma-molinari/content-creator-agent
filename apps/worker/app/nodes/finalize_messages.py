@@ -15,3 +15,8 @@ JOB_FAILURE_HTML_ARTIFACT = (
 
 # Mirrors nested error callback sent when HTTP delivery fails.
 JOB_FAILURE_CALLBACK_TRANSPORT = "callback delivery failed"
+
+# Follow-up message required HTML sources for edit_slides but keys or S3 fetch failed.
+JOB_FAILURE_REFINEMENT_CONTEXT = (
+    "Não foi possível carregar o HTML dos slides anteriores para esta edição. Tente novamente."
+)
