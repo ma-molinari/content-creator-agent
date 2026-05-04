@@ -47,6 +47,8 @@ func (mockStorage) GetSignedURL(_ context.Context, key string, _ time.Duration) 
 	return "https://integration.test/presigned/" + key, nil
 }
 
+func (mockStorage) HeadObject(context.Context, string) error { return nil }
+
 func (mockStorage) GetObject(_ context.Context, _ string) ([]byte, error) {
 	return []byte{0xff, 0xd8}, nil
 }
@@ -132,6 +134,7 @@ func buildEcho(gdb *gorm.DB, cfg *config.Config, worker jobs.WorkerClient, stor 
 	protected.GET("/chats/:id", ch.GetChat)
 	protected.DELETE("/chats/:id", ch.DeleteChat)
 	protected.GET("/chats/:id/files/download", ch.DownloadZip)
+	protected.GET("/chats/:id/contents/:contentId/download", ch.DownloadContentZip)
 	protected.GET("/chats/:id/files", ch.ListFiles)
 	protected.GET("/chats/:id/files/:fileId", ch.GetFile)
 	protected.GET("/setup/status", ch.SetupStatus)
