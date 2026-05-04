@@ -72,7 +72,7 @@ api.interceptors.response.use(
     isRefreshing = true
 
     try {
-      const { data } = await api.post<{ accessToken: string }>('/auth/refresh')
+      const { data } = await apiSession.post<{ accessToken: string }>('/auth/refresh')
       const token = data.accessToken
       useAuthStore.getState().setAccessToken(token)
       drainQueue(null, token)

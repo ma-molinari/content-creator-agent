@@ -5,6 +5,25 @@ import { api } from './client'
 
 const JPEG_SOI_MARKER = Object.freeze([0xff, 0xd8, 0xff] as const)
 
+/** Local file header start of a ZIP (PK\x03\x04). */
+const ZIP_LOCAL_FILE_HEADER = Object.freeze([0x50, 0x4b, 0x03, 0x04] as const)
+
+const ZIP_BLOB_INVALID_MSG =
+  'A resposta do servidor não parece um ficheiro ZIP válido. Tente novamente.' as const
+
+async function assertValidZipBlob(blob: Blob): Promise<void> {
+  if (!(blob instanceof Blob) || blob.size === 0) {
+    throw new Error(ZIP_BLOB_INVALID_MSG)
+  }
+  const head = await blob.slice(0, ZIP_LOCAL_FILE_HEADER.length).arrayBuffer()
+  const bytes = new Uint8Array(head)
+  for (let i = 0; i < ZIP_LOCAL_FILE_HEADER.length; i++) {
+    if (bytes[i] !== ZIP_LOCAL_FILE_HEADER[i]) {
+      throw new Error(ZIP_BLOB_INVALID_MSG)
+    }
+  }
+}
+
 /** User-facing errors for invalid slide payloads (routing/HTML/JSON posing as JPEG). */
 const SLIDE_BLOB_INVALID_MSG = 'Resposta inválida ao carregar o slide.' as const
 
@@ -128,6 +147,7 @@ export async function fetchChatFilesZip(
       typeof headerVal === 'string' ? headerVal : undefined,
     )
     const filename = fromHeader ?? `slides-${chatId}.zip`
+    await assertValidZipBlob(res.data)
     return { blob: res.data, filename }
   } catch (err) {
     if (isAxiosError(err) && err.response?.data instanceof Blob) {
@@ -159,6 +179,7 @@ export async function downloadContentZip(
       typeof headerVal === 'string' ? headerVal : undefined,
     )
     const filename = fromHeader ?? `slides-${contentId}.zip`
+    await assertValidZipBlob(res.data)
     return { blob: res.data, filename }
   } catch (err) {
     if (isAxiosError(err) && err.response?.data instanceof Blob) {
