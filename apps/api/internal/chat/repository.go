@@ -132,30 +132,56 @@ func (r *Repository) CollectS3KeysForChat(ctx context.Context, chatID uuid.UUID)
 	return out, nil
 }
 
-// GetLatestAssistantHTMLKeys returns html_s3_key values from the most recent assistant
-// turn that has at least one non-null html_s3_key, ordered by slide_number.
+// ChatHasAssistantWithSlideArtifacts is true when the chat already has at least one JPEG
+// slide persisted for an assistant turn (prior generation vs this dispatch).
+func (r *Repository) ChatHasAssistantWithSlideArtifacts(ctx context.Context, chatID uuid.UUID) (bool, error) {
+	type row struct{ One int `gorm:"column:one"` }
+	var probe row
+	tx := r.db.WithContext(ctx).
+		Table("chat_content_image").
+		Select("1 AS one").
+		Joins("INNER JOIN chat_content ON chat_content.id = chat_content_image.chat_content_id").
+		Where("chat_content.chat_id = ?", chatID).
+		Where("chat_content.role = ?", db.ChatContentRoleAssistant).
+		Where(`LENGTH(TRIM(COALESCE(chat_content_image.s3_key, ''))) > 0`).
+		Limit(1).
+		Take(&probe).Error
+	if errors.Is(tx, gorm.ErrRecordNotFound) {
+		return false, nil
+	}
+	if tx != nil {
+		return false, tx
+	}
+	return true, nil
+}
+
+// GetLatestAssistantHTMLKeys walks assistant turns from newest to oldest and returns
+// html_s3_key values from the newest turn whose slide rows carry non-empty keys,
+// ordered by slide_number (skips stray empty-string keys in SQL).
 func (r *Repository) GetLatestAssistantHTMLKeys(ctx context.Context, chatID uuid.UUID) ([]string, error) {
-	var contentID uuid.UUID
-	sub := r.db.WithContext(ctx).
+	var contentIDs []uuid.UUID
+	if err := r.db.WithContext(ctx).
 		Model(&db.ChatContent{}).
-		Select("chat_content.id").
-		Joins("JOIN chat_content_image ON chat_content_image.chat_content_id = chat_content.id").
-		Where("chat_content.chat_id = ? AND chat_content.role = ? AND chat_content_image.html_s3_key IS NOT NULL", chatID, db.ChatContentRoleAssistant).
-		Order("chat_content.created_at DESC").
-		Limit(1)
-	if err := sub.Scan(&contentID).Error; err != nil {
+		Where("chat_id = ? AND role = ?", chatID, db.ChatContentRoleAssistant).
+		Order("created_at DESC").
+		Pluck("id", &contentIDs).Error; err != nil {
 		return nil, err
 	}
-	if contentID == uuid.Nil {
-		return nil, nil
+	for _, contentID := range contentIDs {
+		var htmlKeys []string
+		err := r.db.WithContext(ctx).
+			Model(&db.ChatContentImage{}).
+			Where(`chat_content_id = ? AND LENGTH(TRIM(COALESCE(html_s3_key, ''))) > 0`, contentID).
+			Order("slide_number ASC").
+			Pluck("html_s3_key", &htmlKeys).Error
+		if err != nil {
+			return nil, err
+		}
+		if len(htmlKeys) > 0 {
+			return htmlKeys, nil
+		}
 	}
-	var htmlKeys []string
-	err := r.db.WithContext(ctx).
-		Model(&db.ChatContentImage{}).
-		Where("chat_content_id = ? AND html_s3_key IS NOT NULL", contentID).
-		Order("slide_number ASC").
-		Pluck("html_s3_key", &htmlKeys).Error
-	return htmlKeys, err
+	return nil, nil
 }
 
 // ListImagesForContent returns images for a single assistant (or any) content row in the chat.

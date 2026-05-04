@@ -84,10 +84,6 @@ func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, raw
 	if body == "" {
 		return nil, ErrEmptyPrompt
 	}
-	history, err := s.buildRepromptContext(ctx, chatID, body)
-	if err != nil {
-		return nil, err
-	}
 	userMsg := &db.ChatContent{
 		ID:      uuid.New(),
 		ChatID:  chatID,
@@ -114,16 +110,21 @@ func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, raw
 		log.Printf("[chat] latest html keys chat_id=%s err=%v", chatID, err)
 		existingHTMLKeys = nil
 	}
+	expectsSlideRefinement, err := s.repo.ChatHasAssistantWithSlideArtifacts(ctx, chatID)
+	if err != nil {
+		log.Printf("[chat] prior slide artifact check chat_id=%s err=%v", chatID, err)
+		expectsSlideRefinement = false
+	}
 	payload := jobs.DispatchPayload{
-		JobID:                 job.ID,
-		UserID:                userID,
-		ChatID:                chatID,
-		RawMessage:            body,
-		AuditText:             auditText,
-		BrandText:             brandText,
-		RepromptContext:       history,
-		ReferenceS3Keys:       refKeys,
-		ExistingSlideHTMLKeys: existingHTMLKeys,
+		JobID:                  job.ID,
+		UserID:                 userID,
+		ChatID:                 chatID,
+		RawMessage:             body,
+		AuditText:              auditText,
+		BrandText:              brandText,
+		ReferenceS3Keys:        refKeys,
+		ExistingSlideHTMLKeys:  existingHTMLKeys,
+		ExpectsSlideRefinement: expectsSlideRefinement,
 	}
 	if err := s.worker.DispatchJob(ctx, payload); err != nil {
 		msg := err.Error()
@@ -132,43 +133,6 @@ func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, raw
 	}
 	log.Printf("[jobs] dispatch ok job_id=%s chat_id=%s", job.ID, chatID)
 	return &PostMessageResult{JobID: job.ID}, nil
-}
-
-func formatChatContentsForReprompt(contents []db.ChatContent) string {
-	var b strings.Builder
-	for _, c := range contents {
-		b.WriteString(string(c.Role))
-		b.WriteString(": ")
-		b.WriteString(c.Content)
-		b.WriteString("\n")
-	}
-	return strings.TrimSpace(b.String())
-}
-
-// buildRepromptContext builds narrative context for the worker. When a cron resume exists,
-// we still append recent messages plus the current user turn; otherwise refinements after the
-// summary see only stale text and the model may follow an outdated color/theme.
-func (s *Service) buildRepromptContext(ctx context.Context, chatID uuid.UUID, currentUserMessage string) (string, error) {
-	contents, err := s.repo.ListContentsOrdered(ctx, chatID)
-	if err != nil {
-		return "", err
-	}
-	transcript := formatChatContentsForReprompt(contents)
-	tail := transcript
-	if tail != "" {
-		tail += "\n"
-	}
-	tail += "user: " + strings.TrimSpace(currentUserMessage)
-
-	res, err := s.repo.GetResumeByChatID(ctx, chatID)
-	if err != nil {
-		return "", err
-	}
-	if res != nil && res.Summary != nil && strings.TrimSpace(*res.Summary) != "" {
-		sum := strings.TrimSpace(*res.Summary)
-		return strings.TrimSpace(sum + "\n\n--- Mensagens recentes ---\n" + tail), nil
-	}
-	return strings.TrimSpace(tail), nil
 }
 
 // JobStatusView is returned by GET /chats/:id/jobs/:jobId/status.

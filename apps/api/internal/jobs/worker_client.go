@@ -21,9 +21,11 @@ type DispatchPayload struct {
 	RawMessage            string    `json:"raw_message"`
 	AuditText             string    `json:"audit_text"`
 	BrandText             string    `json:"brand_text"`
-	RepromptContext       string    `json:"reprompt_context,omitempty"`
 	ReferenceS3Keys       []string  `json:"reference_s3_keys,omitempty"`
 	ExistingSlideHTMLKeys []string  `json:"existing_slide_html_s3_keys,omitempty"`
+	// ExpectsSlideRefinement: chat already has a prior assistant JPEG slide artifact;
+	// worker must refine from stored HTML keys or surface a refinement error.
+	ExpectsSlideRefinement bool `json:"expects_slide_refinement,omitempty"`
 }
 
 // WorkerClient dispatches async jobs to the Python worker.

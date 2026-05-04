@@ -304,7 +304,7 @@ func TestPostMessage_latestHTMLKeysError_degradesGracefully(t *testing.T) {
 	require.Nil(t, dispatched.ExistingSlideHTMLKeys)
 }
 
-func TestPostMessage_repromptContext_mergesResumeWithRecentMessages(t *testing.T) {
+func TestPostMessage_dispatchRawMessageAndExistingSlideHTMLKeys(t *testing.T) {
 	gdb, u := testDBWithUser(t)
 	for _, ddl := range []string{
 		`CREATE TABLE user_profiles (
@@ -374,8 +374,9 @@ func TestPostMessage_repromptContext_mergesResumeWithRecentMessages(t *testing.T
 		},
 	}
 	svc := NewService(repo, jobsRepo, &mockStorage{}, profileRepo, nil, worker)
+	wantHTMLKeys := []string{"slides/job-id/slide1.html"}
 	svc.latestAssistantHTMLKeys = func(context.Context, uuid.UUID) ([]string, error) {
-		return []string{"slides/job-id/slide1.html"}, nil
+		return wantHTMLKeys, nil
 	}
 
 	current := "agora cinza neutro"
@@ -383,11 +384,79 @@ func TestPostMessage_repromptContext_mergesResumeWithRecentMessages(t *testing.T
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	require.Equal(t, current, dispatched.RawMessage)
-	require.Contains(t, dispatched.RepromptContext, sum)
-	require.Contains(t, dispatched.RepromptContext, "mudar só a coloração para azul")
-	require.Contains(t, dispatched.RepromptContext, "Aplicando tons de azul.")
-	require.Contains(t, dispatched.RepromptContext, "--- Mensagens recentes ---")
-	require.Contains(t, dispatched.RepromptContext, "user: "+current)
+	require.Equal(t, wantHTMLKeys, dispatched.ExistingSlideHTMLKeys)
+}
+
+func TestPostMessage_dispatchSetsExpectsSlideRefinementWhenPriorAssistantSlidesExist(t *testing.T) {
+	gdb, u := testDBWithUser(t)
+	for _, ddl := range []string{
+		`CREATE TABLE user_profiles (
+			id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL UNIQUE,
+			audit_text TEXT NOT NULL DEFAULT '',
+			brand_text TEXT NOT NULL DEFAULT '',
+			created_at DATETIME,
+			updated_at DATETIME,
+			FOREIGN KEY (user_id) REFERENCES users(id)
+		)`,
+		`CREATE TABLE jobs (
+			id TEXT PRIMARY KEY,
+			chat_id TEXT NOT NULL,
+			user_id TEXT NOT NULL,
+			status TEXT NOT NULL,
+			error_msg TEXT,
+			created_at DATETIME,
+			updated_at DATETIME,
+			FOREIGN KEY (user_id) REFERENCES users(id),
+			FOREIGN KEY (chat_id) REFERENCES chats(id)
+		)`,
+	} {
+		require.NoError(t, gdb.Exec(ddl).Error)
+	}
+	require.NoError(t, gdb.Create(&db.UserProfile{
+		ID:        uuid.New(),
+		UserID:    u.ID,
+		AuditText: "audit",
+		BrandText: "brand",
+	}).Error)
+	repo := NewRepository(gdb)
+	jobsRepo := jobs.NewRepository(gdb)
+	profileRepo := profile.NewRepository(gdb)
+	chat := &db.Chat{ID: uuid.New(), UserID: u.ID, PostType: db.PostTypeSingle}
+	require.NoError(t, gdb.Create(chat).Error)
+
+	assistID := uuid.New()
+	require.NoError(t, gdb.Create(&db.ChatContent{
+		ID:        assistID,
+		ChatID:    chat.ID,
+		Role:      db.ChatContentRoleAssistant,
+		Content:   "done",
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+	}).Error)
+	require.NoError(t, gdb.Create(&db.ChatContentImage{
+		ID:            uuid.New(),
+		ChatContentID: assistID,
+		S3Key:         "slides/prior-job/slide01.jpeg",
+		URL:           "https://example.com/preview",
+		SlideNumber:   1,
+		CreatedAt:     time.Now().UTC(),
+		UpdatedAt:     time.Now().UTC(),
+	}).Error)
+
+	var dispatched jobs.DispatchPayload
+	worker := &mockDispatchWorker{
+		fn: func(p *jobs.DispatchPayload) error {
+			dispatched = *p
+			return nil
+		},
+	}
+	svc := NewService(repo, jobsRepo, &mockStorage{}, profileRepo, nil, worker)
+
+	res, err := svc.PostMessage(context.Background(), u.ID, chat.ID, "change copy only")
+	require.NoError(t, err)
+	require.NotNil(t, res)
+	require.True(t, dispatched.ExpectsSlideRefinement, "second turn should refine when slides already exist")
 }
 
 type missingObjectStorage struct {
