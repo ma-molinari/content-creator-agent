@@ -94,6 +94,25 @@ async function messageFromErrorBlob(blob: Blob): Promise<string | null> {
   }
 }
 
+type ZipDownloadScope = 'chat' | 'message'
+
+/** Generic HTTP 404 (e.g. Echo "Not Found") — user-facing fallback instead of the English body. */
+const ZIP_404_ROUTE_OR_GENERIC_MSG =
+  'Não foi possível iniciar o download. Tente novamente mais tarde.' as const
+
+function mapZip404UserMessage(scope: ZipDownloadScope, serverMsg: string | null): string {
+  const trimmed = typeof serverMsg === 'string' ? serverMsg.trim() : ''
+  if (!trimmed || trimmed === 'no files') {
+    return scope === 'chat'
+      ? 'Não há ficheiros neste chat para baixar.'
+      : 'Não há ficheiros nesta mensagem para baixar.'
+  }
+  if (trimmed.toLowerCase() === 'not found') {
+    return ZIP_404_ROUTE_OR_GENERIC_MSG
+  }
+  return trimmed
+}
+
 /**
  * Fetches the chat slides ZIP with auth. Rejects with Error (user-facing message) on failure.
  */
@@ -115,11 +134,7 @@ export async function fetchChatFilesZip(
       const status = err.response.status
       const serverMsg = await messageFromErrorBlob(err.response.data)
       if (status === 404) {
-        throw new Error(
-          serverMsg === 'no files' || !serverMsg
-            ? 'Não há ficheiros neste chat para baixar.'
-            : serverMsg,
-        )
+        throw new Error(mapZip404UserMessage('chat', serverMsg))
       }
       throw new Error(serverMsg ?? 'Não foi possível baixar o ZIP. Tente novamente.')
     }
@@ -150,11 +165,7 @@ export async function downloadContentZip(
       const status = err.response.status
       const serverMsg = await messageFromErrorBlob(err.response.data)
       if (status === 404) {
-        throw new Error(
-          serverMsg === 'no files' || !serverMsg
-            ? 'Não há ficheiros nesta mensagem para baixar.'
-            : serverMsg,
-        )
+        throw new Error(mapZip404UserMessage('message', serverMsg))
       }
       throw new Error(serverMsg ?? 'Não foi possível baixar o ZIP. Tente novamente.')
     }
