@@ -97,14 +97,104 @@ func (r *Repository) GetByIDWithContents(ctx context.Context, id uuid.UUID) (*db
 	return &c, nil
 }
 
-// CollectS3KeysForChat returns all s3_key values for images in the chat.
+// CollectS3KeysForChat returns all s3_key values for images in the chat,
+// plus distinct html_s3_key values when set (for eviction/delete cleanup).
 func (r *Repository) CollectS3KeysForChat(ctx context.Context, chatID uuid.UUID) ([]string, error) {
 	var keys []string
 	sub := r.db.WithContext(ctx).Model(&db.ChatContent{}).Select("id").Where("chat_id = ?", chatID)
-	err := r.db.WithContext(ctx).Model(&db.ChatContentImage{}).
+	if err := r.db.WithContext(ctx).Model(&db.ChatContentImage{}).
 		Where("chat_content_id IN (?)", sub).
-		Pluck("s3_key", &keys).Error
-	return keys, err
+		Pluck("s3_key", &keys).Error; err != nil {
+		return nil, err
+	}
+	var htmlKeys []string
+	if err := r.db.WithContext(ctx).Model(&db.ChatContentImage{}).
+		Where("chat_content_id IN (?) AND html_s3_key IS NOT NULL AND html_s3_key != ''", sub).
+		Pluck("html_s3_key", &htmlKeys).Error; err != nil {
+		return nil, err
+	}
+	seen := make(map[string]struct{}, len(keys)+len(htmlKeys))
+	out := make([]string, 0, len(keys)+len(htmlKeys))
+	for _, k := range keys {
+		if _, ok := seen[k]; ok {
+			continue
+		}
+		seen[k] = struct{}{}
+		out = append(out, k)
+	}
+	for _, k := range htmlKeys {
+		if _, ok := seen[k]; ok {
+			continue
+		}
+		seen[k] = struct{}{}
+		out = append(out, k)
+	}
+	return out, nil
+}
+
+// ChatHasAssistantWithSlideArtifacts is true when the chat already has at least one JPEG
+// slide persisted for an assistant turn (prior generation vs this dispatch).
+func (r *Repository) ChatHasAssistantWithSlideArtifacts(ctx context.Context, chatID uuid.UUID) (bool, error) {
+	type row struct{ One int `gorm:"column:one"` }
+	var probe row
+	dbErr := r.db.WithContext(ctx).
+		Table("chat_content_image").
+		Select("1 AS one").
+		Joins("INNER JOIN chat_content ON chat_content.id = chat_content_image.chat_content_id").
+		Where("chat_content.chat_id = ?", chatID).
+		Where("chat_content.role = ?", db.ChatContentRoleAssistant).
+		Where(`LENGTH(TRIM(COALESCE(chat_content_image.s3_key, ''))) > 0`).
+		Limit(1).
+		Take(&probe).Error
+	if errors.Is(dbErr, gorm.ErrRecordNotFound) {
+		return false, nil
+	}
+	if dbErr != nil {
+		return false, dbErr
+	}
+	return true, nil
+}
+
+// GetLatestAssistantHTMLKeys returns html_s3_key values from the newest assistant turn
+// that has at least one non-empty html_s3_key, ordered by slide_number.
+func (r *Repository) GetLatestAssistantHTMLKeys(ctx context.Context, chatID uuid.UUID) ([]string, error) {
+	var htmlKeys []string
+	err := r.db.WithContext(ctx).Raw(`
+		WITH turns_with_html AS (
+			SELECT cc.id, cc.created_at
+			FROM chat_content cc
+			INNER JOIN chat_content_image cci ON cci.chat_content_id = cc.id
+			WHERE cc.chat_id = ? AND cc.role = ?
+				AND LENGTH(TRIM(COALESCE(cci.html_s3_key, ''))) > 0
+			GROUP BY cc.id, cc.created_at
+		),
+		newest AS (
+			SELECT id FROM turns_with_html ORDER BY created_at DESC, id DESC LIMIT 1
+		)
+		SELECT cci.html_s3_key
+		FROM chat_content_image cci
+		WHERE cci.chat_content_id IN (SELECT id FROM newest)
+			AND LENGTH(TRIM(COALESCE(cci.html_s3_key, ''))) > 0
+		ORDER BY cci.slide_number ASC
+	`, chatID, db.ChatContentRoleAssistant).Scan(&htmlKeys).Error
+	if err != nil {
+		return nil, err
+	}
+	if len(htmlKeys) == 0 {
+		return nil, nil
+	}
+	return htmlKeys, nil
+}
+
+// ListImagesForContent returns images for a single assistant (or any) content row in the chat.
+func (r *Repository) ListImagesForContent(ctx context.Context, chatID, contentID uuid.UUID) ([]db.ChatContentImage, error) {
+	var imgs []db.ChatContentImage
+	err := r.db.WithContext(ctx).
+		Joins("JOIN chat_content ON chat_content.id = chat_content_image.chat_content_id").
+		Where("chat_content_image.chat_content_id = ? AND chat_content.chat_id = ?", contentID, chatID).
+		Order("chat_content_image.slide_number ASC").
+		Find(&imgs).Error
+	return imgs, err
 }
 
 // DeleteChat hard-deletes the chat row (DB cascades to related rows).

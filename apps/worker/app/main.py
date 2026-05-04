@@ -59,8 +59,10 @@ class DispatchPayload(BaseModel):
     raw_message: str = ""
     audit_text: str = ""
     brand_text: str = ""
-    reprompt_context: str = ""
     reference_s3_keys: list[str] | None = None
+    # HTML slide sources from last assistant turn (Go API); used to detect edit vs full regen.
+    existing_slide_html_s3_keys: list[str] | None = None
+    expects_slide_refinement: bool = False
     # Optional: quando a API enviar N explícito; senão o worker infere a partir de raw_message.
     requested_slide_count: int | None = None
 
@@ -76,8 +78,11 @@ def _initial_state(payload: DispatchPayload) -> AgentState:
         "raw_message": payload.raw_message,
         "audit_text": payload.audit_text,
         "brand_text": payload.brand_text,
-        "reprompt_context": payload.reprompt_context or "",
         "reference_s3_keys": list(payload.reference_s3_keys or []),
+        "existing_slide_html_s3_keys": list(payload.existing_slide_html_s3_keys or []),
+        "existing_slide_html": [],
+        "expects_slide_refinement": bool(payload.expects_slide_refinement),
+        "is_refinement": False,
         "requested_slide_count": n,
         "profile_text": "",
         "optimized_brief": "",

@@ -24,7 +24,9 @@ def _retry_feedback(errors: list[str] | None) -> str:
     relevant = [
         e
         for e in errors
-        if "parse_validate:" in (e or "") or "design_validate:" in (e or "")
+        if "parse_validate:" in (e or "")
+        or "design_validate:" in (e or "")
+        or "copy_preservation:" in (e or "")
     ]
     lines = relevant[-8:] if relevant else []
     if not lines:

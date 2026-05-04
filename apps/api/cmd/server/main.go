@@ -52,9 +52,17 @@ func main() {
 	refRepo := profile.NewReferencesRepository(gdb)
 	profileSvc := profile.NewService(profileRepo, refRepo, stor, cfg.ProfileRefMaxCount, cfg.ProfileRefMaxBytes)
 	profileH := profile.NewHandler(profileSvc)
+	wURL := strings.TrimSpace(cfg.WorkerURL)
+	wKey := strings.TrimSpace(cfg.WorkerAPIKey)
+	if wURL != "" && wKey == "" {
+		log.Fatal("WORKER_API_KEY must be set when WORKER_URL is configured")
+	}
+	if wKey != "" && wURL == "" {
+		log.Fatal("WORKER_URL must be set when WORKER_API_KEY is configured")
+	}
 	var worker jobs.WorkerClient
-	if cfg.WorkerURL != "" {
-		worker = jobs.NewHTTPWorkerClient(cfg.WorkerURL, cfg.WorkerAPIKey)
+	if wURL != "" {
+		worker = jobs.NewHTTPWorkerClient(wURL, wKey)
 	}
 	chatSvc := chat.NewService(chatRepo, jobsRepo, stor, profileRepo, profileSvc, worker)
 	ch := chat.NewHandler(chatSvc)
@@ -146,6 +154,7 @@ func main() {
 	protected.GET("/chats/:id", ch.GetChat)
 	protected.DELETE("/chats/:id", ch.DeleteChat)
 	protected.GET("/chats/:id/files/download", ch.DownloadZip)
+	protected.GET("/chats/:id/contents/:contentId/download", ch.DownloadContentZip)
 	protected.GET("/chats/:id/files", ch.ListFiles)
 	protected.GET("/chats/:id/files/:fileId", ch.GetFile)
 	protected.GET("/setup/status", ch.SetupStatus)

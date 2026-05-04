@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -15,14 +16,17 @@ import (
 
 // DispatchPayload is sent to POST {WORKER_URL}/jobs.
 type DispatchPayload struct {
-	JobID           uuid.UUID `json:"job_id"`
-	UserID          uuid.UUID `json:"user_id"`
-	ChatID          uuid.UUID `json:"chat_id"`
-	RawMessage      string    `json:"raw_message"`
-	AuditText       string    `json:"audit_text"`
-	BrandText       string    `json:"brand_text"`
-	RepromptContext string    `json:"reprompt_context,omitempty"`
-	ReferenceS3Keys []string  `json:"reference_s3_keys,omitempty"`
+	JobID                 uuid.UUID `json:"job_id"`
+	UserID                uuid.UUID `json:"user_id"`
+	ChatID                uuid.UUID `json:"chat_id"`
+	RawMessage            string    `json:"raw_message"`
+	AuditText             string    `json:"audit_text"`
+	BrandText             string    `json:"brand_text"`
+	ReferenceS3Keys       []string  `json:"reference_s3_keys,omitempty"`
+	ExistingSlideHTMLKeys []string  `json:"existing_slide_html_s3_keys,omitempty"`
+	// ExpectsSlideRefinement: chat already has a prior assistant JPEG slide artifact;
+	// worker must refine from stored HTML keys or surface a refinement error.
+	ExpectsSlideRefinement bool `json:"expects_slide_refinement,omitempty"`
 }
 
 // WorkerClient dispatches async jobs to the Python worker.
@@ -76,7 +80,13 @@ func (c *HTTPWorkerClient) DispatchJob(ctx context.Context, payload DispatchPayl
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		log.Printf("[jobs] dispatch worker HTTP error job_id=%s status=%d", payload.JobID, resp.StatusCode)
+		snip, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		log.Printf(
+			"[jobs] dispatch worker HTTP error job_id=%s status=%d body_snippet=%q",
+			payload.JobID,
+			resp.StatusCode,
+			strings.TrimSpace(string(snip)),
+		)
 		return fmt.Errorf("jobs: worker returned %s", resp.Status)
 	}
 	return nil

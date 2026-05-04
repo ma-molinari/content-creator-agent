@@ -42,6 +42,10 @@ O ficheiro `docker-compose.prod.yml` define `restart: unless-stopped` e injeta `
 | API | `GET http://<host>:8080/health` |
 | Worker | `GET http://<host>:8000/health` |
 
+## Desenvolvimento local (API em Docker)
+
+Se alterar rotas ou handlers Go e a API correr dentro do Compose, reconstrua o serviço `api` antes de esperar novas URLs no navegador (ex.: `docker compose build api` e `docker compose up -d api`). Um binário antigo em `:8080` devolve **404** genérico ao frontend (via Vite proxy) quando a rota ainda não existia na build em execução — por exemplo `GET /chats/:id/contents/:contentId/download`.
+
 ## Logs por `job_id`
 
 A API e o worker passam a registar `job_id` em pontos críticos.

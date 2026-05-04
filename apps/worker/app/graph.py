@@ -3,6 +3,8 @@
 from langgraph.graph import END, StateGraph
 
 from app.nodes.describe_references import describe_references
+from app.nodes.detect_intent import detect_intent
+from app.nodes.edit_slides import edit_slides
 from app.nodes.finalize import finalize
 from app.nodes.generate_slides import generate_slides
 from app.nodes.load_profile import load_profile
@@ -24,7 +26,9 @@ def build_graph():
     builder.add_node("describe_references", describe_references)
     builder.add_node("optimize_prompt", optimize_prompt)
     builder.add_node("validate_brief", validate_brief)
+    builder.add_node("detect_intent", detect_intent)
     builder.add_node("generate_slides", generate_slides)
+    builder.add_node("edit_slides", edit_slides)
     builder.add_node("parse_validate", parse_validate)
     builder.add_node("design_validate", design_validate)
     builder.add_node("contrast_fix", contrast_fix)
@@ -39,7 +43,24 @@ def build_graph():
         route_after_prompt_security,
         {"ok": "describe_references", "rejected": "finalize"},
     )
-    builder.add_edge("describe_references", "optimize_prompt")
+    builder.add_edge("describe_references", "detect_intent")
+
+    def route_after_detect_intent(state: AgentState) -> str:
+        if state.get("refinement_context_unavailable"):
+            return "fail"
+        if state.get("is_refinement"):
+            return "edit"
+        return "new"
+
+    builder.add_conditional_edges(
+        "detect_intent",
+        route_after_detect_intent,
+        {
+            "fail": "finalize",
+            "edit": "edit_slides",
+            "new": "optimize_prompt",
+        },
+    )
     builder.add_edge("optimize_prompt", "validate_brief")
     builder.add_conditional_edges(
         "validate_brief",
@@ -47,15 +68,26 @@ def build_graph():
         {"ok": "generate_slides", "retry": "optimize_prompt", "fail": "finalize"},
     )
     builder.add_edge("generate_slides", "parse_validate")
+    builder.add_edge("edit_slides", "parse_validate")
     builder.add_conditional_edges(
         "parse_validate",
         route_after_parse,
-        {"retry": "generate_slides", "continue": "design_validate", "fail": "finalize"},
+        {
+            "retry_edit": "edit_slides",
+            "retry_new": "generate_slides",
+            "continue": "design_validate",
+            "fail": "finalize",
+        },
     )
     builder.add_conditional_edges(
         "design_validate",
         route_after_design,
-        {"retry": "generate_slides", "continue": "contrast_fix", "fail": "finalize"},
+        {
+            "retry_edit": "edit_slides",
+            "retry_new": "generate_slides",
+            "continue": "contrast_fix",
+            "fail": "finalize",
+        },
     )
     builder.add_edge("contrast_fix", "render_to_jpeg")
     builder.add_edge("render_to_jpeg", "upload_assets")

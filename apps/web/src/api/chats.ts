@@ -5,6 +5,25 @@ import { api } from './client'
 
 const JPEG_SOI_MARKER = Object.freeze([0xff, 0xd8, 0xff] as const)
 
+/** Local file header start of a ZIP (PK\x03\x04). */
+const ZIP_LOCAL_FILE_HEADER = Object.freeze([0x50, 0x4b, 0x03, 0x04] as const)
+
+const ZIP_BLOB_INVALID_MSG =
+  'A resposta do servidor não parece um ficheiro ZIP válido. Tente novamente.' as const
+
+async function assertValidZipBlob(blob: Blob): Promise<void> {
+  if (!(blob instanceof Blob) || blob.size === 0) {
+    throw new Error(ZIP_BLOB_INVALID_MSG)
+  }
+  const head = await blob.slice(0, ZIP_LOCAL_FILE_HEADER.length).arrayBuffer()
+  const bytes = new Uint8Array(head)
+  for (let i = 0; i < ZIP_LOCAL_FILE_HEADER.length; i++) {
+    if (bytes[i] !== ZIP_LOCAL_FILE_HEADER[i]) {
+      throw new Error(ZIP_BLOB_INVALID_MSG)
+    }
+  }
+}
+
 /** User-facing errors for invalid slide payloads (routing/HTML/JSON posing as JPEG). */
 const SLIDE_BLOB_INVALID_MSG = 'Resposta inválida ao carregar o slide.' as const
 
@@ -94,6 +113,25 @@ async function messageFromErrorBlob(blob: Blob): Promise<string | null> {
   }
 }
 
+type ZipDownloadScope = 'chat' | 'message'
+
+/** Generic HTTP 404 (e.g. Echo "Not Found") — user-facing fallback instead of the English body. */
+const ZIP_404_ROUTE_OR_GENERIC_MSG =
+  'Não foi possível iniciar o download. Tente novamente mais tarde.' as const
+
+function mapZip404UserMessage(scope: ZipDownloadScope, serverMsg: string | null): string {
+  const trimmed = typeof serverMsg === 'string' ? serverMsg.trim() : ''
+  if (!trimmed || trimmed === 'no files') {
+    return scope === 'chat'
+      ? 'Não há ficheiros neste chat para baixar.'
+      : 'Não há ficheiros nesta mensagem para baixar.'
+  }
+  if (trimmed.toLowerCase() === 'not found') {
+    return ZIP_404_ROUTE_OR_GENERIC_MSG
+  }
+  return trimmed
+}
+
 /**
  * Fetches the chat slides ZIP with auth. Rejects with Error (user-facing message) on failure.
  */
@@ -109,17 +147,46 @@ export async function fetchChatFilesZip(
       typeof headerVal === 'string' ? headerVal : undefined,
     )
     const filename = fromHeader ?? `slides-${chatId}.zip`
+    await assertValidZipBlob(res.data)
     return { blob: res.data, filename }
   } catch (err) {
     if (isAxiosError(err) && err.response?.data instanceof Blob) {
       const status = err.response.status
       const serverMsg = await messageFromErrorBlob(err.response.data)
       if (status === 404) {
-        throw new Error(
-          serverMsg === 'no files' || !serverMsg
-            ? 'Não há ficheiros neste chat para baixar.'
-            : serverMsg,
-        )
+        throw new Error(mapZip404UserMessage('chat', serverMsg))
+      }
+      throw new Error(serverMsg ?? 'Não foi possível baixar o ZIP. Tente novamente.')
+    }
+    throw new Error('Não foi possível baixar o ZIP. Tente novamente.')
+  }
+}
+
+/**
+ * Fetches a ZIP of slides for one assistant message. Rejects with Error (user-facing message) on failure.
+ */
+export async function downloadContentZip(
+  chatId: string,
+  contentId: string,
+): Promise<{ blob: Blob; filename: string }> {
+  try {
+    const res = await api.get<Blob>(
+      `/chats/${chatId}/contents/${contentId}/download`,
+      { responseType: 'blob' },
+    )
+    const headerVal = res.headers['content-disposition']
+    const fromHeader = parseFilenameFromContentDisposition(
+      typeof headerVal === 'string' ? headerVal : undefined,
+    )
+    const filename = fromHeader ?? `slides-${contentId}.zip`
+    await assertValidZipBlob(res.data)
+    return { blob: res.data, filename }
+  } catch (err) {
+    if (isAxiosError(err) && err.response?.data instanceof Blob) {
+      const status = err.response.status
+      const serverMsg = await messageFromErrorBlob(err.response.data)
+      if (status === 404) {
+        throw new Error(mapZip404UserMessage('message', serverMsg))
       }
       throw new Error(serverMsg ?? 'Não foi possível baixar o ZIP. Tente novamente.')
     }

@@ -69,6 +69,10 @@ func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, raw
 	if err != nil {
 		return nil, err
 	}
+	body := SanitizeUserInput(rawBody)
+	if body == "" {
+		return nil, ErrEmptyPrompt
+	}
 	auditText, brandText, err := s.loadAuditBrandTexts(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -79,14 +83,6 @@ func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, raw
 		if err != nil {
 			return nil, err
 		}
-	}
-	body := SanitizeUserInput(rawBody)
-	if body == "" {
-		return nil, ErrEmptyPrompt
-	}
-	history, err := s.buildRepromptContext(ctx, chatID)
-	if err != nil {
-		return nil, err
 	}
 	userMsg := &db.ChatContent{
 		ID:      uuid.New(),
@@ -109,45 +105,36 @@ func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, raw
 	if err := s.repo.CreateUserMessageAndJob(ctx, userMsg, job, setTitle); err != nil {
 		return nil, err
 	}
+	existingHTMLKeys, err := s.latestAssistantHTMLKeys(ctx, chatID)
+	if err != nil {
+		log.Printf("[chat] latest html keys chat_id=%s err=%v", chatID, err)
+		existingHTMLKeys = nil
+	}
+	expectsSlideRefinement, err := s.repo.ChatHasAssistantWithSlideArtifacts(ctx, chatID)
+	if err != nil {
+		log.Printf("[chat] prior slide artifact check chat_id=%s err=%v", chatID, err)
+		expectsSlideRefinement = false
+	}
 	payload := jobs.DispatchPayload{
-		JobID:             job.ID,
-		UserID:            userID,
-		ChatID:            chatID,
-		RawMessage:        body,
-		AuditText:         auditText,
-		BrandText:         brandText,
-		RepromptContext:   history,
-		ReferenceS3Keys:   refKeys,
+		JobID:                  job.ID,
+		UserID:                 userID,
+		ChatID:                 chatID,
+		RawMessage:             body,
+		AuditText:              auditText,
+		BrandText:              brandText,
+		ReferenceS3Keys:        refKeys,
+		ExistingSlideHTMLKeys:  existingHTMLKeys,
+		ExpectsSlideRefinement: expectsSlideRefinement,
 	}
 	if err := s.worker.DispatchJob(ctx, payload); err != nil {
 		msg := err.Error()
-		_ = s.jobsRepo.UpdateStatus(ctx, job.ID, db.JobStatusFailed, &msg)
+		if upErr := s.jobsRepo.UpdateStatus(ctx, job.ID, db.JobStatusFailed, &msg); upErr != nil {
+			log.Printf("[chat] job mark failed after dispatch error job_id=%s update_err=%v dispatch_err=%v", job.ID, upErr, err)
+		}
 		return nil, ErrWorkerDispatchFailed
 	}
 	log.Printf("[jobs] dispatch ok job_id=%s chat_id=%s", job.ID, chatID)
 	return &PostMessageResult{JobID: job.ID}, nil
-}
-
-func (s *Service) buildRepromptContext(ctx context.Context, chatID uuid.UUID) (string, error) {
-	res, err := s.repo.GetResumeByChatID(ctx, chatID)
-	if err != nil {
-		return "", err
-	}
-	if res != nil && res.Summary != nil && strings.TrimSpace(*res.Summary) != "" {
-		return strings.TrimSpace(*res.Summary), nil
-	}
-	contents, err := s.repo.ListContentsOrdered(ctx, chatID)
-	if err != nil {
-		return "", err
-	}
-	var b strings.Builder
-	for _, c := range contents {
-		b.WriteString(string(c.Role))
-		b.WriteString(": ")
-		b.WriteString(c.Content)
-		b.WriteString("\n")
-	}
-	return strings.TrimSpace(b.String()), nil
 }
 
 // JobStatusView is returned by GET /chats/:id/jobs/:jobId/status.

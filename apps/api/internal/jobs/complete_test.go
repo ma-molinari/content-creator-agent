@@ -3,10 +3,12 @@ package jobs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
 	"content-creator-agent/internal/db"
+	"content-creator-agent/internal/storage"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -21,6 +23,8 @@ func (testStore) Upload(context.Context, string, []byte) error { return nil }
 func (testStore) GetSignedURL(context.Context, string, time.Duration) (string, error) {
 	return "https://example.com/signed", nil
 }
+
+func (testStore) HeadObject(context.Context, string) error { return nil }
 
 func (testStore) GetObject(context.Context, string) ([]byte, error) { return nil, nil }
 
@@ -56,6 +60,7 @@ func testCompleteSchemaDB(t *testing.T) *gorm.DB {
 			s3_key TEXT NOT NULL,
 			url TEXT NOT NULL,
 			slide_number INTEGER NOT NULL,
+			html_s3_key TEXT,
 			created_at DATETIME,
 			updated_at DATETIME,
 			FOREIGN KEY (chat_content_id) REFERENCES chat_content(id)
@@ -164,6 +169,46 @@ func TestCompleteAssistantReply_successThenIdempotent(t *testing.T) {
 	require.Equal(t, db.JobStatusDone, j.Status)
 }
 
+func TestCompleteAssistantReply_persistsHtmlS3KeyWhenPresent(t *testing.T) {
+	gdb := testCompleteSchemaDB(t)
+	ctx := context.Background()
+	jobID := uuid.New()
+	chatID := uuid.New()
+	userID := uuid.New()
+	now := time.Now().UTC()
+	require.NoError(t, gdb.Create(&db.Chat{
+		ID:        chatID,
+		UserID:    userID,
+		PostType:  db.PostTypeSingle,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}).Error)
+	require.NoError(t, gdb.Create(&db.Job{
+		ID:        jobID,
+		ChatID:    chatID,
+		UserID:    userID,
+		Status:    db.JobStatusProcessing,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}).Error)
+
+	jpegKey := "slides/" + jobID.String() + "/slide_01.jpeg"
+	htmlKey := "slides/" + jobID.String() + "/slide_01.html"
+	artifacts := []ArtifactRef{{
+		S3Key:       jpegKey,
+		SlideNumber: 1,
+		HtmlS3Key:   &htmlKey,
+	}}
+
+	_, err := CompleteAssistantReply(ctx, gdb, jobID, "reply with html", artifacts, testStore{})
+	require.NoError(t, err)
+
+	var img db.ChatContentImage
+	require.NoError(t, gdb.First(&img, "s3_key = ?", jpegKey).Error)
+	require.NotNil(t, img.HtmlS3Key)
+	require.Equal(t, htmlKey, *img.HtmlS3Key)
+}
+
 func TestApplyWorkerFailure_noopWhenDone(t *testing.T) {
 	gdb := testCompleteSchemaDB(t)
 	ctx := context.Background()
@@ -231,4 +276,46 @@ func TestCompleteAssistantReply_pendingNotAllowed(t *testing.T) {
 
 	_, err := CompleteAssistantReply(ctx, gdb, jobID, "x", nil, testStore{})
 	require.True(t, errors.Is(err, ErrJobNotProcessing))
+}
+
+type headMissingStore struct{ testStore }
+
+func (headMissingStore) HeadObject(context.Context, string) error {
+	return fmt.Errorf("wrap: %w", storage.ErrObjectNotFound)
+}
+
+func TestCompleteAssistantReply_rejectsMissingS3Object(t *testing.T) {
+	gdb := testCompleteSchemaDB(t)
+	ctx := context.Background()
+	jobID := uuid.New()
+	chatID := uuid.New()
+	userID := uuid.New()
+	now := time.Now().UTC()
+	require.NoError(t, gdb.Create(&db.Chat{
+		ID:        chatID,
+		UserID:    userID,
+		PostType:  db.PostTypeSingle,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}).Error)
+	require.NoError(t, gdb.Create(&db.Job{
+		ID:        jobID,
+		ChatID:    chatID,
+		UserID:    userID,
+		Status:    db.JobStatusProcessing,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}).Error)
+
+	key := "slides/" + jobID.String() + "/slide-1.jpg"
+	_, err := CompleteAssistantReply(ctx, gdb, jobID, "hello", []ArtifactRef{{S3Key: key, SlideNumber: 1}}, headMissingStore{})
+	require.ErrorIs(t, err, ErrArtifactObjectNotFound)
+
+	var contents int64
+	require.NoError(t, gdb.Model(&db.ChatContent{}).Where("chat_id = ?", chatID).Count(&contents).Error)
+	require.Zero(t, contents)
+
+	var j db.Job
+	require.NoError(t, gdb.First(&j, "id = ?", jobID).Error)
+	require.Equal(t, db.JobStatusProcessing, j.Status)
 }

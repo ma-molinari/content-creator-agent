@@ -28,12 +28,32 @@ def _put_object_sync(client, bucket: str, key: str, body: bytes) -> None:
     client.put_object(Bucket=bucket, Key=key, Body=body, ContentType="image/jpeg")
 
 
+def _put_html_sync(client, bucket: str, key: str, body: bytes) -> None:
+    client.put_object(Bucket=bucket, Key=key, Body=body, ContentType="text/html; charset=utf-8")
+
+
 async def _upload_with_retry(client, bucket: str, key: str, body: bytes) -> None:
     delay = 0.5
     last: Exception | None = None
     for attempt in range(_MAX_ATTEMPTS):
         try:
             await asyncio.to_thread(_put_object_sync, client, bucket, key, body)
+            return
+        except (ClientError, BotoCoreError) as e:
+            last = e
+            if attempt < _MAX_ATTEMPTS - 1:
+                await asyncio.sleep(delay)
+                delay *= 2
+    if last:
+        raise last
+
+
+async def _upload_html_with_retry(client, bucket: str, key: str, body: bytes) -> None:
+    delay = 0.5
+    last: Exception | None = None
+    for attempt in range(_MAX_ATTEMPTS):
+        try:
+            await asyncio.to_thread(_put_html_sync, client, bucket, key, body)
             return
         except (ClientError, BotoCoreError) as e:
             last = e
@@ -62,6 +82,13 @@ async def upload_assets(state: AgentState) -> dict:
     )
     bucket = settings.aws_s3_bucket
 
+    slides_html = state.get("slides_html") or []
+    html_by_filename: dict[str, str] = {}
+    for s in slides_html:
+        fn = (s.get("filename") or "").strip()
+        if fn:
+            html_by_filename[fn] = s.get("html") or ""
+
     artifacts: list[ArtifactRef] = []
     for idx, item in enumerate(rendered, start=1):
         fname = item.get("filename") or "slide.jpeg"
@@ -72,10 +99,31 @@ async def upload_assets(state: AgentState) -> dict:
             sn = _slide_number_from_filename(fname)
             if sn <= 0:
                 sn = idx
+            html_fname = fname.rsplit(".", 1)[0] + ".html"
+            html_key = f"slides/{job_id}/{html_fname}"
+            html_content = html_by_filename.get(fname) or html_by_filename.get(html_fname)
+            html_s3_key: str | None = None
+            if html_content:
+                try:
+                    await _upload_html_with_retry(
+                        client, bucket, html_key, html_content.encode("utf-8")
+                    )
+                    html_s3_key = html_key
+                except (ClientError, BotoCoreError) as e:
+                    logger.error(
+                        "node=upload_assets job_id=%s slide=%s err=%s",
+                        job_id,
+                        html_key,
+                        e,
+                    )
+                    errors.append(f"upload_assets {html_key}: {e!s}")
+            elif settings.require_html_artifact_upload:
+                errors.append(f"upload_assets missing html source for {fname} (expected {html_key})")
             artifacts.append(
                 {
                     "s3_key": key,
                     "slide_number": sn,
+                    "html_s3_key": html_s3_key,
                 }
             )
         except (ClientError, BotoCoreError) as e:

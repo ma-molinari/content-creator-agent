@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import type { FileListItem } from '@/api/chats'
 import { AuthenticatedSlideImage } from '@/components/slides/AuthenticatedSlideImage'
@@ -10,6 +10,16 @@ type Props = {
 
 export function SlideViewer({ chatId, files }: Props) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const previousFocusRef = useRef<HTMLElement | null>(null)
+
+  useEffect(() => {
+    if (lightboxIndex === null) {
+      previousFocusRef.current?.focus()
+      return
+    }
+    dialogRef.current?.focus()
+  }, [lightboxIndex])
 
   if (files.length === 0) return null
 
@@ -20,6 +30,11 @@ export function SlideViewer({ chatId, files }: Props) {
   })
 
   function openLightbox(i: number) {
+    if (document.activeElement instanceof HTMLElement) {
+      previousFocusRef.current = document.activeElement
+    } else {
+      previousFocusRef.current = null
+    }
     setLightboxIndex(i)
   }
 
@@ -66,6 +81,7 @@ export function SlideViewer({ chatId, files }: Props) {
 
       {lightboxIndex !== null && (
         <div
+          ref={dialogRef}
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/90"
           onClick={closeLightbox}
           onKeyDown={handleKeyDown}

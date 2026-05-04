@@ -2,7 +2,12 @@
 
 import logging
 
-from app.prompt_security import USER_PROMPT_REJECT_MESSAGE, validate_user_prompt
+from app.prompt_security import (
+    REASON_PROFILE_MAX_LENGTH,
+    USER_PROFILE_TEXT_TOO_LONG_MESSAGE,
+    USER_PROMPT_REJECT_MESSAGE,
+    validate_prompt_security_bundle,
+)
 from app.state import AgentState, copy_errors
 
 logger = logging.getLogger(__name__)
@@ -10,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 def prompt_security_validate(state: AgentState) -> dict:
     logger.info("node=prompt_security_validate job_id=%s", state.get("job_id"))
-    ok, rule = validate_user_prompt(state)
+    ok, rule = validate_prompt_security_bundle(state)
     if ok:
         return {}
 
@@ -21,7 +26,10 @@ def prompt_security_validate(state: AgentState) -> dict:
         rule,
     )
     errors = copy_errors(state)
-    errors.append(USER_PROMPT_REJECT_MESSAGE)
+    if rule == REASON_PROFILE_MAX_LENGTH:
+        errors.append(USER_PROFILE_TEXT_TOO_LONG_MESSAGE)
+    else:
+        errors.append(USER_PROMPT_REJECT_MESSAGE)
     return {
         "errors": errors,
         "prompt_validation_failed": True,

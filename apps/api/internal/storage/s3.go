@@ -19,6 +19,7 @@ import (
 type StorageService interface {
 	Upload(ctx context.Context, key string, data []byte) error
 	GetSignedURL(ctx context.Context, key string, expiry time.Duration) (string, error)
+	HeadObject(ctx context.Context, key string) error
 	GetObject(ctx context.Context, key string) ([]byte, error)
 	Delete(ctx context.Context, key string) error
 	DeleteMany(ctx context.Context, keys []string) error
@@ -96,6 +97,18 @@ func (s *S3Service) GetSignedURL(ctx context.Context, key string, expiry time.Du
 		return "", fmt.Errorf("storage: PresignGetObject for key %q: %w", key, err)
 	}
 	return out.URL, nil
+}
+
+// HeadObject checks that an object exists at key (metadata only).
+func (s *S3Service) HeadObject(ctx context.Context, key string) error {
+	_, err := s.client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(s.bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return fmt.Errorf("storage: HeadObject for key %q: %w", key, err)
+	}
+	return nil
 }
 
 // GetObject downloads the object body for key.

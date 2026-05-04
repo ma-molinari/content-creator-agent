@@ -26,6 +26,8 @@ var (
 	ErrSetupRequired        = errors.New("chat: profile setup required (audit and brand in app)")
 	ErrEmptyPrompt          = errors.New("chat: empty prompt after sanitization")
 	ErrWorkerDispatchFailed = errors.New("chat: worker dispatch failed")
+	// ErrSlideStorageNotFound means the DB references an S3 key with no object (orphan or misconfigured bucket).
+	ErrSlideStorageNotFound = errors.New("chat: slide file missing in storage")
 )
 
 const listChatsLimit = 5
@@ -39,6 +41,9 @@ type Service struct {
 	profileRepo *profile.Repository
 	profileSvc  *profile.Service
 	worker      jobs.WorkerClient
+
+	// latestAssistantHTMLKeys defaults to repo.GetLatestAssistantHTMLKeys; tests may replace it to simulate failures.
+	latestAssistantHTMLKeys func(context.Context, uuid.UUID) ([]string, error)
 }
 
 // NewService constructs a chat service. worker may be nil (message routes unavailable).
@@ -46,7 +51,11 @@ type Service struct {
 // profileSvc may be nil; when set, its reference S3 keys are sent on job dispatch.
 // Profile copy lives in the database only (PUT /profile); there is no disk fallback.
 func NewService(repo *Repository, jobsRepo *jobs.Repository, store storage.StorageService, profileRepo *profile.Repository, profileSvc *profile.Service, worker jobs.WorkerClient) *Service {
-	return &Service{repo: repo, jobsRepo: jobsRepo, store: store, profileRepo: profileRepo, profileSvc: profileSvc, worker: worker}
+	svc := &Service{repo: repo, jobsRepo: jobsRepo, store: store, profileRepo: profileRepo, profileSvc: profileSvc, worker: worker}
+	if repo != nil {
+		svc.latestAssistantHTMLKeys = repo.GetLatestAssistantHTMLKeys
+	}
+	return svc
 }
 
 // ListChats returns up to 5 chats for the user.
@@ -191,6 +200,9 @@ func (s *Service) BuildChatZip(ctx context.Context, userID, chatID uuid.UUID) ([
 		data, err := s.store.GetObject(ctx, img.S3Key)
 		if err != nil {
 			_ = zw.Close()
+			if storage.IsObjectNotFound(err) {
+				return nil, "", ErrSlideStorageNotFound
+			}
 			return nil, "", err
 		}
 		w, err := zw.Create(imageArchiveFileName(img))
@@ -207,6 +219,46 @@ func (s *Service) BuildChatZip(ctx context.Context, userID, chatID uuid.UUID) ([
 		return nil, "", err
 	}
 	filename := fmt.Sprintf("slides-%s.zip", chatID.String())
+	return buf.Bytes(), filename, nil
+}
+
+// BuildContentZip builds a ZIP of JPEG slides for one assistant turn (contentId).
+func (s *Service) BuildContentZip(ctx context.Context, userID, chatID, contentID uuid.UUID) ([]byte, string, error) {
+	if err := s.assertChatOwner(ctx, userID, chatID); err != nil {
+		return nil, "", err
+	}
+	imgs, err := s.repo.ListImagesForContent(ctx, chatID, contentID)
+	if err != nil {
+		return nil, "", err
+	}
+	if len(imgs) == 0 {
+		return nil, "", ErrNoFiles
+	}
+	buf := new(bytes.Buffer)
+	zw := zip.NewWriter(buf)
+	for _, img := range imgs {
+		data, err := s.store.GetObject(ctx, img.S3Key)
+		if err != nil {
+			_ = zw.Close()
+			if storage.IsObjectNotFound(err) {
+				return nil, "", ErrSlideStorageNotFound
+			}
+			return nil, "", err
+		}
+		w, err := zw.Create(imageArchiveFileName(img))
+		if err != nil {
+			_ = zw.Close()
+			return nil, "", err
+		}
+		if _, err := w.Write(data); err != nil {
+			_ = zw.Close()
+			return nil, "", err
+		}
+	}
+	if err := zw.Close(); err != nil {
+		return nil, "", err
+	}
+	filename := fmt.Sprintf("slides-%s.zip", contentID.String())
 	return buf.Bytes(), filename, nil
 }
 
@@ -229,7 +281,11 @@ func (s *Service) GetImageJPEG(ctx context.Context, userID, chatID, fileID uuid.
 	if err != nil {
 		return nil, err
 	}
-	return s.store.GetObject(ctx, img.S3Key)
+	data, err := s.store.GetObject(ctx, img.S3Key)
+	if err != nil && storage.IsObjectNotFound(err) {
+		return nil, ErrSlideStorageNotFound
+	}
+	return data, err
 }
 
 // getChatIfOwner loads the chat when it exists and belongs to userID.

@@ -219,3 +219,79 @@ func TestListImagesForChat_ordersByTurnThenSlide(t *testing.T) {
 		t.Fatalf("order: %#v", got)
 	}
 }
+
+func TestChatHasAssistantWithSlideArtifacts(t *testing.T) {
+	gdb, u := testDBWithUser(t)
+	repo := NewRepository(gdb)
+	chat := &db.Chat{ID: uuid.New(), UserID: u.ID, PostType: db.PostTypeSingle}
+	if err := gdb.Create(chat).Error; err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	ok, err := repo.ChatHasAssistantWithSlideArtifacts(ctx, chat.ID)
+	if err != nil || ok {
+		t.Fatalf("want false empty chat: ok=%v err=%v", ok, err)
+	}
+	asstID := uuid.New()
+	if err := gdb.Create(&db.ChatContent{
+		ID: asstID, ChatID: chat.ID, Role: db.ChatContentRoleAssistant, Content: "hi",
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	img := db.ChatContentImage{
+		ID: uuid.New(), ChatContentID: asstID, S3Key: "slides/j/a.jpeg", URL: "u", SlideNumber: 1,
+	}
+	if err := gdb.Create(&img).Error; err != nil {
+		t.Fatal(err)
+	}
+	ok, err = repo.ChatHasAssistantWithSlideArtifacts(ctx, chat.ID)
+	if err != nil || !ok {
+		t.Fatalf("want true after slide: ok=%v err=%v", ok, err)
+	}
+}
+
+func TestGetLatestAssistantHTMLKeys_prefersOlderTurnWhenNewerHasNoHtmlKeys(t *testing.T) {
+	gdb, u := testDBWithUser(t)
+	repo := NewRepository(gdb)
+	chat := &db.Chat{ID: uuid.New(), UserID: u.ID, PostType: db.PostTypeSingle}
+	if err := gdb.Create(chat).Error; err != nil {
+		t.Fatal(err)
+	}
+	early := time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC)
+	later := time.Date(2020, 1, 2, 12, 0, 0, 0, time.UTC)
+	oldID := uuid.New()
+	newID := uuid.New()
+	if err := gdb.Create(&db.ChatContent{
+		ID: oldID, ChatID: chat.ID, Role: db.ChatContentRoleAssistant, Content: "old",
+		CreatedAt: early, UpdatedAt: early,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := gdb.Create(&db.ChatContent{
+		ID: newID, ChatID: chat.ID, Role: db.ChatContentRoleAssistant, Content: "new",
+		CreatedAt: later, UpdatedAt: later,
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	h1 := "slides/old/1.html"
+	h2 := "slides/old/2.html"
+	if err := gdb.Create([]db.ChatContentImage{
+		{ID: uuid.New(), ChatContentID: oldID, S3Key: "a.jpg", URL: "u", SlideNumber: 1, HtmlS3Key: &h1},
+		{ID: uuid.New(), ChatContentID: oldID, S3Key: "b.jpg", URL: "u", SlideNumber: 2, HtmlS3Key: &h2},
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := gdb.Create([]db.ChatContentImage{
+		{ID: uuid.New(), ChatContentID: newID, S3Key: "c.jpg", URL: "u", SlideNumber: 1},
+	}).Error; err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	got, err := repo.GetLatestAssistantHTMLKeys(ctx, chat.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0] != h1 || got[1] != h2 {
+		t.Fatalf("keys: %#v", got)
+	}
+}

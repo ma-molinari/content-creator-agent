@@ -147,7 +147,6 @@ class TestDesignValidateNode(unittest.TestCase):
             "raw_message": "",
             "audit_text": "",
             "brand_text": "",
-            "reprompt_context": "",
             "profile_text": "",
             "optimized_brief": "",
             "raw_slide_output": "",
@@ -172,7 +171,6 @@ class TestDesignValidateNode(unittest.TestCase):
             "raw_message": "",
             "audit_text": "",
             "brand_text": "",
-            "reprompt_context": "",
             "profile_text": "",
             "optimized_brief": "",
             "raw_slide_output": "",
@@ -187,7 +185,7 @@ class TestDesignValidateNode(unittest.TestCase):
         self.assertEqual(out.get("design_retry_count"), 1)
         self.assertTrue(any("design_validate:" in (e or "") for e in (out.get("errors") or [])))
         routed = route_after_design({**base, **out})
-        self.assertEqual(routed, "retry")
+        self.assertEqual(routed, "retry_new")
 
     def test_route_fail_when_retries_exhausted(self) -> None:
         bad_html = _minimal_valid_slide().replace("1080px", "100vw")
@@ -199,7 +197,6 @@ class TestDesignValidateNode(unittest.TestCase):
             "raw_message": "",
             "audit_text": "",
             "brand_text": "",
-            "reprompt_context": "",
             "profile_text": "",
             "optimized_brief": "",
             "raw_slide_output": "",
