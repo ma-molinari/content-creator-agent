@@ -128,7 +128,7 @@ GET /chats/:id/contents/:contentId/download → ZIP dos JPEGs daquela versão
 
 - **Purpose**: buscar as chaves HTML da última versão e incluí-las no `DispatchPayload`
 - **Location**: `apps/api/internal/chat/post_message.go` — método `PostMessage`
-- **Change**: após `buildRepromptContext`, chamar `s.repo.GetLatestAssistantHTMLKeys(ctx, chatID)` e popular o novo campo `ExistingSlideHTMLKeys` no payload
+- **Change**: ao montar o `DispatchPayload` (após persistir mensagem do usuário e job), chamar `GetLatestAssistantHTMLKeys` / helper equivalente no service e popular `ExistingSlideHTMLKeys`; **não** enviar transcript nem resumo do cron ao worker — contexto iterativo para edição vem do HTML em S3 + `raw_message` atual
 - **Error strategy**: se a query falhar → logar e continuar com `ExistingSlideHTMLKeys = nil` (degradação segura: trata como primeira geração)
 
 ---
@@ -395,9 +395,8 @@ type DispatchPayload struct {
     RawMessage            string    `json:"raw_message"`
     AuditText             string    `json:"audit_text"`
     BrandText             string    `json:"brand_text"`
-    RepromptContext       string    `json:"reprompt_context,omitempty"`
     ReferenceS3Keys       []string  `json:"reference_s3_keys,omitempty"`
-    ExistingSlideHTMLKeys []string  `json:"existing_slide_html_s3_keys,omitempty"` // NOVO
+    ExistingSlideHTMLKeys []string  `json:"existing_slide_html_s3_keys,omitempty"` // refinamento
 }
 ```
 
@@ -426,6 +425,7 @@ type DispatchPayload struct {
 | Retry após `edit_slides` → `generate_slides` (não `edit_slides`) | `generate_slides` | Se o HTML editado falhou validação repetidamente, regenerar limpo é mais robusto |
 | Fetch de HTML no `detect_intent` (não em nó separado) | Mesmo nó | Evita nó extra; o fetch só acontece quando `is_refinement=True` |
 | Temperatura 0 no `detect_intent` | Sim | Classificação determinística é mais importante que criatividade aqui |
+| Transcript / resumo de chat no payload (`reprompt_context`) | Removido do contrato | “Memória” textual não vai mais ao worker; refinamento usa HTML histórico em S3 + pedido atual |
 | Per-version download via `GET /chats/:id/contents/:contentId/download` | Novo endpoint | Segue padrão RESTful existente; não polui `GET /chats/:id/files` com parâmetros |
 
 ---

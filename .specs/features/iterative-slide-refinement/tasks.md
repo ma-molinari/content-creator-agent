@@ -132,7 +132,7 @@ cd apps/api && go build ./...
 **What**: Adicionar campo `ExistingSlideHTMLKeys []string` ao struct `DispatchPayload` em `worker_client.go`
 **Where**: `apps/api/internal/jobs/worker_client.go`
 **Depends on**: Nenhum
-**Reuses**: Padrão `omitempty` já usado em `RepromptContext` e `ReferenceS3Keys`
+**Reuses**: Padrão `omitempty` já usado em `ReferenceS3Keys` e demais slices opcionais do payload
 **Requirement**: ISR-06
 
 **Done when**:
@@ -324,11 +324,11 @@ cd apps/worker && python -c "from app.nodes.finalize import finalize; print('ok'
 **What**: Atualizar `PostMessage` para buscar as chaves HTML da última versão e incluí-las no `DispatchPayload`
 **Where**: `apps/api/internal/chat/post_message.go`
 **Depends on**: T3, T4
-**Reuses**: Padrão de chamada ao repositório existente no mesmo método (`buildRepromptContext`, `loadAuditBrandTexts`); estratégia de degradação segura (`profileSvc != nil`)
+**Reuses**: Padrão de chamada ao repositório no mesmo método (`loadAuditBrandTexts`, listagem de refs); estratégia de degradação segura (`profileSvc != nil`)
 **Requirement**: ISR-06
 
 **Done when**:
-- [ ] Após `buildRepromptContext`, chama `s.repo.GetLatestAssistantHTMLKeys(ctx, chatID)`
+- [ ] Ao montar o dispatch (após `CreateUserMessageAndJob`), chama `GetLatestAssistantHTMLKeys` / helper no service equivalente a `s.repo.GetLatestAssistantHTMLKeys(ctx, chatID)`
 - [ ] Em caso de erro: logar com `[chat] latest html keys chat_id=... err=...` e continuar com `htmlKeys = nil` (não interrompe o job)
 - [ ] `ExistingSlideHTMLKeys: htmlKeys` populado no `DispatchPayload`
 - [ ] `go build ./...` + `go test ./internal/chat/...` sem erros

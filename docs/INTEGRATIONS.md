@@ -72,10 +72,13 @@
   "raw_message": "...",
   "audit_text": "...",
   "brand_text": "...",
-  "reprompt_context": "...",
-  "reference_s3_keys": ["slides/..."]
+  "reference_s3_keys": ["slides/..."],
+  "existing_slide_html_s3_keys": ["slides/{jobId}/slide_01.html"],
+  "expects_slide_refinement": false
 }
 ```
+- `existing_slide_html_s3_keys` (optional): S3 keys for HTML sources of slides from a prior assistant turn; the worker loads them for the `edit_slides` path when non-empty.
+- `expects_slide_refinement` (optional): when `true`, the API indicates the chat already had slide JPEGs before this job — the worker must refine from those HTML keys or fail with a user-facing message (`JOB_FAILURE_REFINEMENT_CONTEXT` in `apps/worker/app/nodes/finalize_messages.py`) if keys are missing or S3 fetch is incomplete. When `false`/omitted and keys are present, fetch failure degrades silently to a new-generation path (empty prior HTML).
 **Response:** `202 {"accepted": true, "job_id": "..."}` — dispatch is fire-and-forget; worker processes in background.
 **Implementation:** `apps/api/internal/jobs/worker_client.go` — `HTTPWorkerClient`
 **Configuration:** `WORKER_URL` (e.g., `http://worker:8000`), `WORKER_API_KEY`
