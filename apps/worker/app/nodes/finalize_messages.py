@@ -13,8 +13,8 @@ JOB_FAILURE_HTML_ARTIFACT = (
     "Não foi possível guardar os ficheiros fonte dos slides. Tente novamente."
 )
 
-# Mirrors nested error callback sent when HTTP delivery fails.
-JOB_FAILURE_CALLBACK_TRANSPORT = "callback delivery failed"
+# Fallback when the complete callback must be retried with a minimal body — same tone as generic failure.
+JOB_FAILURE_CALLBACK_TRANSPORT = JOB_FAILURE_GENERIC
 
 # Follow-up message required HTML sources for edit_slides but keys or S3 fetch failed.
 JOB_FAILURE_REFINEMENT_CONTEXT = (

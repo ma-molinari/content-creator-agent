@@ -15,14 +15,25 @@ from app.nodes.finalize_messages import (
     JOB_FAILURE_INCOMPLETE_CAROUSEL,
     JOB_FAILURE_REFINEMENT_CONTEXT,
 )
-from app.prompt_security import USER_PROMPT_REJECT_MESSAGE
+from app.prompt_security import USER_PROFILE_TEXT_TOO_LONG_MESSAGE, USER_PROMPT_REJECT_MESSAGE
 from app.sanitize import sanitize_brief_output
 from app.slide_artifact_cleanup import delete_slide_artifact_keys_sync
 from app.state import AgentState, ArtifactRef, copy_errors
 
 logger = logging.getLogger(__name__)
 
+# Avoid echoing full API error bodies into worker state / logs surfaced downstream.
+_CALLBACK_ERROR_SNIPPET_MAX = 384
+_HTTP_ERROR_LOG_BODY_MAX = 2048
+
 _FALLBACK_BODY: Mapping[str, str] = {"error": JOB_FAILURE_CALLBACK_TRANSPORT}
+
+
+def _snippet_for_errors(text: str, *, max_len: int) -> str:
+    t = (text or "").replace("\n", " ").strip()
+    if len(t) <= max_len:
+        return t
+    return t[: max_len - 3] + "..."
 
 
 def _compute_expected_delivery(state: AgentState) -> int:
@@ -54,6 +65,8 @@ def _failure_message_for_callback(
     mismatch_delivery: bool,
     html_artifact_delivery_failed: bool,
 ) -> str:
+    if any(e == USER_PROFILE_TEXT_TOO_LONG_MESSAGE for e in errors):
+        return USER_PROFILE_TEXT_TOO_LONG_MESSAGE
     if any(e == USER_PROMPT_REJECT_MESSAGE for e in errors):
         return USER_PROMPT_REJECT_MESSAGE
     if any(e == JOB_FAILURE_REFINEMENT_CONTEXT for e in errors):
@@ -86,7 +99,13 @@ async def _post_complete_with_transport_fallback(
     try:
         r = await post_complete_callback(url, json_body=json_body, headers=headers, timeout=timeout)
         if r.status_code >= 400:
-            errors.append(f"finalize callback failed: {r.status_code} {r.text}")
+            body_snip = _snippet_for_errors(r.text or "", max_len=_CALLBACK_ERROR_SNIPPET_MAX)
+            logger.warning(
+                "finalize callback HTTP error status=%s body_snippet=%r",
+                r.status_code,
+                _snippet_for_errors(r.text or "", max_len=_HTTP_ERROR_LOG_BODY_MAX),
+            )
+            errors.append(f"finalize callback failed: {r.status_code} {body_snip}")
             try:
                 await post_complete_callback(
                     url,

@@ -210,5 +210,5 @@ async def detect_intent(state: AgentState) -> dict[str, object]:
 
     refined = await build_refinement(keys)
     if refined is None:
-        return {"is_refinement": False, "existing_slide_html": []}
+        return blocked()
     return refined

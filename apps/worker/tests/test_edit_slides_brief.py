@@ -42,6 +42,8 @@ def test_brief_text_visual_only_omits_narrative_even_with_optimized() -> None:
     assert "Secret" not in out
 
 
-def test_brief_text_uses_preserve_directive_when_optimized_empty() -> None:
-    out = brief_text_for_edit(_state(optimized_brief=""))
-    assert out == _EDIT_PRESERVE_BRIEF
+def test_brief_text_mixed_scope_keeps_optimized_brief() -> None:
+    out = brief_text_for_edit(
+        _state(refinement_scope="mixed", optimized_brief="## Narrativa\n\nKeep me"),
+    )
+    assert "Keep me" in out

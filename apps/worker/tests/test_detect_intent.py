@@ -103,7 +103,7 @@ class TestDetectIntent(IsolatedAsyncioTestCase):
         errs = list(out.get("errors") or [])
         self.assertIn(JOB_FAILURE_REFINEMENT_CONTEXT, errs)
 
-    async def test_no_expects_fetch_failure_silent_degradation(self) -> None:
+    async def test_no_expects_fetch_failure_blocks_with_refinement_error(self) -> None:
         keys = ["slides/job/slide_01.html"]
         state = _state(
             expects_slide_refinement=False,
@@ -118,10 +118,9 @@ class TestDetectIntent(IsolatedAsyncioTestCase):
             out = await detect_intent(state)  # type: ignore[arg-type]
 
         self.assertFalse(out.get("is_refinement"))
-        self.assertEqual(out.get("existing_slide_html"), [])
-        self.assertNotIn("refinement_context_unavailable", out)
+        self.assertTrue(out.get("refinement_context_unavailable"))
         errs = list(out.get("errors") or [])
-        self.assertNotIn(JOB_FAILURE_REFINEMENT_CONTEXT, errs)
+        self.assertIn(JOB_FAILURE_REFINEMENT_CONTEXT, errs)
 
 
 if __name__ == "__main__":
