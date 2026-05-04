@@ -69,6 +69,10 @@ func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, raw
 	if err != nil {
 		return nil, err
 	}
+	body := SanitizeUserInput(rawBody)
+	if body == "" {
+		return nil, ErrEmptyPrompt
+	}
 	auditText, brandText, err := s.loadAuditBrandTexts(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -79,10 +83,6 @@ func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, raw
 		if err != nil {
 			return nil, err
 		}
-	}
-	body := SanitizeUserInput(rawBody)
-	if body == "" {
-		return nil, ErrEmptyPrompt
 	}
 	userMsg := &db.ChatContent{
 		ID:      uuid.New(),
@@ -128,7 +128,9 @@ func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, raw
 	}
 	if err := s.worker.DispatchJob(ctx, payload); err != nil {
 		msg := err.Error()
-		_ = s.jobsRepo.UpdateStatus(ctx, job.ID, db.JobStatusFailed, &msg)
+		if upErr := s.jobsRepo.UpdateStatus(ctx, job.ID, db.JobStatusFailed, &msg); upErr != nil {
+			log.Printf("[chat] job mark failed after dispatch error job_id=%s update_err=%v dispatch_err=%v", job.ID, upErr, err)
+		}
 		return nil, ErrWorkerDispatchFailed
 	}
 	log.Printf("[jobs] dispatch ok job_id=%s chat_id=%s", job.ID, chatID)

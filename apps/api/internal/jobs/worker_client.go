@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -79,7 +80,13 @@ func (c *HTTPWorkerClient) DispatchJob(ctx context.Context, payload DispatchPayl
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		log.Printf("[jobs] dispatch worker HTTP error job_id=%s status=%d", payload.JobID, resp.StatusCode)
+		snip, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		log.Printf(
+			"[jobs] dispatch worker HTTP error job_id=%s status=%d body_snippet=%q",
+			payload.JobID,
+			resp.StatusCode,
+			strings.TrimSpace(string(snip)),
+		)
 		return fmt.Errorf("jobs: worker returned %s", resp.Status)
 	}
 	return nil
