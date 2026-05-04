@@ -228,6 +228,8 @@ func mapChatErr(err error) *echo.HTTPError {
 	switch {
 	case errors.Is(err, ErrNotFound):
 		return echo.NewHTTPError(http.StatusNotFound, "not found")
+	case errors.Is(err, ErrSlideStorageNotFound):
+		return echo.NewHTTPError(http.StatusNotFound, "O ficheiro do slide não existe no armazenamento.")
 	case errors.Is(err, ErrForbidden):
 		return echo.NewHTTPError(http.StatusForbidden, "forbidden")
 	default:

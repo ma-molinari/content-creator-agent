@@ -25,6 +25,8 @@ var (
 	ErrJobCompleteConflict = errors.New("jobs: cannot complete a failed job")
 	// ErrJobNotProcessing means the job is not in processing state for a success completion.
 	ErrJobNotProcessing = errors.New("jobs: job is not in processing state")
+	// ErrArtifactObjectNotFound means HeadObject failed for a declared JPEG/HTML key before persisting DB rows.
+	ErrArtifactObjectNotFound = errors.New("jobs: slide artifact object not found in storage")
 )
 
 // ArtifactRef is an S3 object produced by the worker for one slide.
@@ -32,6 +34,39 @@ type ArtifactRef struct {
 	S3Key       string
 	SlideNumber int
 	HtmlS3Key   *string // optional HTML source key under slides/{jobID}/
+}
+
+func ensureSlideArtifactsExist(ctx context.Context, jobID uuid.UUID, artifacts []ArtifactRef, store storage.StorageService) error {
+	for _, a := range artifacts {
+		key := strings.TrimSpace(a.S3Key)
+		if key == "" {
+			return gorm.ErrInvalidData
+		}
+		if e := validateSlideArtifactKey(jobID, key); e != nil {
+			return e
+		}
+		if e := store.HeadObject(ctx, key); e != nil {
+			if storage.IsObjectNotFound(e) {
+				return ErrArtifactObjectNotFound
+			}
+			return e
+		}
+		if a.HtmlS3Key != nil {
+			hk := strings.TrimSpace(*a.HtmlS3Key)
+			if hk != "" {
+				if e := validateSlideArtifactKey(jobID, hk); e != nil {
+					return e
+				}
+				if e := store.HeadObject(ctx, hk); e != nil {
+					if storage.IsObjectNotFound(e) {
+						return ErrArtifactObjectNotFound
+					}
+					return e
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // CompleteAssistantReply persists the assistant message, slide images, and marks the job done.
@@ -50,7 +85,9 @@ func CompleteAssistantReply(ctx context.Context, gdb *gorm.DB, jobID uuid.UUID, 
 		case db.JobStatusFailed:
 			return ErrJobCompleteConflict
 		case db.JobStatusProcessing:
-			// proceed
+			if e := ensureSlideArtifactsExist(ctx, job.ID, artifacts, store); e != nil {
+				return e
+			}
 		default:
 			return ErrJobNotProcessing
 		}

@@ -101,6 +101,11 @@ func (h *Handler) Complete(c echo.Context) error {
 		if errors.Is(err, ErrInvalidSlideS3Key) {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid s3Key")
 		}
+		if errors.Is(err, ErrArtifactObjectNotFound) {
+			return echo.NewHTTPError(http.StatusBadRequest, map[string]string{
+				"message": "Artefato não existe no bucket configurado na API (confira AWS_S3_BUCKET, região e credenciais alinhados ao worker).",
+			})
+		}
 		return httperr.Internal("[jobs] complete persist", err)
 	}
 	if alreadyDone {

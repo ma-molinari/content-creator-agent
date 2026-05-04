@@ -10,6 +10,7 @@ import (
 	"content-creator-agent/internal/db"
 	"content-creator-agent/internal/jobs"
 	"content-creator-agent/internal/profile"
+	"content-creator-agent/internal/storage"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -39,6 +40,8 @@ func (m *mockStorage) GetSignedURL(context.Context, string, time.Duration) (stri
 	m.signedURLCalls++
 	return fmt.Sprintf("https://example.com/signed-%d", m.signedURLCalls), nil
 }
+
+func (m *mockStorage) HeadObject(context.Context, string) error { return nil }
 
 func (m *mockStorage) GetObject(context.Context, string) ([]byte, error) {
 	return []byte{0xff, 0xd8}, nil
@@ -299,4 +302,130 @@ func TestPostMessage_latestHTMLKeysError_degradesGracefully(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	require.Nil(t, dispatched.ExistingSlideHTMLKeys)
+}
+
+func TestPostMessage_repromptContext_mergesResumeWithRecentMessages(t *testing.T) {
+	gdb, u := testDBWithUser(t)
+	for _, ddl := range []string{
+		`CREATE TABLE user_profiles (
+			id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL UNIQUE,
+			audit_text TEXT NOT NULL DEFAULT '',
+			brand_text TEXT NOT NULL DEFAULT '',
+			created_at DATETIME,
+			updated_at DATETIME,
+			FOREIGN KEY (user_id) REFERENCES users(id)
+		)`,
+		`CREATE TABLE jobs (
+			id TEXT PRIMARY KEY,
+			chat_id TEXT NOT NULL,
+			user_id TEXT NOT NULL,
+			status TEXT NOT NULL,
+			error_msg TEXT,
+			created_at DATETIME,
+			updated_at DATETIME,
+			FOREIGN KEY (user_id) REFERENCES users(id),
+			FOREIGN KEY (chat_id) REFERENCES chats(id)
+		)`,
+	} {
+		require.NoError(t, gdb.Exec(ddl).Error)
+	}
+	require.NoError(t, gdb.Create(&db.UserProfile{
+		ID:        uuid.New(),
+		UserID:    u.ID,
+		AuditText: "audit",
+		BrandText: "brand",
+	}).Error)
+	repo := NewRepository(gdb)
+	jobsRepo := jobs.NewRepository(gdb)
+	profileRepo := profile.NewRepository(gdb)
+	chat := &db.Chat{ID: uuid.New(), UserID: u.ID, PostType: db.PostTypeSingle}
+	require.NoError(t, gdb.Create(chat).Error)
+
+	sum := "Resumo antigo: usuário pediu paleta rosa."
+	require.NoError(t, gdb.Create(&db.ChatContentResume{
+		ID:      uuid.New(),
+		ChatID:  chat.ID,
+		Summary: &sum,
+	}).Error)
+
+	require.NoError(t, gdb.Create(&db.ChatContent{
+		ID:        uuid.New(),
+		ChatID:    chat.ID,
+		Role:      db.ChatContentRoleUser,
+		Content:   "mudar só a coloração para azul",
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+	}).Error)
+	require.NoError(t, gdb.Create(&db.ChatContent{
+		ID:        uuid.New(),
+		ChatID:    chat.ID,
+		Role:      db.ChatContentRoleAssistant,
+		Content:   "Aplicando tons de azul.",
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+	}).Error)
+
+	var dispatched jobs.DispatchPayload
+	worker := &mockDispatchWorker{
+		fn: func(p *jobs.DispatchPayload) error {
+			dispatched = *p
+			return nil
+		},
+	}
+	svc := NewService(repo, jobsRepo, &mockStorage{}, profileRepo, nil, worker)
+	svc.latestAssistantHTMLKeys = func(context.Context, uuid.UUID) ([]string, error) {
+		return []string{"slides/job-id/slide1.html"}, nil
+	}
+
+	current := "agora cinza neutro"
+	res, err := svc.PostMessage(context.Background(), u.ID, chat.ID, current)
+	require.NoError(t, err)
+	require.NotNil(t, res)
+	require.Equal(t, current, dispatched.RawMessage)
+	require.Contains(t, dispatched.RepromptContext, sum)
+	require.Contains(t, dispatched.RepromptContext, "mudar só a coloração para azul")
+	require.Contains(t, dispatched.RepromptContext, "Aplicando tons de azul.")
+	require.Contains(t, dispatched.RepromptContext, "--- Mensagens recentes ---")
+	require.Contains(t, dispatched.RepromptContext, "user: "+current)
+}
+
+type missingObjectStorage struct {
+	mockStorage
+}
+
+func (missingObjectStorage) GetObject(context.Context, string) ([]byte, error) {
+	return nil, fmt.Errorf("upstream: %w", storage.ErrObjectNotFound)
+}
+
+func TestBuildChatZip_slideMissingInStorage(t *testing.T) {
+	gdb, u := testDBWithUser(t)
+	repo := NewRepository(gdb)
+	svc := NewService(repo, jobs.NewRepository(gdb), &missingObjectStorage{}, nil, nil, nil)
+	ctx := context.Background()
+
+	c, err := svc.CreateChat(ctx, u.ID, "single")
+	require.NoError(t, err)
+
+	ccID := uuid.New()
+	require.NoError(t, gdb.Create(&db.ChatContent{
+		ID:        ccID,
+		ChatID:    c.ID,
+		Role:      db.ChatContentRoleAssistant,
+		Content:   "hello",
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+	}).Error)
+	require.NoError(t, gdb.Create(&db.ChatContentImage{
+		ID:            uuid.New(),
+		ChatContentID: ccID,
+		S3Key:         "slides/job/slide1.jpg",
+		URL:           "https://example.com/preview",
+		SlideNumber:   1,
+		CreatedAt:     time.Now().UTC(),
+		UpdatedAt:     time.Now().UTC(),
+	}).Error)
+
+	_, _, err = svc.BuildChatZip(ctx, u.ID, c.ID)
+	require.ErrorIs(t, err, ErrSlideStorageNotFound)
 }

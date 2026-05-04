@@ -26,6 +26,8 @@ var (
 	ErrSetupRequired        = errors.New("chat: profile setup required (audit and brand in app)")
 	ErrEmptyPrompt          = errors.New("chat: empty prompt after sanitization")
 	ErrWorkerDispatchFailed = errors.New("chat: worker dispatch failed")
+	// ErrSlideStorageNotFound means the DB references an S3 key with no object (orphan or misconfigured bucket).
+	ErrSlideStorageNotFound = errors.New("chat: slide file missing in storage")
 )
 
 const listChatsLimit = 5
@@ -198,6 +200,9 @@ func (s *Service) BuildChatZip(ctx context.Context, userID, chatID uuid.UUID) ([
 		data, err := s.store.GetObject(ctx, img.S3Key)
 		if err != nil {
 			_ = zw.Close()
+			if storage.IsObjectNotFound(err) {
+				return nil, "", ErrSlideStorageNotFound
+			}
 			return nil, "", err
 		}
 		w, err := zw.Create(imageArchiveFileName(img))
@@ -235,6 +240,9 @@ func (s *Service) BuildContentZip(ctx context.Context, userID, chatID, contentID
 		data, err := s.store.GetObject(ctx, img.S3Key)
 		if err != nil {
 			_ = zw.Close()
+			if storage.IsObjectNotFound(err) {
+				return nil, "", ErrSlideStorageNotFound
+			}
 			return nil, "", err
 		}
 		w, err := zw.Create(imageArchiveFileName(img))
@@ -273,7 +281,11 @@ func (s *Service) GetImageJPEG(ctx context.Context, userID, chatID, fileID uuid.
 	if err != nil {
 		return nil, err
 	}
-	return s.store.GetObject(ctx, img.S3Key)
+	data, err := s.store.GetObject(ctx, img.S3Key)
+	if err != nil && storage.IsObjectNotFound(err) {
+		return nil, ErrSlideStorageNotFound
+	}
+	return data, err
 }
 
 // getChatIfOwner loads the chat when it exists and belongs to userID.
