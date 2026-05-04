@@ -18,6 +18,15 @@
 **Presigned URL TTL:** 1 hour (`signedURLExpiry = time.Hour`)
 **Upload retry:** 3 attempts with exponential backoff (100ms, 200ms)
 **Batch delete:** up to 1000 keys per `DeleteObjects` call
+**Slide HTML source (worker):** each slide JPEG can have a sibling object `slides/{jobId}/slide_XX.html` (`Content-Type: text/html`). The Go API persists `chat_content_image.html_s3_key` only when the worker sends `htmlS3Key` on the completion callback (`HeadObject` must succeed before commit). Behaviour is configurable via **`REQUIRE_HTML_ARTIFACT_UPLOAD`** on the worker (default false): when true, missing HTML artefacts fail the job and uploaded JPEG/HTML keys from that attempt are cleaned up before the failure callback.
+
+**Diagnosing missing HTML in S3 (operational checklist):**
+
+1. **Postgres (`chat_content_image`)** — for a recent assistant turn, inspect `html_s3_key`. All null ⇒ the worker omitted `htmlS3Key` in the completion payload or never uploaded HTML. Non-null ⇒ the API validated the object existed at completion time (stale deletes are a separate issue).
+2. **Worker logs** — search for `node=upload_assets` and HTML key paths; upload errors are logged and, when uploads fail after retries, surfaced in pipeline `errors` for observability.
+3. **Deploy** — confirm the running worker image includes HTML upload logic in `upload_assets.py`.
+4. **Env alignment** — same `AWS_S3_BUCKET` / region / credentials as intended; IAM must allow `s3:PutObject` on `slides/*` (JPEG and HTML share the same call).
+5. **Console** — list `slides/<job_uuid>/` and expect `.html` next to `.jpeg` when uploads succeed.
 
 ---
 
@@ -84,11 +93,16 @@
 {
   "assistantText": "Caption text shown in chat",
   "artifacts": [
-    {"s3Key": "slides/{jobId}/slide_1.jpeg", "slideNumber": 1}
+    {
+      "s3Key": "slides/{jobId}/slide_01.jpeg",
+      "slideNumber": 1,
+      "htmlS3Key": "slides/{jobId}/slide_01.html"
+    }
   ],
   "error": null
 }
 ```
+(`htmlS3Key` may be omitted or null when HTML upload is skipped or failed; if `REQUIRE_HTML_ARTIFACT_UPLOAD=true` on the worker, the callback uses the error path when any slide is missing HTML.)
 **On success:** API writes assistant `ChatContent`, `ChatContentImage` rows, marks `Job.status = done` — all in one DB transaction.
 **On error:** API marks `Job.status = failed` with `error_msg`.
 **Implementation:** `apps/api/internal/jobs/handler.go`, `complete.go`
