@@ -7,7 +7,8 @@ import base64
 import logging
 import mimetypes
 import re
-from typing import Any
+from collections.abc import Mapping
+from typing import Protocol, cast
 
 import boto3
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -20,6 +21,14 @@ from app.state import AgentState, copy_errors
 logger = logging.getLogger(__name__)
 
 _MAX_IMAGES = 8
+
+
+class _StreamingBody(Protocol):
+    def read(self, amt: int = ...) -> bytes: ...
+
+
+class _S3GetObjectClient(Protocol):
+    def get_object(self, Bucket: str, Key: str) -> Mapping[str, object]: ...
 
 
 def _guess_mime(data: bytes, s3_key: str) -> str:
@@ -39,9 +48,12 @@ def _guess_mime(data: bytes, s3_key: str) -> str:
     return "image/jpeg"
 
 
-def _fetch_bytes_limited(client: Any, bucket: str, key: str, max_bytes: int) -> bytes:
+def _fetch_bytes_limited(
+    client: _S3GetObjectClient, bucket: str, key: str, max_bytes: int
+) -> bytes:
     o = client.get_object(Bucket=bucket, Key=key)
-    body = o["Body"]
+    body_raw = o["Body"]
+    body = cast(_StreamingBody, body_raw)
     chunk = body.read(max_bytes + 1)
     if len(chunk) > max_bytes:
         raise ValueError(f"reference object exceeds configured max ({max_bytes} bytes)")
@@ -60,7 +72,7 @@ def _strip_wrapped_heading(text: str) -> str:
     return t.strip()
 
 
-async def describe_references(state: AgentState) -> dict[str, Any]:
+async def describe_references(state: AgentState) -> dict[str, object]:
     keys = (state.get("reference_s3_keys") or [])[:_MAX_IMAGES]
     if not keys:
         return {}
@@ -86,7 +98,7 @@ async def describe_references(state: AgentState) -> dict[str, Any]:
         return_exceptions=True,
     )
 
-    user_blocks: list[dict[str, Any]] = [
+    user_blocks: list[dict[str, object]] = [
         {
             "type": "text",
             "text": (
@@ -159,7 +171,7 @@ async def describe_references(state: AgentState) -> dict[str, Any]:
         inner = _strip_wrapped_heading(text)
         body = f"## REFERÊNCIAS_VISUAIS (resumo)\n\n{inner}"
     combined = f"{base}\n\n{body}" if base else body
-    out_state: dict[str, Any] = {"profile_text": combined}
+    out_state: dict[str, object] = {"profile_text": combined}
     if errors:
         out_state["errors"] = errors
     return out_state

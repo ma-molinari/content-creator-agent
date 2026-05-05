@@ -23,37 +23,23 @@ def _slide_number_from_filename(filename: str) -> int:
     return 0
 
 
-def _put_object_sync(client, bucket: str, key: str, body: bytes) -> None:
+def _put_object_sync(
+    client, bucket: str, key: str, body: bytes, content_type: str
+) -> None:
     """Blocking S3 put — intended to be called via asyncio.to_thread."""
-    client.put_object(Bucket=bucket, Key=key, Body=body, ContentType="image/jpeg")
+    client.put_object(Bucket=bucket, Key=key, Body=body, ContentType=content_type)
 
 
-def _put_html_sync(client, bucket: str, key: str, body: bytes) -> None:
-    client.put_object(Bucket=bucket, Key=key, Body=body, ContentType="text/html; charset=utf-8")
-
-
-async def _upload_with_retry(client, bucket: str, key: str, body: bytes) -> None:
+async def _upload_with_retry(
+    client, bucket: str, key: str, body: bytes, *, content_type: str
+) -> None:
     delay = 0.5
     last: Exception | None = None
     for attempt in range(_MAX_ATTEMPTS):
         try:
-            await asyncio.to_thread(_put_object_sync, client, bucket, key, body)
-            return
-        except (ClientError, BotoCoreError) as e:
-            last = e
-            if attempt < _MAX_ATTEMPTS - 1:
-                await asyncio.sleep(delay)
-                delay *= 2
-    if last:
-        raise last
-
-
-async def _upload_html_with_retry(client, bucket: str, key: str, body: bytes) -> None:
-    delay = 0.5
-    last: Exception | None = None
-    for attempt in range(_MAX_ATTEMPTS):
-        try:
-            await asyncio.to_thread(_put_html_sync, client, bucket, key, body)
+            await asyncio.to_thread(
+                _put_object_sync, client, bucket, key, body, content_type
+            )
             return
         except (ClientError, BotoCoreError) as e:
             last = e
@@ -95,7 +81,9 @@ async def upload_assets(state: AgentState) -> dict:
         body = item.get("jpeg_bytes") or b""
         key = f"slides/{job_id}/{fname}"
         try:
-            await _upload_with_retry(client, bucket, key, body)
+            await _upload_with_retry(
+                client, bucket, key, body, content_type="image/jpeg"
+            )
             sn = _slide_number_from_filename(fname)
             if sn <= 0:
                 sn = idx
@@ -105,8 +93,12 @@ async def upload_assets(state: AgentState) -> dict:
             html_s3_key: str | None = None
             if html_content:
                 try:
-                    await _upload_html_with_retry(
-                        client, bucket, html_key, html_content.encode("utf-8")
+                    await _upload_with_retry(
+                        client,
+                        bucket,
+                        html_key,
+                        html_content.encode("utf-8"),
+                        content_type="text/html; charset=utf-8",
                     )
                     html_s3_key = html_key
                 except (ClientError, BotoCoreError) as e:

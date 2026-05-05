@@ -17,6 +17,9 @@ class _TokenSettings(Protocol):
 # Default N when the user does not request a specific count (rough mid of 6–10).
 _DEFAULT_SLIDE_BUDGET = 8
 
+# Extra headroom added to max_tokens on parse/design retries (capped by settings).
+MAX_TOKENS_RETRY_HINT = 800
+
 
 def compute_max_output_tokens(
     requested_slide_count: int | None,

@@ -99,11 +99,13 @@ async def _post_complete_with_transport_fallback(
     try:
         r = await post_complete_callback(url, json_body=json_body, headers=headers, timeout=timeout)
         if r.status_code >= 400:
-            body_snip = _snippet_for_errors(r.text or "", max_len=_CALLBACK_ERROR_SNIPPET_MAX)
+            raw_body = r.text or ""
+            body_snip = _snippet_for_errors(raw_body, max_len=_CALLBACK_ERROR_SNIPPET_MAX)
+            log_body_snip = _snippet_for_errors(raw_body, max_len=_HTTP_ERROR_LOG_BODY_MAX)
             logger.warning(
                 "finalize callback HTTP error status=%s body_snippet=%r",
                 r.status_code,
-                _snippet_for_errors(r.text or "", max_len=_HTTP_ERROR_LOG_BODY_MAX),
+                log_body_snip,
             )
             errors.append(f"finalize callback failed: {r.status_code} {body_snip}")
             try:

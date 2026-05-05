@@ -8,14 +8,12 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
 from app.config import get_settings, read_prompt_md
-from app.generate_slides_tokens import compute_max_output_tokens
+from app.generate_slides_tokens import MAX_TOKENS_RETRY_HINT, compute_max_output_tokens
 from app.llm_messages import langchain_message_text
 from app.sanitize import sanitize_brief_output
 from app.state import AgentState
 
 logger = logging.getLogger(__name__)
-
-_MAX_TOKENS_RETRY_HINT = 800
 
 
 def _retry_feedback(errors: list[str] | None) -> str:
@@ -64,7 +62,7 @@ async def generate_slides(state: AgentState) -> dict[str, object]:
     )
     # Retries after truncation may need more headroom.
     if int(state.get("retry_count") or 0) > 0 or int(state.get("design_retry_count") or 0) > 0:
-        max_tokens = min(max_tokens + _MAX_TOKENS_RETRY_HINT, settings.generate_slides_max_tokens_cap)
+        max_tokens = min(max_tokens + MAX_TOKENS_RETRY_HINT, settings.generate_slides_max_tokens_cap)
 
     user_content = (
         "<perfil_usuario>\n"

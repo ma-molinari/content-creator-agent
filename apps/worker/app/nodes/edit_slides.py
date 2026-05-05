@@ -8,7 +8,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
 from app.config import get_settings, read_prompt_md
-from app.generate_slides_tokens import compute_max_output_tokens
+from app.generate_slides_tokens import MAX_TOKENS_RETRY_HINT, compute_max_output_tokens
 from app.llm_messages import langchain_message_text
 from app.nodes.generate_slides import _count_instruction, _retry_feedback
 from app.sanitize import sanitize_brief_output
@@ -16,7 +16,6 @@ from app.state import AgentState
 
 logger = logging.getLogger(__name__)
 
-_MAX_TOKENS_RETRY_HINT = 800
 # Refinement uses S3 HTML + user instruction + profile (no chat transcript).
 _EDIT_PRESERVE_BRIEF = (
     "Mantenha o conteúdo e a estrutura dos slides existentes. "
@@ -55,7 +54,7 @@ async def edit_slides(state: AgentState) -> dict[str, object]:
         settings,
     )
     if int(state.get("retry_count") or 0) > 0 or int(state.get("design_retry_count") or 0) > 0:
-        max_tokens = min(max_tokens + _MAX_TOKENS_RETRY_HINT, settings.generate_slides_max_tokens_cap)
+        max_tokens = min(max_tokens + MAX_TOKENS_RETRY_HINT, settings.generate_slides_max_tokens_cap)
 
     slides_block = "\n\n".join(
         f"<!-- {s.get('filename') or 'slide.html'} -->\n{s.get('html') or ''}"
