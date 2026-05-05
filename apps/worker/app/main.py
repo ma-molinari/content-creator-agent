@@ -31,7 +31,7 @@ def _user_safe_error_message(exc: BaseException) -> str:
 
 
 async def report_job_failure(job_id: UUID, message: str, timeout: float = 15.0) -> None:
-    """POST failure to Go API; raises only on request/transport errors (caller logs)."""
+    """POST failure to Go API. Logs on HTTP/transport failure; does not raise."""
     from app.api_client import post_complete_callback
     from app.config import get_settings
 
@@ -98,10 +98,10 @@ def _initial_state(payload: DispatchPayload) -> AgentState:
 
 async def _run_job(state: AgentState) -> None:
     jid = state.get("job_id", "")
-    logger.debug("[railway-debug] graph_start job_id=%s", jid)
+    logger.debug("graph_start job_id=%s", jid)
     try:
         await graph.ainvoke(state)
-        logger.debug("[railway-debug] graph_done job_id=%s", jid)
+        logger.debug("graph_done job_id=%s", jid)
     except Exception as exc:
         logger.exception("job failed: job_id=%s", state.get("job_id"))
         jid = state.get("job_id")
@@ -113,14 +113,7 @@ async def _run_job(state: AgentState) -> None:
             logger.error("job failed: invalid job_id=%r, cannot report failure", jid)
             return
         msg = _user_safe_error_message(exc)
-        try:
-            await report_job_failure(job_uuid, msg)
-        except Exception as report_exc:
-            logger.error(
-                "failed to report job failure to API: job_id=%s",
-                jid,
-                exc_info=report_exc,
-            )
+        await report_job_failure(job_uuid, msg)
 
 
 async def _run_job_safe(state: AgentState) -> None:
@@ -183,7 +176,7 @@ async def post_jobs(
 
     state = _initial_state(payload)
     logger.debug(
-        "[railway-debug] accepted job_id=%s chat_id=%s user_id=%s",
+        "job accepted job_id=%s chat_id=%s user_id=%s",
         payload.job_id,
         payload.chat_id,
         payload.user_id,
