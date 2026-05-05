@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// Load reads configuration from the environment.
+// Config holds application settings loaded from environment variables.
 type Config struct {
 	Port               string
 	DatabaseURL        string
@@ -35,6 +35,7 @@ type Config struct {
 	ProfileRefMaxBytes int64
 }
 
+// Load reads configuration from the environment.
 func Load() Config {
 	origins := os.Getenv("CORS_ALLOWED_ORIGINS")
 	var allowed []string

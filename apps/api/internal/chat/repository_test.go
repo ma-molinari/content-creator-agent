@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"content-creator-agent/internal/db"
-	"content-creator-agent/internal/jobs"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -133,7 +132,6 @@ func TestCreateUserMessageAndJob_nilSetTitleNoUpdate(t *testing.T) {
 func TestCreateUserMessageAndJob_createsJobRow(t *testing.T) {
 	repo, u, chat, gdb := testRepoWithUserChatAndJobsTable(t)
 	ctx := context.Background()
-	jobsRepo := jobs.NewRepository(gdb)
 	jobID := uuid.New()
 	userMsg := &db.ChatContent{
 		ID:      uuid.New(),
@@ -152,8 +150,8 @@ func TestCreateUserMessageAndJob_createsJobRow(t *testing.T) {
 	if err := repo.CreateUserMessageAndJob(ctx, userMsg, job, nil); err != nil {
 		t.Fatal(err)
 	}
-	j, err := jobsRepo.GetByID(ctx, jobID)
-	if err != nil {
+	var j db.Job
+	if err := gdb.WithContext(ctx).First(&j, "id = ?", jobID).Error; err != nil {
 		t.Fatal(err)
 	}
 	if j.Status != db.JobStatusProcessing {

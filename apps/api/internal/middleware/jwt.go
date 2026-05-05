@@ -10,7 +10,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// Context key for authenticated user ID.
+// UserIDKey is the Echo context key for the authenticated user's UUID.
 const UserIDKey = "user_id"
 
 // JWT validates Authorization: Bearer <access token> and stores user UUID in context.

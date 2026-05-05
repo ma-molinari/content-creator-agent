@@ -20,16 +20,6 @@ func NewRepository(gdb *gorm.DB) *Repository {
 	return &Repository{db: gdb}
 }
 
-// GetByID loads a job by primary key.
-func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*db.Job, error) {
-	var j db.Job
-	err := r.db.WithContext(ctx).First(&j, "id = ?", id).Error
-	if err != nil {
-		return nil, err
-	}
-	return &j, nil
-}
-
 // UpdateStatus sets job status and optional error message.
 func (r *Repository) UpdateStatus(ctx context.Context, id uuid.UUID, status db.JobStatus, errMsg *string) error {
 	updates := map[string]interface{}{

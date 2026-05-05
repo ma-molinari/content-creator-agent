@@ -102,7 +102,7 @@ func buildEcho(gdb *gorm.DB, cfg *config.Config, worker jobs.WorkerClient, stor 
 	chatSvc := chat.NewService(chatRepo, jobsRepo, stor, profileRepo, profileSvc, worker)
 	ch := chat.NewHandler(chatSvc)
 
-	jobsH := jobs.NewHandler(cfg, jobsRepo, gdb, stor)
+	jobsH := jobs.NewHandler(cfg, gdb, stor)
 
 	e := echo.New()
 	e.HideBanner = true

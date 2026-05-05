@@ -40,7 +40,7 @@ func (artifactMissingHeadStore) DeleteMany(context.Context, []string) error { re
 func TestHandler_Complete_returns400WhenArtifactMissingInStorage(t *testing.T) {
 	gdb := testCompleteSchemaDB(t)
 	cfg := &config.Config{WorkerAPIKey: "k"}
-	h := NewHandler(cfg, NewRepository(gdb), gdb, artifactMissingHeadStore{})
+	h := NewHandler(cfg, gdb, artifactMissingHeadStore{})
 
 	jobID := uuid.New()
 	chatID := uuid.New()

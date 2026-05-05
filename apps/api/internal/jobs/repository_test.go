@@ -31,7 +31,6 @@ func testJobsDB(t *testing.T) *gorm.DB {
 
 func TestJobRepository_CreateAndGet(t *testing.T) {
 	gdb := testJobsDB(t)
-	repo := NewRepository(gdb)
 	ctx := context.Background()
 	id := uuid.New()
 	chatID := uuid.New()
@@ -47,8 +46,8 @@ func TestJobRepository_CreateAndGet(t *testing.T) {
 	}
 	require.NoError(t, gdb.WithContext(ctx).Create(j).Error)
 
-	got, err := repo.GetByID(ctx, id)
-	require.NoError(t, err)
+	var got db.Job
+	require.NoError(t, gdb.WithContext(ctx).First(&got, "id = ?", id).Error)
 	require.Equal(t, id, got.ID)
 	require.Equal(t, chatID, got.ChatID)
 	require.Equal(t, userID, got.UserID)
@@ -74,15 +73,15 @@ func TestJobRepository_UpdateStatus(t *testing.T) {
 	msg := "worker failed"
 	require.NoError(t, repo.UpdateStatus(ctx, id, db.JobStatusFailed, &msg))
 
-	got, err := repo.GetByID(ctx, id)
-	require.NoError(t, err)
+	var got db.Job
+	require.NoError(t, gdb.WithContext(ctx).First(&got, "id = ?", id).Error)
 	require.Equal(t, db.JobStatusFailed, got.Status)
 	require.NotNil(t, got.ErrorMsg)
 	require.Equal(t, msg, *got.ErrorMsg)
 
 	require.NoError(t, repo.UpdateStatus(ctx, id, db.JobStatusDone, nil))
-	got2, err := repo.GetByID(ctx, id)
-	require.NoError(t, err)
+	var got2 db.Job
+	require.NoError(t, gdb.WithContext(ctx).First(&got2, "id = ?", id).Error)
 	require.Equal(t, db.JobStatusDone, got2.Status)
 }
 

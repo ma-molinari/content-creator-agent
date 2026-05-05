@@ -239,48 +239,6 @@ func ErrRecordNotFound(err error) bool {
 	return errors.Is(err, gorm.ErrRecordNotFound)
 }
 
-// ListContentsOrdered returns chat messages in chronological order.
-func (r *Repository) ListContentsOrdered(ctx context.Context, chatID uuid.UUID) ([]db.ChatContent, error) {
-	var rows []db.ChatContent
-	err := r.db.WithContext(ctx).
-		Where("chat_id = ?", chatID).
-		Order("created_at ASC").
-		Find(&rows).Error
-	return rows, err
-}
-
-// GetResumeByChatID returns the resume row when present.
-func (r *Repository) GetResumeByChatID(ctx context.Context, chatID uuid.UUID) (*db.ChatContentResume, error) {
-	var res db.ChatContentResume
-	err := r.db.WithContext(ctx).Where("chat_id = ?", chatID).First(&res).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return &res, nil
-}
-
-// CreateContentWithImages inserts the user message, assistant message, and slide images in one transaction.
-func (r *Repository) CreateContentWithImages(ctx context.Context, userContent *db.ChatContent, assistantContent *db.ChatContent, images []db.ChatContentImage) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(userContent).Error; err != nil {
-			return err
-		}
-		if err := tx.Create(assistantContent).Error; err != nil {
-			return err
-		}
-		for i := range images {
-			images[i].ChatContentID = assistantContent.ID
-			if err := tx.Create(&images[i]).Error; err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-}
-
 // CreateUserMessageAndJob inserts the user message row and a job (caller sets status, e.g. processing) in one transaction.
 // When setTitle is non-empty, updates the chat title only if it is still unset (NULL or blank).
 func (r *Repository) CreateUserMessageAndJob(ctx context.Context, userContent *db.ChatContent, job *db.Job, setTitle *string) error {

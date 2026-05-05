@@ -31,14 +31,13 @@ type CompleteBody struct {
 // Handler serves internal worker routes.
 type Handler struct {
 	cfg   *config.Config
-	repo  *Repository
 	gdb   *gorm.DB
 	store storage.StorageService
 }
 
 // NewHandler constructs the internal jobs handler.
-func NewHandler(cfg *config.Config, repo *Repository, gdb *gorm.DB, store storage.StorageService) *Handler {
-	return &Handler{cfg: cfg, repo: repo, gdb: gdb, store: store}
+func NewHandler(cfg *config.Config, gdb *gorm.DB, store storage.StorageService) *Handler {
+	return &Handler{cfg: cfg, gdb: gdb, store: store}
 }
 
 // Complete handles POST /internal/jobs/:id/complete.
