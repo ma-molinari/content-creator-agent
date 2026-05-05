@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { downloadContentZip, type ChatContent, type ChatContentImage, type FileListItem } from '@/api/chats'
 import { SlideViewer } from '@/components/slides/SlideViewer'
 import { IconDownload } from '@/components/ui/action-icons'
+import { downloadBlob } from '@/lib/downloadBlob'
 
 type Props = {
   message: ChatContent
@@ -36,15 +37,7 @@ export function MessageAssistant({ message, isLatestVersion }: Props) {
     setDownloading(true)
     try {
       const { blob, filename } = await downloadContentZip(message.chatId, message.id)
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      a.rel = 'noopener'
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
+      downloadBlob(blob, filename)
     } catch (e) {
       setDownloadError(
         e instanceof Error ? e.message : 'Não foi possível baixar o ZIP. Tente novamente.',
