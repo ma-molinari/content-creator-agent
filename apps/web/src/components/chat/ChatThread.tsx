@@ -10,23 +10,38 @@ type Props = {
   chat: Chat | undefined
   /** Text the user just sent while a job is in-flight (optimistic). */
   pendingText: string | null
+  /** Local preview URLs for attachments sent with the pending message. */
+  pendingAttachments?: { id: string; url: string; mimeType: string }[]
   jobStatus: JobStatus | undefined
   /** Error message from a failed job. */
   jobError: string | null | undefined
   onRetry?: () => void
 }
 
-export function ChatThread({ chat, pendingText, jobStatus, jobError, onRetry }: Props) {
+export function ChatThread({
+  chat,
+  pendingText,
+  pendingAttachments,
+  jobStatus,
+  jobError,
+  onRetry,
+}: Props) {
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [chat?.contents?.length, pendingText])
+  }, [chat?.contents?.length, pendingText, pendingAttachments?.length])
 
   const contents = chat?.contents ?? []
   const lastAssistantWithImagesId = [...contents]
     .reverse()
     .find((m) => m.role === 'assistant' && (m.images?.length ?? 0) > 0)?.id
+
+  const lastUserHasAttachments =
+    (pendingAttachments?.length ?? 0) > 0 ||
+    !!(
+      [...contents].reverse().find((c) => c.role === 'user')?.attachments?.length
+    )
 
   const showPendingBubble =
     pendingText != null &&
@@ -37,7 +52,12 @@ export function ChatThread({ chat, pendingText, jobStatus, jobError, onRetry }: 
     <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6">
       {contents.map((msg) =>
         msg.role === 'user' ? (
-          <MessageBubbleUser key={msg.id} content={msg.content} createdAt={msg.createdAt} />
+          <MessageBubbleUser
+            key={msg.id}
+            content={msg.content}
+            createdAt={msg.createdAt}
+            attachments={msg.attachments}
+          />
         ) : (
           <MessageAssistant
             key={msg.id}
@@ -50,13 +70,21 @@ export function ChatThread({ chat, pendingText, jobStatus, jobError, onRetry }: 
       )}
 
       {/* Optimistic user bubble (hidden once GET /chats has the same last user row) */}
-      {showPendingBubble && <MessageBubbleUser content={pendingText} />}
+      {showPendingBubble && (
+        <MessageBubbleUser
+          content={pendingText ?? ''}
+          attachments={pendingAttachments}
+        />
+      )}
 
       {/* Job indicator or error */}
       {jobStatus === 'pending' || jobStatus === 'processing' ? (
         <div className="flex justify-start">
           <div className="rounded-[var(--radius-lg)] rounded-tl-[var(--radius-sm)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] px-4 py-3">
-            <JobStatusIndicator status={jobStatus} />
+            <JobStatusIndicator
+              status={jobStatus}
+              hasUserAttachments={lastUserHasAttachments}
+            />
           </div>
         </div>
       ) : jobError !== undefined && jobError !== null && jobError !== '' ? (

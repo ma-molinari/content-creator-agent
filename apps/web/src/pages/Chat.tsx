@@ -7,6 +7,7 @@ import { api } from '@/api/client'
 import type { Chat as ChatType, JobStatus } from '@/api/chats'
 import {
   fetchChatFilesZip,
+  postChatMessage,
   useChat,
   useDeleteChat,
   useJobStatus,
@@ -27,6 +28,18 @@ type ActiveJob = {
   chatId: string
   jobId: string
   pendingText: string
+  pendingAttachments: { id: string; url: string; mimeType: string }[]
+}
+
+function normalizeActiveJob(
+  job: Pick<ActiveJob, 'chatId' | 'jobId' | 'pendingText'> & {
+    pendingAttachments?: ActiveJob['pendingAttachments']
+  },
+): ActiveJob {
+  return {
+    ...job,
+    pendingAttachments: job.pendingAttachments ?? [],
+  }
 }
 
 type LastJobFailure = {
@@ -47,7 +60,8 @@ function removeActiveJobHydrate(qc: QueryClient, chatId: string | undefined) {
 
 function pendingJobFromLocationState(state: unknown): ActiveJob | null {
   const raw = (state as { pendingJob?: ActiveJob } | null | undefined)?.pendingJob
-  return raw ?? null
+  if (!raw) return null
+  return normalizeActiveJob(raw)
 }
 
 function activeJobForChat(
@@ -55,8 +69,8 @@ function activeJobForChat(
   fromRouter: ActiveJob | null,
   fromCache: ActiveJob | null,
 ): ActiveJob | null {
-  if (fromRouter?.chatId === chatId) return fromRouter
-  if (fromCache?.chatId === chatId) return fromCache
+  if (fromRouter?.chatId === chatId) return normalizeActiveJob(fromRouter)
+  if (fromCache?.chatId === chatId) return normalizeActiveJob(fromCache)
   return null
 }
 
@@ -91,8 +105,10 @@ export default function Chat() {
   const qc = useQueryClient()
   const chatHintDismissed = useOnboardingStore((s) => s.dismissedHints.has('chat-composer'))
   const prevChatIdRef = useRef<string | undefined>(undefined)
+  const activeJobRef = useRef<ActiveJob | null>(null)
 
   const [activeJob, setActiveJob] = useState<ActiveJob | null>(null)
+  activeJobRef.current = activeJob
   const [lastJobFailure, setLastJobFailure] = useState<LastJobFailure | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [isDownloadingZip, setIsDownloadingZip] = useState(false)
@@ -112,12 +128,26 @@ export default function Chat() {
     return () => window.removeEventListener('pageshow', onPageShow)
   }, [id, qc])
 
+  useEffect(() => {
+    return () => {
+      activeJobRef.current?.pendingAttachments?.forEach((a) => URL.revokeObjectURL(a.url))
+    }
+  }, [])
+
   /** Apply route transition + hydrate `activeJob` before paint so the first `/chat/:id` frame tracks the new job (lazy route + stripping `location.state`). */
   useLayoutEffect(() => {
     const prev = prevChatIdRef.current
     if (prev !== undefined && prev !== id) {
+      setActiveJob((current) => {
+        if (current?.chatId === prev) {
+          current.pendingAttachments?.forEach((a) => URL.revokeObjectURL(a.url))
+          return null
+        }
+        return current
+      })
+      const cached = qc.getQueryData<ActiveJob>(activeJobHydrateKey(prev))
+      cached?.pendingAttachments?.forEach((a) => URL.revokeObjectURL(a.url))
       qc.removeQueries({ queryKey: activeJobHydrateKey(prev), exact: true })
-      setActiveJob(null)
       setLastJobFailure(null)
     }
     prevChatIdRef.current = id
@@ -151,8 +181,9 @@ export default function Chat() {
     if (prevStatusRef.current === currentStatus) return
     prevStatusRef.current = currentStatus
 
-    const clearActiveJobSoon = (hydrateId: string | undefined) => {
+    const clearActiveJobSoon = (job: ActiveJob | null, hydrateId: string | undefined) => {
       queueMicrotask(() => {
+        job?.pendingAttachments?.forEach((a) => URL.revokeObjectURL(a.url))
         removeActiveJobHydrate(qc, hydrateId)
         setActiveJob(null)
       })
@@ -160,17 +191,19 @@ export default function Chat() {
 
     if (currentStatus === 'done') {
       const hydrateId = activeJob?.chatId
+      const jobSnapshot = activeJob
       if (activeJob) {
         void qc.invalidateQueries({ queryKey: ['chats', activeJob.chatId] })
         setLastJobFailure(null)
       }
-      clearActiveJobSoon(hydrateId)
+      clearActiveJobSoon(jobSnapshot, hydrateId)
     } else if (currentStatus === 'failed' && activeJob) {
       const err = jobStatus.data?.error ?? UNKNOWN_JOB_ERROR
       const hydrateId = activeJob.chatId
+      const jobSnapshot = activeJob
       setLastJobFailure({ error: err, pendingText: activeJob.pendingText })
       toast.error('Não foi possível gerar o post.')
-      clearActiveJobSoon(hydrateId)
+      clearActiveJobSoon(jobSnapshot, hydrateId)
     }
   }, [currentStatus, activeJob, qc, jobStatus.data?.error])
 
@@ -191,7 +224,11 @@ export default function Chat() {
   )
 
   const handleSend = useCallback(
-    async (text: string, options?: { postType?: 'single' | 'carousel' }) => {
+    async (
+      text: string,
+      files: File[],
+      options?: { postType?: 'single' | 'carousel' },
+    ) => {
       const postTypeForNew = options?.postType ?? 'carousel'
       let chatId = id
 
@@ -210,13 +247,18 @@ export default function Chat() {
 
       setLastJobFailure(null)
 
+      const pendingAttachments = files.map((f) => ({
+        id: crypto.randomUUID(),
+        url: URL.createObjectURL(f),
+        mimeType: f.type,
+      }))
+
       let jobId: string
       try {
-        const { data } = await api.post<{ jobId: string }>(`/chats/${chatId}/messages`, {
-          content: text,
-        })
+        const data = await postChatMessage(chatId, text, files)
         jobId = data.jobId
       } catch (err) {
+        pendingAttachments.forEach((a) => URL.revokeObjectURL(a.url))
         toast.error(
           messageFromApiError(
             err,
@@ -228,7 +270,7 @@ export default function Chat() {
 
       void qc.invalidateQueries({ queryKey: ['chats', chatId] })
 
-      const pending: ActiveJob = { chatId, jobId, pendingText: text }
+      const pending: ActiveJob = { chatId, jobId, pendingText: text, pendingAttachments }
       if (!id) {
         qc.setQueryData(activeJobHydrateKey(chatId), pending)
         navigate(`/chat/${chatId}`, {
@@ -244,17 +286,20 @@ export default function Chat() {
 
   const handleChipClick = useCallback(
     (text: string, postType: 'single' | 'carousel') => {
-      void handleSend(text, { postType }).catch(() => undefined)
+      void handleSend(text, [], { postType }).catch(() => undefined)
     },
     [handleSend],
   )
 
   const handleRetry = useCallback(() => {
     const text = activeJob?.pendingText ?? lastJobFailure?.pendingText
+    if (activeJob) {
+      activeJob.pendingAttachments?.forEach((a) => URL.revokeObjectURL(a.url))
+    }
     setLastJobFailure(null)
     setActiveJob(null)
     if (text) {
-      void handleSend(text).catch(() => undefined)
+      void handleSend(text, []).catch(() => undefined)
     }
   }, [activeJob, lastJobFailure, handleSend])
 
@@ -360,6 +405,9 @@ export default function Chat() {
             <ChatThread
               chat={chat.data}
               pendingText={showJobLoading ? (activeJob?.pendingText ?? null) : null}
+              pendingAttachments={
+                showJobLoading ? (activeJob?.pendingAttachments ?? []) : undefined
+              }
               jobStatus={assistantThreadJobStatus}
               jobError={jobError}
               onRetry={jobError != null ? handleRetry : undefined}
@@ -382,7 +430,7 @@ export default function Chat() {
             </div>
           )}
           <ComposerBar
-            onSend={handleSend}
+            onSend={(text, files) => handleSend(text, files)}
             disabled={showJobLoading || !setupConfigured}
           />
         </div>
