@@ -18,14 +18,18 @@ import (
 
 // Sentinel errors mapped to HTTP in handlers.
 var (
-	ErrNotFound             = errors.New("chat: not found")
-	ErrForbidden            = errors.New("chat: forbidden")
-	ErrNoFiles              = errors.New("chat: no files to zip")
-	ErrBadPostType          = errors.New("chat: invalid post type")
-	ErrWorkerNotConfigured  = errors.New("chat: worker not configured")
-	ErrSetupRequired        = errors.New("chat: profile setup required (audit and brand in app)")
-	ErrEmptyPrompt          = errors.New("chat: empty prompt after sanitization")
-	ErrWorkerDispatchFailed = errors.New("chat: worker dispatch failed")
+	ErrNotFound               = errors.New("chat: not found")
+	ErrForbidden              = errors.New("chat: forbidden")
+	ErrNoFiles                = errors.New("chat: no files to zip")
+	ErrBadPostType            = errors.New("chat: invalid post type")
+	ErrWorkerNotConfigured    = errors.New("chat: worker not configured")
+	ErrSetupRequired          = errors.New("chat: profile setup required (audit and brand in app)")
+	ErrEmptyPrompt            = errors.New("chat: empty prompt after sanitization")
+	ErrWorkerDispatchFailed   = errors.New("chat: worker dispatch failed")
+	ErrAttachmentTooLarge     = errors.New("chat: attachment too large")
+	ErrAttachmentInvalidType  = errors.New("chat: attachment invalid type")
+	ErrTooManyAttachments     = errors.New("chat: too many attachments")
+	ErrAttachmentUploadFailed = errors.New("chat: attachment upload failed")
 	// ErrSlideStorageNotFound means the DB references an S3 key with no object (orphan or misconfigured bucket).
 	ErrSlideStorageNotFound = errors.New("chat: slide file missing in storage")
 )
@@ -119,6 +123,13 @@ func (s *Service) refreshContentImageURLs(ctx context.Context, c *db.Chat) error
 				return err
 			}
 			c.Contents[i].Images[j].URL = url
+		}
+		for j := range c.Contents[i].Attachments {
+			url, err := s.store.GetSignedURL(ctx, c.Contents[i].Attachments[j].S3Key, signedURLExpiry)
+			if err != nil {
+				return err
+			}
+			c.Contents[i].Attachments[j].URL = url
 		}
 	}
 	return nil

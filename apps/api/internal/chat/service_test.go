@@ -100,6 +100,16 @@ func testDBWithUser(t *testing.T) (*gorm.DB, *db.User) {
 			updated_at DATETIME,
 			FOREIGN KEY (chat_content_id) REFERENCES chat_content(id)
 		)`,
+		`CREATE TABLE chat_content_attachment (
+			id TEXT PRIMARY KEY,
+			chat_content_id TEXT NOT NULL,
+			s3_key TEXT NOT NULL,
+			mime_type TEXT NOT NULL,
+			size_bytes INTEGER NOT NULL,
+			sort_order INTEGER NOT NULL DEFAULT 0,
+			created_at DATETIME,
+			FOREIGN KEY (chat_content_id) REFERENCES chat_content(id)
+		)`,
 		`CREATE TABLE chat_content_resume (
 			id TEXT PRIMARY KEY,
 			chat_id TEXT NOT NULL UNIQUE,

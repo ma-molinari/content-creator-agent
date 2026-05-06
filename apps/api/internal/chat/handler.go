@@ -34,13 +34,21 @@ type chatJSON struct {
 }
 
 type chatContentJSON struct {
-	ID        uuid.UUID            `json:"id"`
-	ChatID    uuid.UUID            `json:"chatId"`
-	Role      string               `json:"role"`
-	Content   string               `json:"content"`
-	CreatedAt time.Time            `json:"createdAt"`
-	UpdatedAt time.Time            `json:"updatedAt"`
-	Images    []chatContentImgJSON `json:"images,omitempty"`
+	ID          uuid.UUID               `json:"id"`
+	ChatID      uuid.UUID               `json:"chatId"`
+	Role        string                  `json:"role"`
+	Content     string                  `json:"content"`
+	CreatedAt   time.Time               `json:"createdAt"`
+	UpdatedAt   time.Time               `json:"updatedAt"`
+	Images      []chatContentImgJSON    `json:"images,omitempty"`
+	Attachments []chatContentAttachJSON `json:"attachments,omitempty"`
+}
+
+type chatContentAttachJSON struct {
+	ID        uuid.UUID `json:"id"`
+	URL       string    `json:"url"`
+	MimeType  string    `json:"mimeType"`
+	SortOrder int       `json:"sortOrder"`
 }
 
 type chatContentImgJSON struct {
@@ -64,13 +72,14 @@ func chatToJSON(c *db.Chat) chatJSON {
 	}
 	for _, row := range c.Contents {
 		item := chatContentJSON{
-			ID:        row.ID,
-			ChatID:    row.ChatID,
-			Role:      string(row.Role),
-			Content:   row.Content,
-			CreatedAt: row.CreatedAt,
-			UpdatedAt: row.UpdatedAt,
-			Images:    make([]chatContentImgJSON, 0, len(row.Images)),
+			ID:          row.ID,
+			ChatID:      row.ChatID,
+			Role:        string(row.Role),
+			Content:     row.Content,
+			CreatedAt:   row.CreatedAt,
+			UpdatedAt:   row.UpdatedAt,
+			Images:      make([]chatContentImgJSON, 0, len(row.Images)),
+			Attachments: make([]chatContentAttachJSON, 0, len(row.Attachments)),
 		}
 		for _, im := range row.Images {
 			item.Images = append(item.Images, chatContentImgJSON{
@@ -81,6 +90,14 @@ func chatToJSON(c *db.Chat) chatJSON {
 				SlideNumber:   im.SlideNumber,
 				CreatedAt:     im.CreatedAt,
 				UpdatedAt:     im.UpdatedAt,
+			})
+		}
+		for _, at := range row.Attachments {
+			item.Attachments = append(item.Attachments, chatContentAttachJSON{
+				ID:        at.ID,
+				URL:       at.URL,
+				MimeType:  at.MimeType,
+				SortOrder: at.SortOrder,
 			})
 		}
 		out.Contents = append(out.Contents, item)

@@ -23,6 +23,7 @@ type DispatchPayload struct {
 	AuditText             string    `json:"audit_text"`
 	BrandText             string    `json:"brand_text"`
 	ReferenceS3Keys       []string  `json:"reference_s3_keys,omitempty"`
+	UserAttachmentS3Keys  []string  `json:"user_attachment_s3_keys,omitempty"`
 	ExistingSlideHTMLKeys []string  `json:"existing_slide_html_s3_keys,omitempty"`
 	// ExpectsSlideRefinement: chat already has a prior assistant JPEG slide artifact;
 	// worker must refine from stored HTML keys or surface a refinement error.

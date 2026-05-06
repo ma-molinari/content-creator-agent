@@ -2,10 +2,15 @@ package chat
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"net/http"
 	"regexp"
 	"strings"
+	"sync"
 	"unicode"
+
+	"golang.org/x/sync/errgroup"
 
 	"content-creator-agent/internal/db"
 	"content-creator-agent/internal/jobs"
@@ -55,7 +60,104 @@ func SanitizeUserInput(s string) string {
 	return strings.TrimSpace(s)
 }
 
-// PostMessageResult is the outcome of POST /chats/:id/messages (async).
+const (
+	maxAttachmentBytes       int64 = 5 * 1024 * 1024
+	maxAttachmentsPerMessage       = 4
+)
+
+var allowedAttachmentMimes = map[string]struct{}{
+	"image/jpeg": {}, "image/png": {}, "image/webp": {},
+}
+
+// AttachmentInput is one inbound attachment blob before persistence and upload S3 keys.
+type AttachmentInput struct {
+	Data      []byte
+	MimeType  string // sniffed by validateAndUploadAttachments (reserved for multipart metadata)
+	SizeBytes int64  // informational; authoritative size is len(Data)
+	SortOrder int
+}
+
+// duplicated from profile/service.go; keep local for V1 to avoid cross-package coupling.
+func extForAttachmentMime(ct string) (string, bool) {
+	switch strings.ToLower(ct) {
+	case "image/jpeg":
+		return ".jpg", true
+	case "image/png":
+		return ".png", true
+	case "image/webp":
+		return ".webp", true
+	default:
+		return "", false
+	}
+}
+
+func (s *Service) validateAndUploadAttachments(ctx context.Context, userID uuid.UUID, inputs []AttachmentInput) ([]string, []db.ChatContentAttachment, error) {
+	if len(inputs) > maxAttachmentsPerMessage {
+		return nil, nil, ErrTooManyAttachments
+	}
+	if len(inputs) == 0 {
+		return nil, nil, nil
+	}
+	for _, inp := range inputs {
+		n := len(inp.Data)
+		if n == 0 {
+			return nil, nil, ErrAttachmentInvalidType
+		}
+		if int64(n) > maxAttachmentBytes {
+			return nil, nil, ErrAttachmentTooLarge
+		}
+		sniff := http.DetectContentType(inp.Data)
+		if _, ok := allowedAttachmentMimes[sniff]; !ok {
+			return nil, nil, ErrAttachmentInvalidType
+		}
+	}
+
+	var mu sync.Mutex
+	var rolled []string
+	g, egCtx := errgroup.WithContext(ctx)
+	keysOut := make([]string, len(inputs))
+	attsOut := make([]db.ChatContentAttachment, len(inputs))
+
+	for i := range inputs {
+		idx := i
+		inp := inputs[idx]
+		g.Go(func() error {
+			sniff := http.DetectContentType(inp.Data)
+			if _, ok := allowedAttachmentMimes[sniff]; !ok {
+				return ErrAttachmentInvalidType
+			}
+			ext, ok := extForAttachmentMime(sniff)
+			if !ok {
+				return ErrAttachmentInvalidType
+			}
+			key := fmt.Sprintf("users/%s/chat-attachments/%s%s", userID.String(), uuid.New().String(), ext)
+			if err := s.store.Upload(egCtx, key, inp.Data); err != nil {
+				return err
+			}
+			mu.Lock()
+			rolled = append(rolled, key)
+			mu.Unlock()
+
+			attsOut[idx] = db.ChatContentAttachment{
+				S3Key:     key,
+				MimeType:  sniff,
+				SizeBytes: int64(len(inp.Data)),
+				SortOrder: inp.SortOrder,
+			}
+			keysOut[idx] = key
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		// Best-effort cleanup; avoid failing delete after failed upload aggregate.
+		_ = s.store.DeleteMany(context.Background(), rolled)
+		return nil, nil, fmt.Errorf("%w: %w", ErrAttachmentUploadFailed, err)
+	}
+
+	return keysOut, attsOut, nil
+}
+
 type PostMessageResult struct {
 	JobID uuid.UUID
 }
@@ -102,7 +204,7 @@ func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, raw
 			setTitle = &preview
 		}
 	}
-	if err := s.repo.CreateUserMessageAndJob(ctx, userMsg, job, setTitle); err != nil {
+	if err := s.repo.CreateUserMessageAndJob(ctx, userMsg, job, setTitle, nil); err != nil {
 		return nil, err
 	}
 	existingHTMLKeys, err := s.latestAssistantHTMLKeys(ctx, chatID)

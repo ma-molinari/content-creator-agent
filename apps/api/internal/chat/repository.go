@@ -89,6 +89,9 @@ func (r *Repository) GetByIDWithContents(ctx context.Context, id uuid.UUID) (*db
 		Preload("Contents.Images", func(g *gorm.DB) *gorm.DB {
 			return g.Order("chat_content_image.slide_number ASC")
 		}).
+		Preload("Contents.Attachments", func(g *gorm.DB) *gorm.DB {
+			return g.Order("chat_content_attachment.sort_order ASC")
+		}).
 		Preload("Resume").
 		First(&c, "id = ?", id).Error
 	if err != nil {
@@ -129,13 +132,28 @@ func (r *Repository) CollectS3KeysForChat(ctx context.Context, chatID uuid.UUID)
 		seen[k] = struct{}{}
 		out = append(out, k)
 	}
+	var attachKeys []string
+	if err := r.db.WithContext(ctx).Model(&db.ChatContentAttachment{}).
+		Where("chat_content_id IN (?)", sub).
+		Pluck("s3_key", &attachKeys).Error; err != nil {
+		return nil, err
+	}
+	for _, k := range attachKeys {
+		if _, ok := seen[k]; ok {
+			continue
+		}
+		seen[k] = struct{}{}
+		out = append(out, k)
+	}
 	return out, nil
 }
 
 // ChatHasAssistantWithSlideArtifacts is true when the chat already has at least one JPEG
 // slide persisted for an assistant turn (prior generation vs this dispatch).
 func (r *Repository) ChatHasAssistantWithSlideArtifacts(ctx context.Context, chatID uuid.UUID) (bool, error) {
-	type row struct{ One int `gorm:"column:one"` }
+	type row struct {
+		One int `gorm:"column:one"`
+	}
 	var probe row
 	dbErr := r.db.WithContext(ctx).
 		Table("chat_content_image").
@@ -241,10 +259,18 @@ func ErrRecordNotFound(err error) bool {
 
 // CreateUserMessageAndJob inserts the user message row and a job (caller sets status, e.g. processing) in one transaction.
 // When setTitle is non-empty, updates the chat title only if it is still unset (NULL or blank).
-func (r *Repository) CreateUserMessageAndJob(ctx context.Context, userContent *db.ChatContent, job *db.Job, setTitle *string) error {
+func (r *Repository) CreateUserMessageAndJob(ctx context.Context, userContent *db.ChatContent, job *db.Job, setTitle *string, attachments []db.ChatContentAttachment) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(userContent).Error; err != nil {
 			return err
+		}
+		if len(attachments) > 0 {
+			for i := range attachments {
+				attachments[i].ChatContentID = userContent.ID
+			}
+			if err := tx.Create(&attachments).Error; err != nil {
+				return err
+			}
 		}
 		if err := tx.Create(job).Error; err != nil {
 			return err

@@ -53,7 +53,7 @@ func TestCreateUserMessageAndJob_setsTitleWhenEmpty(t *testing.T) {
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
-	if err := repo.CreateUserMessageAndJob(ctx, userMsg, job, &preview); err != nil {
+	if err := repo.CreateUserMessageAndJob(ctx, userMsg, job, &preview, nil); err != nil {
 		t.Fatal(err)
 	}
 	var reloaded db.Chat
@@ -88,7 +88,7 @@ func TestCreateUserMessageAndJob_doesNotOverwriteExistingTitle(t *testing.T) {
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
-	if err := repo.CreateUserMessageAndJob(ctx, userMsg, job, &preview); err != nil {
+	if err := repo.CreateUserMessageAndJob(ctx, userMsg, job, &preview, nil); err != nil {
 		t.Fatal(err)
 	}
 	var reloaded db.Chat
@@ -117,7 +117,7 @@ func TestCreateUserMessageAndJob_nilSetTitleNoUpdate(t *testing.T) {
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
-	if err := repo.CreateUserMessageAndJob(ctx, userMsg, job, nil); err != nil {
+	if err := repo.CreateUserMessageAndJob(ctx, userMsg, job, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	var reloaded db.Chat
@@ -147,7 +147,7 @@ func TestCreateUserMessageAndJob_createsJobRow(t *testing.T) {
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
-	if err := repo.CreateUserMessageAndJob(ctx, userMsg, job, nil); err != nil {
+	if err := repo.CreateUserMessageAndJob(ctx, userMsg, job, nil, nil); err != nil {
 		t.Fatal(err)
 	}
 	var j db.Job
