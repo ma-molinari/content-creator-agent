@@ -54,14 +54,15 @@ type Chat struct {
 func (Chat) TableName() string { return "chats" }
 
 type ChatContent struct {
-	ID        uuid.UUID       `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	ChatID    uuid.UUID       `gorm:"type:uuid;not null;index"`
-	Chat      Chat            `gorm:"constraint:OnDelete:CASCADE"`
-	Role      ChatContentRole `gorm:"type:chat_content_role_enum;not null"`
-	Content   string          `gorm:"type:text;not null"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	Images    []ChatContentImage `gorm:"foreignKey:ChatContentID"`
+	ID          uuid.UUID       `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	ChatID      uuid.UUID       `gorm:"type:uuid;not null;index"`
+	Chat        Chat            `gorm:"constraint:OnDelete:CASCADE"`
+	Role        ChatContentRole `gorm:"type:chat_content_role_enum;not null"`
+	Content     string          `gorm:"type:text;not null"`
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	Images      []ChatContentImage      `gorm:"foreignKey:ChatContentID"`
+	Attachments []ChatContentAttachment `gorm:"foreignKey:ChatContentID"`
 }
 
 func (ChatContent) TableName() string { return "chat_content" }
@@ -79,6 +80,20 @@ type ChatContentImage struct {
 }
 
 func (ChatContentImage) TableName() string { return "chat_content_image" }
+
+type ChatContentAttachment struct {
+	ID            uuid.UUID   `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	ChatContentID uuid.UUID   `gorm:"type:uuid;not null;index"`
+	ChatContent   ChatContent `gorm:"constraint:OnDelete:CASCADE"`
+	S3Key         string      `gorm:"column:s3_key;size:512;not null"`
+	MimeType      string      `gorm:"column:mime_type;size:64;not null"`
+	SizeBytes     int64       `gorm:"column:size_bytes;not null"`
+	SortOrder     int         `gorm:"column:sort_order;not null;default:0"`
+	CreatedAt     time.Time
+	URL           string `gorm:"-"`
+}
+
+func (ChatContentAttachment) TableName() string { return "chat_content_attachment" }
 
 type ChatContentResume struct {
 	ID            uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
