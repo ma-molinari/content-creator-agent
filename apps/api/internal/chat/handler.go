@@ -2,7 +2,9 @@ package chat
 
 import (
 	"errors"
+	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"content-creator-agent/internal/db"
@@ -262,24 +264,76 @@ type postMessageAccepted struct {
 	JobID uuid.UUID `json:"jobId"`
 }
 
+func validatePostMessageContent(content string) *echo.HTTPError {
+	if strings.TrimSpace(content) == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "content is required")
+	}
+	if len(content) > 10_000 {
+		return echo.NewHTTPError(http.StatusBadRequest, "content too long")
+	}
+	return nil
+}
+
 // PostMessage handles POST /chats/:id/messages (with LLM rate limit middleware).
 func (h *Handler) PostMessage(c echo.Context) error {
 	chatID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid chat id")
 	}
-	var body postMessageBody
-	if err := c.Bind(&body); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid JSON body")
+	ct := strings.ToLower(strings.TrimSpace(c.Request().Header.Get(echo.HeaderContentType)))
+	var content string
+	var attachments []AttachmentInput
+
+	if strings.HasPrefix(ct, echo.MIMEMultipartForm) {
+		form, err := c.MultipartForm()
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid multipart form")
+		}
+		defer func() { _ = form.RemoveAll() }()
+
+		content = c.FormValue("content")
+		if ferr := validatePostMessageContent(content); ferr != nil {
+			return ferr
+		}
+
+		fileHeaders := form.File["attachments"]
+		if len(fileHeaders) > maxAttachmentsPerMessage {
+			return echo.NewHTTPError(http.StatusBadRequest, "too many attachments (max 4)")
+		}
+		attachments = make([]AttachmentInput, 0, len(fileHeaders))
+		for i, fh := range fileHeaders {
+			f, err := fh.Open()
+			if err != nil {
+				return echo.NewHTTPError(http.StatusBadRequest, "cannot read attachment")
+			}
+			data, err := io.ReadAll(io.LimitReader(f, maxAttachmentBytes+1))
+			_ = f.Close()
+			if err != nil {
+				return echo.NewHTTPError(http.StatusBadRequest, "cannot read attachment")
+			}
+			if int64(len(data)) > maxAttachmentBytes {
+				return echo.NewHTTPError(http.StatusRequestEntityTooLarge, "attachment too large (max 5MB)")
+			}
+			attachments = append(attachments, AttachmentInput{
+				Data:      data,
+				MimeType:  fh.Header.Get("Content-Type"),
+				SizeBytes: int64(len(data)),
+				SortOrder: i,
+			})
+		}
+	} else {
+		var body postMessageBody
+		if err := c.Bind(&body); err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, "invalid JSON body")
+		}
+		content = body.Content
+		if ferr := validatePostMessageContent(content); ferr != nil {
+			return ferr
+		}
 	}
-	if body.Content == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "content is required")
-	}
-	if len(body.Content) > 10_000 {
-		return echo.NewHTTPError(http.StatusBadRequest, "content too long")
-	}
+
 	uid := middleware.UserID(c)
-	res, err := h.svc.PostMessage(c.Request().Context(), uid, chatID, body.Content)
+	res, err := h.svc.PostMessage(c.Request().Context(), uid, chatID, content, attachments)
 	if err != nil {
 		return mapPostErr(err)
 	}
@@ -327,6 +381,14 @@ func mapPostErr(err error) *echo.HTTPError {
 		return echo.NewHTTPError(http.StatusBadGateway, "could not reach worker; job marked failed")
 	case errors.Is(err, ErrEmptyPrompt):
 		return echo.NewHTTPError(http.StatusBadRequest, "content is empty after sanitization")
+	case errors.Is(err, ErrAttachmentTooLarge):
+		return echo.NewHTTPError(http.StatusRequestEntityTooLarge, "attachment too large (max 5MB)")
+	case errors.Is(err, ErrAttachmentInvalidType):
+		return echo.NewHTTPError(http.StatusBadRequest, "attachment type not allowed (jpeg/png/webp only)")
+	case errors.Is(err, ErrTooManyAttachments):
+		return echo.NewHTTPError(http.StatusBadRequest, "too many attachments (max 4)")
+	case errors.Is(err, ErrAttachmentUploadFailed):
+		return echo.NewHTTPError(http.StatusBadGateway, "could not upload attachments; try again")
 	}
 	if errors.Is(err, ErrNotFound) || errors.Is(err, ErrForbidden) {
 		return mapChatErr(err)

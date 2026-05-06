@@ -308,7 +308,7 @@ func TestPostMessage_latestHTMLKeysError_degradesGracefully(t *testing.T) {
 		return nil, errors.New("simulated html keys query failure")
 	}
 
-	res, err := svc.PostMessage(context.Background(), u.ID, chat.ID, "hello world")
+	res, err := svc.PostMessage(context.Background(), u.ID, chat.ID, "hello world", nil)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	require.Nil(t, dispatched.ExistingSlideHTMLKeys)
@@ -390,7 +390,7 @@ func TestPostMessage_dispatchRawMessageAndExistingSlideHTMLKeys(t *testing.T) {
 	}
 
 	current := "agora cinza neutro"
-	res, err := svc.PostMessage(context.Background(), u.ID, chat.ID, current)
+	res, err := svc.PostMessage(context.Background(), u.ID, chat.ID, current, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	require.Equal(t, current, dispatched.RawMessage)
@@ -463,7 +463,7 @@ func TestPostMessage_dispatchSetsExpectsSlideRefinementWhenPriorAssistantSlidesE
 	}
 	svc := NewService(repo, jobsRepo, &mockStorage{}, profileRepo, nil, worker)
 
-	res, err := svc.PostMessage(context.Background(), u.ID, chat.ID, "change copy only")
+	res, err := svc.PostMessage(context.Background(), u.ID, chat.ID, "change copy only", nil)
 	require.NoError(t, err)
 	require.NotNil(t, res)
 	require.True(t, dispatched.ExpectsSlideRefinement, "second turn should refine when slides already exist")

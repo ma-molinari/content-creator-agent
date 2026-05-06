@@ -163,7 +163,7 @@ type PostMessageResult struct {
 }
 
 // PostMessage persists the user message, creates a job, and dispatches work to the worker.
-func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, rawBody string) (*PostMessageResult, error) {
+func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, rawBody string, attachments []AttachmentInput) (*PostMessageResult, error) {
 	if s.worker == nil {
 		return nil, ErrWorkerNotConfigured
 	}
@@ -204,7 +204,17 @@ func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, raw
 			setTitle = &preview
 		}
 	}
-	if err := s.repo.CreateUserMessageAndJob(ctx, userMsg, job, setTitle, nil); err != nil {
+	var attKeys []string
+	var chatAtts []db.ChatContentAttachment
+	if len(attachments) > 0 {
+		keys, atts, err := s.validateAndUploadAttachments(ctx, userID, attachments)
+		if err != nil {
+			return nil, err
+		}
+		attKeys = keys
+		chatAtts = atts
+	}
+	if err := s.repo.CreateUserMessageAndJob(ctx, userMsg, job, setTitle, chatAtts); err != nil {
 		return nil, err
 	}
 	existingHTMLKeys, err := s.latestAssistantHTMLKeys(ctx, chatID)
@@ -225,6 +235,7 @@ func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, raw
 		AuditText:              auditText,
 		BrandText:              brandText,
 		ReferenceS3Keys:        refKeys,
+		UserAttachmentS3Keys:   attKeys,
 		ExistingSlideHTMLKeys:  existingHTMLKeys,
 		ExpectsSlideRefinement: expectsSlideRefinement,
 	}
