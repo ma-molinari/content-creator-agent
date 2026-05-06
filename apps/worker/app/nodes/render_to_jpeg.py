@@ -1,10 +1,14 @@
 """Render each slide HTML to JPEG bytes with Playwright."""
 
+from __future__ import annotations
+
 import asyncio
 import logging
+from urllib.parse import urlparse
 
 from playwright.async_api import Browser, Route, async_playwright
 
+from app.config import get_settings
 from app.slide_render_html import enhance_slide_html_for_render
 from app.state import AgentState, RenderedSlide, SlideItem, copy_errors
 
@@ -14,6 +18,22 @@ _VIEWPORT = {"width": 1080, "height": 1350}
 _JPEG_QUALITY = 92
 _TIMEOUT_MS = 60_000
 
+_ALLOWED_S3_HOSTS: frozenset[str] | None = None
+
+
+def _allowed_s3_hosts() -> frozenset[str]:
+    global _ALLOWED_S3_HOSTS
+    if _ALLOWED_S3_HOSTS is None:
+        s = get_settings()
+        _ALLOWED_S3_HOSTS = frozenset(
+            {
+                f"{s.aws_s3_bucket}.s3.{s.aws_region}.amazonaws.com",
+                f"{s.aws_s3_bucket}.s3.amazonaws.com",
+                f"s3.{s.aws_region}.amazonaws.com",
+            }
+        )
+    return _ALLOWED_S3_HOSTS
+
 
 async def _allow_slide_route(route: Route) -> None:
     """Block remote assets except Google Fonts (needed for @import in slide HTML)."""
@@ -22,6 +42,10 @@ async def _allow_slide_route(route: Route) -> None:
         await route.continue_()
         return
     if "fonts.googleapis.com" in url or "fonts.gstatic.com" in url:
+        await route.continue_()
+        return
+    host = urlparse(url).hostname
+    if host and host in _allowed_s3_hosts():
         await route.continue_()
         return
     await route.abort()
