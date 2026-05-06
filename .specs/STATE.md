@@ -2,9 +2,19 @@
 
 ## Última atualização
 
-2026-05-03
+2026-05-05
 
 ## Feature em foco
+
+| Item | Valor |
+|------|--------|
+| Feature | `attach-image-to-prompt` |
+| Spec | `.specs/features/attach-image-to-prompt/spec.md` |
+| Context | `.specs/features/attach-image-to-prompt/context.md` |
+| Design | `.specs/features/attach-image-to-prompt/design.md` |
+| Tasks | `.specs/features/attach-image-to-prompt/tasks.md` |
+
+### Feature anterior (em execução)
 
 | Item | Valor |
 |------|--------|
@@ -13,8 +23,9 @@
 | Context | `.specs/features/iterative-slide-refinement/context.md` |
 | Design | `.specs/features/iterative-slide-refinement/design.md` |
 | Tasks | `.specs/features/iterative-slide-refinement/tasks.md` |
+| Status | Spec + design + tasks aprovados; T13 com checkboxes parciais; demais T1–T12, T14–T15 pendentes de verificação. |
 
-### Feature anterior (concluída)
+### Feature mais antiga (concluída)
 
 | Item | Valor |
 |------|--------|
@@ -91,6 +102,7 @@ Entradas cronológicas do que foi efetivamente construído em código frente à 
 
 | Feature | Marco | Notas |
 |---------|--------|-------|
+| attach-image-to-prompt | Tasks aprovadas | Spec + context + design + tasks (26 tasks, 5 fases). Pronto para Execute. Próximo passo: T1 (migration 013). |
 | iterative-slide-refinement | Tasks concluídas | Spec + context + design + tasks aprovados. Pronto para Execute. |
 | content-creator-agent | Pós–Fase 6 | Fases 1–6 concluídas. Opcional: ativar E2E compose no CI, fechar gaps T9/TP6. |
 
