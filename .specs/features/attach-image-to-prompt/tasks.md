@@ -151,6 +151,12 @@ cd apps/api && go test ./internal/chat/...
 
 **Commit**: `feat(chat): include user attachments in CollectS3KeysForChat`
 
+**Notas de implementação**:
+
+- Terceira query no mesmo espírito das existentes: `sub`/`IN` sobre `chat_content`, filtrando `chat_content_attachment.s3_key` cujo `chat_content_id` pertence ao chat.
+- Concatenar chaves ao loop atual com o mesmo map `seen` (dedup uniforme para `DeleteMany`).
+- Edge case: falha numa das queries ⇒ retornar erro (comportamento alinhado ao bundle atual do método).
+
 ---
 
 ### T4: Repository — estender `CreateUserMessageAndJob` para anexos [P]
@@ -175,6 +181,12 @@ cd apps/api && go test ./internal/chat/...
 
 **Commit**: `feat(chat): persist attachments in CreateUserMessageAndJob transaction`
 
+**Notas de implementação**:
+
+- **Assinatura (escolha A)**: manter um único método e acrescentar último argumento `attachments []db.ChatContentAttachment`; callers atuais passam `nil` (sem segundo caminho de API interna).
+- Dentro da `tx.Transaction`, após `tx.Create` do `ChatContent` do utilizador: preencher `attachments[i].ChatContentID = userContent.ID` e `tx.Create(&attachments)` (batch GORM sobre slice).
+- Rollback da transação cobre qualquer falha de insert.
+
 ---
 
 ### T5: `DispatchPayload` (Go) — campo `UserAttachmentS3Keys` [P]
@@ -196,6 +208,11 @@ cd apps/api && go build ./...
 ```
 
 **Commit**: `feat(jobs): add UserAttachmentS3Keys to DispatchPayload`
+
+**Notas de implementação**:
+
+- Campo novo em [`apps/api/internal/jobs/worker_client.go`](apps/api/internal/jobs/worker_client.go): posicionar entre `ReferenceS3Keys` e `ExistingSlideHTMLKeys` para espelhar a ordem lógica do payload.
+- Trivial desde o ponto de vista de comportamento: `omitempty` + slice `nil` não quebra JSON existente.
 
 ---
 
@@ -223,6 +240,37 @@ cd apps/api && go build ./...
 ```
 
 **Commit**: `feat(chat): add validateAndUploadAttachments helper`
+
+**Notas de implementação**:
+
+- **Local**: método privado no `Service` em `apps/api/internal/chat/post_message.go`.
+- **Sentinels** novos declarados em `service.go`: `ErrAttachmentTooLarge`, `ErrAttachmentInvalidType`, `ErrTooManyAttachments`, `ErrAttachmentUploadFailed`.
+- **Constantes** e allowlist MIME no mesmo arquivo de serviço (exemplo do plano):
+
+```go
+const (
+    maxAttachmentBytes       int64 = 5 * 1024 * 1024
+    maxAttachmentsPerMessage       = 4
+)
+
+var allowedAttachmentMimes = map[string]struct{}{
+    "image/jpeg": {}, "image/png": {}, "image/webp": {},
+}
+```
+
+- **Input público** (reuso no handler em T7):
+
+```go
+type AttachmentInput struct {
+    Data      []byte
+    MimeType  string // sniffed
+    SizeBytes int64
+    SortOrder int
+}
+```
+
+- **Fluxo**: validar contagem → por item `http.DetectContentType(Data)` + allowlist + `SizeBytes <= max` → `errgroup.WithContext` para uploads paralelos com key `users/<uid>/chat-attachments/<uuid><ext>` → em erro: cancelar ctx + best-effort `store.Delete` nas keys já enviadas → `fmt.Errorf(...: %w", err)` envolto em `ErrAttachmentUploadFailed`.
+- **`extForImageType`**: **não** acoplar ao pacote `profile` neste V1 — duplicar conscientemente ~8 linhas em `post_message.go` com comentário `// duplicated from profile/service.go; local to avoid cross-package coupling for V1`.
 
 ---
 
@@ -276,6 +324,20 @@ cd apps/api && go test ./internal/chat/...
 
 **Commit**: `feat(chat): refresh signed URLs for user attachments`
 
+**Notas de implementação**:
+
+- Após o loop que assina URLs em `Images`, segundo loop sobre `Attachments` espelhando o mesmo tratamento de erro:
+
+```go
+for j := range c.Contents[i].Attachments {
+    url, err := s.store.GetSignedURL(ctx, c.Contents[i].Attachments[j].S3Key, signedURLExpiry)
+    if err != nil {
+        return err
+    }
+    c.Contents[i].Attachments[j].URL = url
+}
+```
+
 ---
 
 ### T9: Handler — `chatContentJSON` expõe `attachments` [P]
@@ -299,6 +361,19 @@ cd apps/api && go test ./internal/chat/...
 ```
 
 **Commit**: `feat(chat): expose attachments in chat JSON response`
+
+**Notas de implementação**:
+
+- Novo tipo `chatContentAttachJSON` no `handler.go` como espelho de `chatContentImgJSON`; campo JSON com `omitempty` ⇒ mensagens antigas sem slice.
+- Em `GetByIDWithContents`, acrescentar Preload ordenado:
+
+```go
+.Preload("Contents.Attachments", func(g *gorm.DB) *gorm.DB {
+    return g.Order("chat_content_attachment.sort_order ASC")
+})
+```
+
+- Popular attachments no mesmo loop que `Images` em `chatToJSON`.
 
 ---
 
@@ -324,6 +399,17 @@ cd apps/worker && python -c "from app.state import AgentState; print('ok')"
 
 **Commit**: `feat(worker): add user attachment fields to AgentState`
 
+**Notas de implementação**:
+
+- Inserir imediatamente a seguir a `existing_slide_html_s3_keys` em [`apps/worker/app/state.py`](apps/worker/app/state.py):
+
+```python
+user_attachment_s3_keys: NotRequired[list[str]]
+user_attachment_descriptions: NotRequired[list[str]]
+user_attachment_intent: NotRequired[str]  # "explicit" | "cover_default"
+user_attachment_signed_urls: NotRequired[list[str]]
+```
+
 ---
 
 ### T11: Worker — `app/s3_image_utils.py` (promover utilities) [P]
@@ -347,6 +433,13 @@ cd apps/worker && python -m pytest tests/ -q
 ```
 
 **Commit**: `refactor(worker): extract S3 image utilities to shared module`
+
+**Notas de implementação**:
+
+- Extrair `_fetch_bytes_limited` e `_guess_mime` de `describe_references.py` (bloco ~linhas 34–60) para `apps/worker/app/s3_image_utils.py` como **`fetch_bytes_limited`** e **`guess_mime`** (públicos).
+- **`presign_get_url(client, bucket, key, expires_in_seconds=3600)`** via `generate_presigned_url('get_object', Params={'Bucket': bucket, 'Key': key}, ExpiresIn=...)`.
+- Manter **`_StreamingBody`** / cliente S3 onde fizer sentido (plano sugere mover classes auxiliares para o novo módulo conforme refactor mínimo).
+- **Alias para testes**: `tests/test_describe_reference_fetch.py` referencia `dr._fetch_bytes_limited` — manter `_fetch_bytes_limited = fetch_bytes_limited` em `describe_references.py` para diff mínimo (alternativa: atualizar o teste).
 
 ---
 
@@ -379,6 +472,25 @@ cd apps/worker && python -c "from app.nodes.describe_user_attachments import des
 
 **Commit**: `feat(worker): add describe_user_attachments node`
 
+**Notas de implementação**:
+
+- Espelhar `describe_references` com três diferenças:
+  1. **Signed URLs**: preencher `user_attachment_signed_urls` mesmo se a vision falhar (LLM ainda pode referenciar a URL no HTML).
+  2. **Intent** sobre `state["raw_message"]` (regex mais abrangente que o checklist do *Done when*, inclui `substituir`/`substituira` pelo plano):
+
+```python
+_INTENT_RE = re.compile(
+    r"\b(use|usa|coloque|ponha|adicion[ea]|inclu[ai]|"
+    r"no\s+slide\s+\d+|como\s+(capa|fundo|hero|background)|"
+    r"na\s+capa|primeir[oa]\s+slide|substitu[ai]r?)\b",
+    re.IGNORECASE,
+)
+intent = "explicit" if _INTENT_RE.search(raw_msg or "") else "cover_default"
+```
+
+  3. **Parsing da resposta**: pedir lista `1. <descrição>` e extrair com `re.findall(r"^\s*(\d+)\.\s*(.+?)(?=\n\s*\d+\.|\Z)", text, re.MULTILINE | re.DOTALL)`; alinhar por índice e preencher `""` quando faltar entrada.
+- **Prompt** `prompts/describe_user_attachments.md`: até 80 palavras/imagem; quatro facetas (tipo / elementos / paleta / estilo); saída numerada obrigatória.
+
 ---
 
 ### T13: Worker — `render_to_jpeg` allowlist S3 [P]
@@ -406,6 +518,31 @@ cd apps/worker && python -c "from app.nodes.render_to_jpeg import render_to_jpeg
 
 **Commit**: `feat(worker): allow S3 bucket hosts in Playwright route allowlist`
 
+**Notas de implementação**:
+
+- Cache lazy a nível de módulo (exemplo):
+
+```python
+from urllib.parse import urlparse
+from app.config import get_settings
+
+_ALLOWED_S3_HOSTS: frozenset[str] | None = None
+
+def _allowed_s3_hosts() -> frozenset[str]:
+    global _ALLOWED_S3_HOSTS
+    if _ALLOWED_S3_HOSTS is None:
+        s = get_settings()
+        _ALLOWED_S3_HOSTS = frozenset({
+            f"{s.aws_s3_bucket}.s3.{s.aws_region}.amazonaws.com",
+            f"{s.aws_s3_bucket}.s3.amazonaws.com",
+            f"s3.{s.aws_region}.amazonaws.com",
+        })
+    return _ALLOWED_S3_HOSTS
+```
+
+- Em `_allow_slide_route`, **antes** de `route.abort()`, se `urlparse(url).hostname` pertencer ao set ⇒ `route.continue_()`.
+- Presigned boto3 usa virtual-hosted por defeito; incluir também path-style defensivo (**allowlist** > denylist).
+
 ---
 
 ### T14: Prompt `generate_slides.md` — bloco de orientação para anexos [P]
@@ -432,6 +569,23 @@ grep -i "anexos_do_usuario" apps/worker/prompts/generate_slides.md | head -3
 
 **Commit**: `feat(worker): add user attachments guidance to generate_slides prompt`
 
+**Notas de implementação**:
+
+- Nova seção **`## ANEXOS_DO_USUARIO`** (~bloco conceitual do plano; ajustar à voz atual do prompt):
+
+```markdown
+## ANEXOS_DO_USUARIO
+
+Quando `<anexos_do_usuario count="N" intent="...">` aparece, cada `<imagem n="i" url="..." mime="...">descrição</imagem>` é uma imagem real fornecida pelo utilizador (não inventar nem ignorar).
+
+- `intent="cover_default"` — IMAGEM 1 vira **visual dominante do slide 1** (capa: hero, fundo ou destaque). Demais imagens podem reforçar slides 2+ ou ser ignoradas se não couberem no fluxo.
+- `intent="explicit"` — siga **estritamente** a instrução do utilizador em `<raw_message>` (slide N específico, "como fundo", etc.).
+- **SEMPRE** referenciar via URL completa: `<img src="<url>" alt="...">` ou `background-image: url(<url>)`. **NUNCA** inline base64.
+- **NUNCA** omitir a tag `<img>` ou `background-image` quando a intenção exigir uso obrigatório.
+```
+
+- **Prompt drift**: se o prompt vigente proíbe "URLs remotas", explicitar estas URLs como **exceção controlada** (par com Google Fonts).
+
 ---
 
 ### T15: Prompt `edit_slides.md` — bloco de orientação para anexos [P]
@@ -453,6 +607,11 @@ grep -i "anexos_do_usuario" apps/worker/prompts/edit_slides.md | head -3
 ```
 
 **Commit**: `feat(worker): add user attachments guidance to edit_slides prompt`
+
+**Notas de implementação**:
+
+- Espelhar T14 (**`## ANEXOS_DO_USUARIO`** com as mesmas regras base).
+- **Extra para edição**: com `intent="cover_default"`, **substituir** o visual dominante do slide 1 e **preservar** texto/copy dos slides seguintes.
 
 ---
 
@@ -477,6 +636,39 @@ cd apps/worker && python -c "from app.attachment_block import format_user_attach
 ```
 
 **Commit**: `feat(worker): add attachment_block helper to format user attachments for prompts`
+
+**Notas de implementação**:
+
+- Função **pura** (sem I/O), alvo `apps/worker/app/attachment_block.py`. Esboço de referência (ajustar imports à árvore real):
+
+```python
+from app.state import AgentState
+
+def format_user_attachments_block(state: AgentState) -> str:
+    keys = state.get("user_attachment_s3_keys") or []
+    if not keys:
+        return ""
+    urls = state.get("user_attachment_signed_urls") or []
+    descs = state.get("user_attachment_descriptions") or []
+    intent = state.get("user_attachment_intent") or "cover_default"
+    parts = [f'<anexos_do_usuario count="{len(keys)}" intent="{intent}">']
+    for i, key in enumerate(keys):
+        url = urls[i] if i < len(urls) else ""
+        desc = descs[i] if i < len(descs) else ""
+        mime = "image/jpeg"  # downstream LLM doesn't use mime; safe default
+        parts.append(f'  <imagem n="{i+1}" url="{url}" mime="{mime}">{desc}</imagem>')
+    parts.append("</anexos_do_usuario>")
+    parts.append("")
+    parts.append("ORIENTAÇÃO DE USO:")
+    if intent == "cover_default":
+        parts.append("- Use IMAGEM 1 como visual dominante do slide 1 (capa).")
+    else:
+        parts.append("- Siga estritamente a instrução do utilizador em <raw_message>.")
+    parts.append("- SEMPRE referenciar via URL completa em src= ou background-image: url(...).")
+    return "\n".join(parts)
+```
+
+- **Integração nos nós** fica para **Phase 3 (T19)** — este commit só entrega o helper.
 
 ---
 
