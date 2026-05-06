@@ -3,6 +3,7 @@
 from langgraph.graph import END, StateGraph
 
 from app.nodes.describe_references import describe_references
+from app.nodes.describe_user_attachments import describe_user_attachments
 from app.nodes.detect_intent import detect_intent
 from app.nodes.edit_slides import edit_slides
 from app.nodes.finalize import finalize
@@ -24,6 +25,7 @@ def build_graph():
     builder.add_node("load_profile", load_profile)
     builder.add_node("prompt_security_validate", prompt_security_validate)
     builder.add_node("describe_references", describe_references)
+    builder.add_node("describe_user_attachments", describe_user_attachments)
     builder.add_node("optimize_prompt", optimize_prompt)
     builder.add_node("validate_brief", validate_brief)
     builder.add_node("detect_intent", detect_intent)
@@ -43,7 +45,8 @@ def build_graph():
         route_after_prompt_security,
         {"ok": "describe_references", "rejected": "finalize"},
     )
-    builder.add_edge("describe_references", "detect_intent")
+    builder.add_edge("describe_references", "describe_user_attachments")
+    builder.add_edge("describe_user_attachments", "detect_intent")
 
     def route_after_detect_intent(state: AgentState) -> str:
         if state.get("refinement_context_unavailable"):
