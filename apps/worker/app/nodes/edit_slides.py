@@ -7,6 +7,7 @@ import logging
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
+from app.attachment_block import format_user_attachments_block
 from app.config import get_settings, read_prompt_md
 from app.generate_slides_tokens import MAX_TOKENS_RETRY_HINT, compute_max_output_tokens
 from app.llm_messages import langchain_message_text
@@ -81,6 +82,9 @@ async def edit_slides(state: AgentState) -> dict[str, object]:
             "Preserve e reflita paleta, accent e ritmo ao editar."
         )
     user_content += _retry_feedback(state.get("errors"))
+    block = format_user_attachments_block(state)
+    if block:
+        user_content += "\n\n" + block
 
     logger.info(
         "node=edit_slides job_id=%s max_tokens=%s requested_slide_count=%s",

@@ -7,6 +7,7 @@ import logging
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
+from app.attachment_block import format_user_attachments_block
 from app.config import get_settings, read_prompt_md
 from app.llm_messages import langchain_message_text
 from app.parse_optimize_output import split_optimize_response
@@ -40,6 +41,9 @@ async def optimize_prompt(state: AgentState) -> dict[str, object]:
             ]
         )
     user_content = "\n".join(user_parts)
+    block = format_user_attachments_block(state)
+    if block:
+        user_content += "\n\n" + block
 
     llm = ChatOpenAI(
         api_key=settings.openai_api_key,
