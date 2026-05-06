@@ -206,6 +206,13 @@ export type ChatContentImage = {
   updatedAt: string
 }
 
+export type ChatContentAttachment = {
+  id: string
+  url: string
+  mimeType: string
+  sortOrder: number
+}
+
 export type ChatContent = {
   id: string
   chatId: string
@@ -214,6 +221,7 @@ export type ChatContent = {
   createdAt: string
   updatedAt: string
   images: ChatContentImage[]
+  attachments?: ChatContentAttachment[]
 }
 
 export type Chat = {
@@ -239,6 +247,30 @@ export type JobStatusView = {
   jobId: string
   status: JobStatus
   error: string | null
+}
+
+export async function postChatMessage(
+  chatId: string,
+  content: string,
+  attachments?: File[],
+): Promise<{ jobId: string }> {
+  if (!attachments || attachments.length === 0) {
+    const { data } = await api.post<{ jobId: string }>(
+      `/chats/${chatId}/messages`,
+      { content },
+    )
+    return data
+  }
+  const form = new FormData()
+  form.append('content', content)
+  for (const file of attachments) {
+    form.append('attachments', file, file.name)
+  }
+  const { data } = await api.post<{ jobId: string }>(
+    `/chats/${chatId}/messages`,
+    form,
+  )
+  return data
 }
 
 // ── Setup ──────────────────────────────────────────────────────────────────
