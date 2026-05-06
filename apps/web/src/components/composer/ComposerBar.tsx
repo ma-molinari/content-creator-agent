@@ -1,158 +1,157 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from "react";
 
-import { IconClose, IconPaperclip } from '@/components/ui/action-icons'
-import { InlineSpinner } from '@/components/ui/InlineSpinner'
-import { toast } from '@/lib/toast'
+import { IconClose, IconPaperclip } from "@/components/ui/action-icons";
+import { InlineSpinner } from "@/components/ui/InlineSpinner";
+import { toast } from "@/lib/toast";
 
 type Props = {
-  onSend: (text: string, files: File[]) => Promise<void>
-  disabled?: boolean
-  placeholder?: string
-}
+  onSend: (text: string, files: File[]) => Promise<void>;
+  disabled?: boolean;
+  placeholder?: string;
+};
 
-type PendingAttachment = { id: string; file: File; previewUrl: string }
+type PendingAttachment = { id: string; file: File; previewUrl: string };
 
-const MAX_CHARS = 2000
-const MAX_ATTACHMENTS = 4
-const MAX_BYTES = 5 * 1024 * 1024
-const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp'] as const
+const MAX_CHARS = 2000;
+const MAX_ATTACHMENTS = 4;
+const MAX_BYTES = 5 * 1024 * 1024;
+const ALLOWED_MIMES = ["image/jpeg", "image/png", "image/webp"] as const;
 
 function isAllowedMime(mime: string): mime is (typeof ALLOWED_MIMES)[number] {
-  return (ALLOWED_MIMES as readonly string[]).includes(mime)
+  return (ALLOWED_MIMES as readonly string[]).includes(mime);
 }
 
 export function ComposerBar({
   onSend,
   disabled = false,
-  placeholder = 'Descreva o post que você quer criar…',
+  placeholder = "Descreva o post que você quer criar…",
 }: Props) {
-  const [text, setText] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [attachments, setAttachments] = useState<PendingAttachment[]>([])
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const attachmentsRef = useRef(attachments)
-  attachmentsRef.current = attachments
+  const [text, setText] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const attachmentsRef = useRef(attachments);
+  attachmentsRef.current = attachments;
 
-  const charCount = text.length
-  const canSend =
-    text.trim().length > 0 && !disabled && !submitting
+  const charCount = text.length;
+  const canSend = text.trim().length > 0 && !disabled && !submitting;
   const attachBlocked =
-    disabled || submitting || attachments.length >= MAX_ATTACHMENTS
+    disabled || submitting || attachments.length >= MAX_ATTACHMENTS;
 
   useEffect(() => {
     return () => {
-      attachmentsRef.current.forEach((a) => URL.revokeObjectURL(a.previewUrl))
-    }
-  }, [])
+      attachmentsRef.current.forEach((a) => URL.revokeObjectURL(a.previewUrl));
+    };
+  }, []);
 
   function autoResize() {
-    const el = textareaRef.current
-    if (!el) return
-    el.style.height = 'auto'
-    el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 120) + "px";
   }
 
   function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    if (e.target.value.length > MAX_CHARS) return
-    setText(e.target.value)
-    autoResize()
+    if (e.target.value.length > MAX_CHARS) return;
+    setText(e.target.value);
+    autoResize();
   }
 
   function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
-    const list = e.target.files
-    const input = e.target
-    input.value = ''
-    if (!list?.length) return
+    const list = Array.from(e.target.files || []);
+    const input = e.target;
+    input.value = "";
+    if (!list?.length) return;
 
-    let tooLarge = 0
-    let badMime = 0
-    let overLimit = 0
-    const accepted: PendingAttachment[] = []
+    let tooLarge = 0;
+    let badMime = 0;
+    let overLimit = 0;
+    const accepted: PendingAttachment[] = [];
 
     setAttachments((prev) => {
-      let slots = MAX_ATTACHMENTS - prev.length
+      let slots = MAX_ATTACHMENTS - prev.length;
       for (const file of list) {
         if (slots <= 0) {
-          overLimit += 1
-          continue
+          overLimit += 1;
+          continue;
         }
         if (!isAllowedMime(file.type)) {
-          badMime += 1
-          continue
+          badMime += 1;
+          continue;
         }
         if (file.size > MAX_BYTES) {
-          tooLarge += 1
-          continue
+          tooLarge += 1;
+          continue;
         }
         accepted.push({
           id: crypto.randomUUID(),
           file,
           previewUrl: URL.createObjectURL(file),
-        })
-        slots -= 1
+        });
+        slots -= 1;
       }
-      if (accepted.length === 0) return prev
-      return [...prev, ...accepted]
-    })
+      if (accepted.length === 0) return prev;
+      return [...prev, ...accepted];
+    });
 
-    const rejected = tooLarge + badMime + overLimit
+    const rejected = tooLarge + badMime + overLimit;
     if (rejected > 0) {
-      const parts: string[] = []
+      const parts: string[] = [];
       if (tooLarge > 0) {
         parts.push(
-          `${tooLarge} ${tooLarge === 1 ? 'muito grande' : 'muito grandes'}`,
-        )
+          `${tooLarge} ${tooLarge === 1 ? "muito grande" : "muito grandes"}`,
+        );
       }
       if (badMime > 0) {
         parts.push(
-          `${badMime} ${badMime === 1 ? 'formato inválido' : 'formatos inválidos'}`,
-        )
+          `${badMime} ${badMime === 1 ? "formato inválido" : "formatos inválidos"}`,
+        );
       }
       if (overLimit > 0) {
         parts.push(
-          `${overLimit} ${overLimit === 1 ? 'excedeu o limite de anexos' : 'excederam o limite de anexos'}`,
-        )
+          `${overLimit} ${overLimit === 1 ? "excedeu o limite de anexos" : "excederam o limite de anexos"}`,
+        );
       }
       toast.error(
-        `${rejected} ${rejected === 1 ? 'arquivo rejeitado' : 'arquivos rejeitados'}: ${parts.join(', ')}`,
-      )
+        `${rejected} ${rejected === 1 ? "arquivo rejeitado" : "arquivos rejeitados"}: ${parts.join(", ")}`,
+      );
     }
   }
 
   function removeAttachment(id: string) {
     setAttachments((prev) => {
-      const found = prev.find((a) => a.id === id)
-      if (found) URL.revokeObjectURL(found.previewUrl)
-      return prev.filter((a) => a.id !== id)
-    })
+      const found = prev.find((a) => a.id === id);
+      if (found) URL.revokeObjectURL(found.previewUrl);
+      return prev.filter((a) => a.id !== id);
+    });
   }
 
   async function handleSend() {
-    const trimmed = text.trim()
-    if (!trimmed || submitting || disabled) return
-    const snapshot = attachments
-    const files = snapshot.map((a) => a.file)
-    setSubmitting(true)
+    const trimmed = text.trim();
+    if (!trimmed || submitting || disabled) return;
+    const snapshot = attachments;
+    const files = snapshot.map((a) => a.file);
+    setSubmitting(true);
     try {
-      await onSend(trimmed, files)
-      snapshot.forEach((a) => URL.revokeObjectURL(a.previewUrl))
-      setAttachments([])
-      setText('')
+      await onSend(trimmed, files);
+      snapshot.forEach((a) => URL.revokeObjectURL(a.previewUrl));
+      setAttachments([]);
+      setText("");
       if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto'
+        textareaRef.current.style.height = "auto";
       }
     } catch {
       // Parent surfaces errors (e.g. toast); keep draft
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
     }
   }
 
@@ -214,11 +213,11 @@ export function ComposerBar({
             <div className="flex shrink-0 items-center gap-2">
               <span
                 className={[
-                  'text-xs tabular-nums',
+                  "text-xs tabular-nums",
                   charCount > MAX_CHARS * 0.9
-                    ? 'text-amber-500'
-                    : 'text-[var(--color-text-muted)]',
-                ].join(' ')}
+                    ? "text-amber-500"
+                    : "text-[var(--color-text-muted)]",
+                ].join(" ")}
               >
                 {charCount}/{MAX_CHARS}
               </span>
@@ -240,7 +239,7 @@ export function ComposerBar({
         </div>
       </div>
     </div>
-  )
+  );
 }
 
 function IconSend() {
@@ -254,5 +253,5 @@ function IconSend() {
         strokeLinejoin="round"
       />
     </svg>
-  )
+  );
 }
