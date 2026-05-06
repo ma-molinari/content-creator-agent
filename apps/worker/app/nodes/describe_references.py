@@ -5,10 +5,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import logging
-import mimetypes
 import re
-from collections.abc import Mapping
-from typing import Protocol, cast
 
 import boto3
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -16,48 +13,15 @@ from langchain_openai import ChatOpenAI
 
 from app.config import get_settings, read_prompt_md
 from app.llm_messages import langchain_message_text
+from app.s3_image_utils import fetch_bytes_limited, guess_mime
 from app.state import AgentState, copy_errors
 
 logger = logging.getLogger(__name__)
 
 _MAX_IMAGES = 8
 
-
-class _StreamingBody(Protocol):
-    def read(self, amt: int = ...) -> bytes: ...
-
-
-class _S3GetObjectClient(Protocol):
-    def get_object(self, Bucket: str, Key: str) -> Mapping[str, object]: ...
-
-
-def _guess_mime(data: bytes, s3_key: str) -> str:
-    if len(data) >= 3 and data[0:3] == b"\xff\xd8\xff":
-        return "image/jpeg"
-    if len(data) >= 8 and data[0:8] == b"\x89PNG\r\n\x1a\n":
-        return "image/png"
-    if len(data) >= 12 and data[0:4] == b"RIFF" and data[8:12] == b"WEBP":
-        return "image/webp"
-    if len(data) >= 6 and (data[0:6] in (b"GIF87a", b"GIF89a")):
-        return "image/gif"
-    ext = s3_key.rsplit(".", 1)
-    if len(ext) == 2:
-        mt = mimetypes.guess_type("x." + ext[1].lower())[0]
-        if mt and mt.startswith("image/"):
-            return mt
-    return "image/jpeg"
-
-
-def _fetch_bytes_limited(
-    client: _S3GetObjectClient, bucket: str, key: str, max_bytes: int
-) -> bytes:
-    o = client.get_object(Bucket=bucket, Key=key)
-    body_raw = o["Body"]
-    body = cast(_StreamingBody, body_raw)
-    chunk = body.read(max_bytes + 1)
-    if len(chunk) > max_bytes:
-        raise ValueError(f"reference object exceeds configured max ({max_bytes} bytes)")
-    return chunk
+# Kept for backward compatibility with tests that patch `describe_references._fetch_bytes_limited`.
+_fetch_bytes_limited = fetch_bytes_limited
 
 
 def _strip_wrapped_heading(text: str) -> str:
@@ -131,7 +95,7 @@ async def describe_references(state: AgentState) -> dict[str, object]:
                 errors.append(f"describe_references: falha ao baixar referência S3 {key}: {result!s}")
             continue
         raw: bytes = result
-        mime = _guess_mime(raw, key)
+        mime = guess_mime(raw, key)
         b64 = base64.standard_b64encode(raw).decode("ascii")
         user_blocks.append(
             {
