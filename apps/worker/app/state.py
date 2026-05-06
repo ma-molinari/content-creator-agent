@@ -52,6 +52,11 @@ class AgentState(TypedDict):
     design_retry_count: NotRequired[int]
     # Iterative refinement: HTML S3 keys from API, loaded HTML, and edit vs generate path.
     existing_slide_html_s3_keys: NotRequired[list[str]]
+    user_attachment_s3_keys: NotRequired[list[str]]
+    user_attachment_descriptions: NotRequired[list[str]]
+    user_attachment_intent: NotRequired[str]
+    user_attachment_signed_urls: NotRequired[list[str]]
+    user_attachment_mime_types: NotRequired[list[str]]
     existing_slide_html: NotRequired[list[SlideItem]]
     is_refinement: NotRequired[bool]
     # iterative refinement: visual_only | copy | layout | mixed (from detect_intent)
