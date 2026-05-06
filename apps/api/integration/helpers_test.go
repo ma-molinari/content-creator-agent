@@ -183,16 +183,18 @@ func newWorkerServer(t *testing.T, apiKey string, apiBase *string, h func(w http
 
 func newTestEnv(t *testing.T, workerHandler func(w http.ResponseWriter, r *http.Request, apiBase string)) *testEnv {
 	t.Helper()
-	return newTestEnvCore(t, workerHandler, nil)
+	return newTestEnvCore(t, workerHandler, nil, nil)
 }
 
 // newTestEnvWithCORS is like newTestEnv but sets CORS allowlist for tests that assert CORS headers.
 func newTestEnvWithCORS(t *testing.T, workerHandler func(w http.ResponseWriter, r *http.Request, apiBase string), allowedOrigins []string) *testEnv {
 	t.Helper()
-	return newTestEnvCore(t, workerHandler, allowedOrigins)
+	return newTestEnvCore(t, workerHandler, allowedOrigins, nil)
 }
 
-func newTestEnvCore(t *testing.T, workerHandler func(w http.ResponseWriter, r *http.Request, apiBase string), allowedOrigins []string) *testEnv {
+// newTestEnvCore wires the Echo app against a Postgres DSN from INTEGRATION_DATABASE_URL.
+// If stor is nil, mockStorage{} is used.
+func newTestEnvCore(t *testing.T, workerHandler func(w http.ResponseWriter, r *http.Request, apiBase string), allowedOrigins []string, stor storage.StorageService) *testEnv {
 	t.Helper()
 	dsn := os.Getenv("INTEGRATION_DATABASE_URL")
 	if dsn == "" {
@@ -223,7 +225,10 @@ func newTestEnvCore(t *testing.T, workerHandler func(w http.ResponseWriter, r *h
 		CORSAllowedOrigins: allowedOrigins,
 	}
 	workerClient := jobs.NewHTTPWorkerClient(workerSrv.URL, workerKey)
-	e := buildEcho(gdb, cfg, workerClient, mockStorage{})
+	if stor == nil {
+		stor = mockStorage{}
+	}
+	e := buildEcho(gdb, cfg, workerClient, stor)
 	apiSrv := httptest.NewServer(e)
 	t.Cleanup(apiSrv.Close)
 
