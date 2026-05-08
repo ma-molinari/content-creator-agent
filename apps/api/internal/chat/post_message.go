@@ -139,6 +139,7 @@ func (s *Service) validateAndUploadAttachments(ctx context.Context, userID uuid.
 			mu.Unlock()
 
 			attsOut[idx] = db.ChatContentAttachment{
+				ID:        uuid.New(),
 				S3Key:     key,
 				MimeType:  sniff,
 				SizeBytes: int64(len(inp.Data)),
@@ -217,26 +218,65 @@ func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, raw
 	if err := s.repo.CreateUserMessageAndJob(ctx, userMsg, job, setTitle, chatAtts); err != nil {
 		return nil, err
 	}
-	existingHTMLKeys, err := s.latestAssistantHTMLKeys(ctx, chatID)
-	if err != nil {
-		log.Printf("[chat] latest html keys chat_id=%s err=%v", chatID, err)
-		existingHTMLKeys = nil
+	var existingHTMLRefs []AssistantHTMLRef
+	if s.latestAssistantHTMLRefs != nil {
+		existingHTMLRefs, err = s.latestAssistantHTMLRefs(ctx, chatID)
+		if err != nil {
+			log.Printf("[chat] latest html refs chat_id=%s err=%v", chatID, err)
+			existingHTMLRefs = nil
+		}
+	}
+	existingHTMLKeys := make([]string, 0, len(existingHTMLRefs))
+	for _, ref := range existingHTMLRefs {
+		if strings.TrimSpace(ref.HTMLS3Key) != "" {
+			existingHTMLKeys = append(existingHTMLKeys, ref.HTMLS3Key)
+		}
+	}
+	if len(existingHTMLKeys) == 0 && s.latestAssistantHTMLKeys != nil {
+		existingHTMLKeys, err = s.latestAssistantHTMLKeys(ctx, chatID)
+		if err != nil {
+			log.Printf("[chat] latest html keys chat_id=%s err=%v", chatID, err)
+			existingHTMLKeys = nil
+		}
+		for idx, key := range existingHTMLKeys {
+			existingHTMLRefs = append(existingHTMLRefs, AssistantHTMLRef{SlideNumber: idx + 1, HTMLS3Key: key})
+		}
 	}
 	expectsSlideRefinement, err := s.repo.ChatHasAssistantWithSlideArtifacts(ctx, chatID)
 	if err != nil {
 		log.Printf("[chat] prior slide artifact check chat_id=%s err=%v", chatID, err)
 		expectsSlideRefinement = false
 	}
+	dispatchAttachments := make([]jobs.DispatchAttachment, 0, len(chatAtts))
+	for _, att := range chatAtts {
+		dispatchAttachments = append(dispatchAttachments, jobs.DispatchAttachment{
+			ID:        att.ID,
+			S3Key:     att.S3Key,
+			MimeType:  att.MimeType,
+			SortOrder: att.SortOrder,
+		})
+	}
+	dispatchSlideSources := make([]jobs.DispatchSlideSource, 0, len(existingHTMLRefs))
+	for _, ref := range existingHTMLRefs {
+		dispatchSlideSources = append(dispatchSlideSources, jobs.DispatchSlideSource{
+			SlideNumber: ref.SlideNumber,
+			HTMLS3Key:   ref.HTMLS3Key,
+		})
+	}
 	payload := jobs.DispatchPayload{
 		JobID:                  job.ID,
 		UserID:                 userID,
 		ChatID:                 chatID,
+		MessageID:              userMsg.ID,
+		ChatPostType:           string(chatRow.PostType),
 		RawMessage:             body,
 		AuditText:              auditText,
 		BrandText:              brandText,
 		ReferenceS3Keys:        refKeys,
 		UserAttachmentS3Keys:   attKeys,
+		UserAttachments:        dispatchAttachments,
 		ExistingSlideHTMLKeys:  existingHTMLKeys,
+		ExistingSlideHTML:      dispatchSlideSources,
 		ExpectsSlideRefinement: expectsSlideRefinement,
 	}
 	if err := s.worker.DispatchJob(ctx, payload); err != nil {

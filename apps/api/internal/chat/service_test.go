@@ -393,8 +393,13 @@ func TestPostMessage_dispatchRawMessageAndExistingSlideHTMLKeys(t *testing.T) {
 	res, err := svc.PostMessage(context.Background(), u.ID, chat.ID, current, nil)
 	require.NoError(t, err)
 	require.NotNil(t, res)
+	require.NotEqual(t, uuid.Nil, dispatched.MessageID)
+	require.Equal(t, string(db.PostTypeSingle), dispatched.ChatPostType)
 	require.Equal(t, current, dispatched.RawMessage)
 	require.Equal(t, wantHTMLKeys, dispatched.ExistingSlideHTMLKeys)
+	require.Len(t, dispatched.ExistingSlideHTML, 1)
+	require.Equal(t, 1, dispatched.ExistingSlideHTML[0].SlideNumber)
+	require.Equal(t, wantHTMLKeys[0], dispatched.ExistingSlideHTML[0].HTMLS3Key)
 }
 
 func TestPostMessage_dispatchSetsExpectsSlideRefinementWhenPriorAssistantSlidesExist(t *testing.T) {

@@ -120,13 +120,14 @@ const (
 
 // Job tracks async worker runs for a chat message.
 type Job struct {
-	ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	ChatID    uuid.UUID `gorm:"type:uuid;not null;index"`
-	UserID    uuid.UUID `gorm:"type:uuid;not null;index"`
-	Status    JobStatus `gorm:"type:job_status_enum;not null;default:pending"`
-	ErrorMsg  *string   `gorm:"type:text"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID             uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	ChatID         uuid.UUID `gorm:"type:uuid;not null;index"`
+	UserID         uuid.UUID `gorm:"type:uuid;not null;index"`
+	Status         JobStatus `gorm:"type:job_status_enum;not null;default:pending"`
+	ErrorMsg       *string   `gorm:"type:text"`
+	WorkerMetadata *string   `gorm:"column:worker_metadata;type:jsonb;<-:update"`
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 func (Job) TableName() string { return "jobs" }

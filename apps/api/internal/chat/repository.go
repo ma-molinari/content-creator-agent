@@ -176,7 +176,30 @@ func (r *Repository) ChatHasAssistantWithSlideArtifacts(ctx context.Context, cha
 // GetLatestAssistantHTMLKeys returns html_s3_key values from the newest assistant turn
 // that has at least one non-empty html_s3_key, ordered by slide_number.
 func (r *Repository) GetLatestAssistantHTMLKeys(ctx context.Context, chatID uuid.UUID) ([]string, error) {
-	var htmlKeys []string
+	refs, err := r.GetLatestAssistantHTMLRefs(ctx, chatID)
+	if err != nil {
+		return nil, err
+	}
+	if len(refs) == 0 {
+		return nil, nil
+	}
+	out := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		out = append(out, ref.HTMLS3Key)
+	}
+	return out, nil
+}
+
+// AssistantHTMLRef is a slide-numbered HTML source from the newest assistant turn.
+type AssistantHTMLRef struct {
+	SlideNumber int    `gorm:"column:slide_number"`
+	HTMLS3Key   string `gorm:"column:html_s3_key"`
+}
+
+// GetLatestAssistantHTMLRefs returns slide-numbered html_s3_key values from the newest
+// assistant turn that has at least one non-empty html_s3_key, ordered by slide_number.
+func (r *Repository) GetLatestAssistantHTMLRefs(ctx context.Context, chatID uuid.UUID) ([]AssistantHTMLRef, error) {
+	var refs []AssistantHTMLRef
 	err := r.db.WithContext(ctx).Raw(`
 		WITH turns_with_html AS (
 			SELECT cc.id, cc.created_at
@@ -189,19 +212,19 @@ func (r *Repository) GetLatestAssistantHTMLKeys(ctx context.Context, chatID uuid
 		newest AS (
 			SELECT id FROM turns_with_html ORDER BY created_at DESC, id DESC LIMIT 1
 		)
-		SELECT cci.html_s3_key
+		SELECT cci.slide_number, cci.html_s3_key
 		FROM chat_content_image cci
 		WHERE cci.chat_content_id IN (SELECT id FROM newest)
 			AND LENGTH(TRIM(COALESCE(cci.html_s3_key, ''))) > 0
 		ORDER BY cci.slide_number ASC
-	`, chatID, db.ChatContentRoleAssistant).Scan(&htmlKeys).Error
+	`, chatID, db.ChatContentRoleAssistant).Scan(&refs).Error
 	if err != nil {
 		return nil, err
 	}
-	if len(htmlKeys) == 0 {
+	if len(refs) == 0 {
 		return nil, nil
 	}
-	return htmlKeys, nil
+	return refs, nil
 }
 
 // ListImagesForContent returns images for a single assistant (or any) content row in the chat.

@@ -16,18 +16,37 @@ import (
 
 // DispatchPayload is sent to POST {WORKER_URL}/jobs.
 type DispatchPayload struct {
-	JobID                 uuid.UUID `json:"job_id"`
-	UserID                uuid.UUID `json:"user_id"`
-	ChatID                uuid.UUID `json:"chat_id"`
-	RawMessage            string    `json:"raw_message"`
-	AuditText             string    `json:"audit_text"`
-	BrandText             string    `json:"brand_text"`
-	ReferenceS3Keys       []string  `json:"reference_s3_keys,omitempty"`
-	UserAttachmentS3Keys  []string  `json:"user_attachment_s3_keys,omitempty"`
-	ExistingSlideHTMLKeys []string  `json:"existing_slide_html_s3_keys,omitempty"`
+	JobID                 uuid.UUID             `json:"job_id"`
+	UserID                uuid.UUID             `json:"user_id"`
+	ChatID                uuid.UUID             `json:"chat_id"`
+	MessageID             uuid.UUID             `json:"message_id,omitempty"`
+	ChatPostType          string                `json:"chat_post_type,omitempty"`
+	RawMessage            string                `json:"raw_message"`
+	AuditText             string                `json:"audit_text"`
+	BrandText             string                `json:"brand_text"`
+	ReferenceS3Keys       []string              `json:"reference_s3_keys,omitempty"`
+	UserAttachmentS3Keys  []string              `json:"user_attachment_s3_keys,omitempty"`
+	UserAttachments       []DispatchAttachment  `json:"user_attachments,omitempty"`
+	ExistingSlideHTMLKeys []string              `json:"existing_slide_html_s3_keys,omitempty"`
+	ExistingSlideHTML     []DispatchSlideSource `json:"existing_slide_html,omitempty"`
+	RequestedSlideCount   *int                  `json:"requested_slide_count,omitempty"`
 	// ExpectsSlideRefinement: chat already has a prior assistant JPEG slide artifact;
 	// worker must refine from stored HTML keys or surface a refinement error.
 	ExpectsSlideRefinement bool `json:"expects_slide_refinement,omitempty"`
+}
+
+// DispatchAttachment is richer V2 metadata for a user-uploaded message image.
+type DispatchAttachment struct {
+	ID        uuid.UUID `json:"id"`
+	S3Key     string    `json:"s3_key"`
+	MimeType  string    `json:"mime_type"`
+	SortOrder int       `json:"sort_order"`
+}
+
+// DispatchSlideSource identifies HTML source from the latest assistant turn.
+type DispatchSlideSource struct {
+	SlideNumber int    `json:"slide_number"`
+	HTMLS3Key   string `json:"html_s3_key"`
 }
 
 // WorkerClient dispatches async jobs to the Python worker.

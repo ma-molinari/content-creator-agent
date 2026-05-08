@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
@@ -71,6 +72,7 @@ func testCompleteSchemaDB(t *testing.T) *gorm.DB {
 			user_id TEXT NOT NULL,
 			status TEXT NOT NULL,
 			error_msg TEXT,
+			worker_metadata TEXT,
 			created_at DATETIME,
 			updated_at DATETIME
 		)`,
@@ -79,6 +81,49 @@ func testCompleteSchemaDB(t *testing.T) *gorm.DB {
 		require.NoError(t, gdb.Exec(q).Error)
 	}
 	return gdb
+}
+
+func TestCompleteAssistantReply_persistsWorkerMetadata(t *testing.T) {
+	ctx := context.Background()
+	gdb := testCompleteSchemaDB(t)
+	jobID := uuid.New()
+	chatID := uuid.New()
+	userID := uuid.New()
+	now := time.Now().UTC()
+	require.NoError(t, gdb.Create(&db.Chat{
+		ID:        chatID,
+		UserID:    userID,
+		PostType:  db.PostTypeSingle,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}).Error)
+	require.NoError(t, gdb.Create(&db.Job{
+		ID:        jobID,
+		ChatID:    chatID,
+		UserID:    userID,
+		Status:    db.JobStatusProcessing,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}).Error)
+
+	key := "slides/" + jobID.String() + "/slide_01.jpeg"
+	raw := json.RawMessage(`{"pipelineVersion":"worker-v2-json-html","retryCount":1}`)
+	done, err := CompleteAssistantReply(
+		ctx,
+		gdb,
+		jobID,
+		"reply",
+		[]ArtifactRef{{S3Key: key, SlideNumber: 1}},
+		testStore{},
+		&raw,
+	)
+	require.NoError(t, err)
+	require.False(t, done)
+
+	var job db.Job
+	require.NoError(t, gdb.First(&job, "id = ?", jobID).Error)
+	require.NotNil(t, job.WorkerMetadata)
+	require.Contains(t, *job.WorkerMetadata, "worker-v2-json-html")
 }
 
 func TestCompleteAssistantReply_idempotentWhenAlreadyDone(t *testing.T) {

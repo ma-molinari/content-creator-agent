@@ -1,6 +1,7 @@
 package jobs
 
 import (
+	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
@@ -25,7 +26,8 @@ type CompleteBody struct {
 		SlideNumber int     `json:"slideNumber"`
 		HTMLS3Key   *string `json:"htmlS3Key,omitempty"`
 	} `json:"artifacts"`
-	Error *string `json:"error"`
+	Error          *string          `json:"error"`
+	WorkerMetadata *json.RawMessage `json:"workerMetadata,omitempty"`
 }
 
 // Handler serves internal worker routes.
@@ -57,7 +59,7 @@ func (h *Handler) Complete(c echo.Context) error {
 	ctx := c.Request().Context()
 	if body.Error != nil && strings.TrimSpace(*body.Error) != "" {
 		msg := strings.TrimSpace(*body.Error)
-		noop, err := ApplyWorkerFailure(ctx, h.gdb, jobID, msg)
+		noop, err := ApplyWorkerFailure(ctx, h.gdb, jobID, msg, body.WorkerMetadata)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return echo.NewHTTPError(http.StatusNotFound, "job not found")
@@ -83,7 +85,7 @@ func (h *Handler) Complete(c echo.Context) error {
 		}
 		artifacts = append(artifacts, ArtifactRef{S3Key: key, SlideNumber: a.SlideNumber, HtmlS3Key: a.HTMLS3Key})
 	}
-	alreadyDone, err := CompleteAssistantReply(ctx, h.gdb, jobID, assistantText, artifacts, h.store)
+	alreadyDone, err := CompleteAssistantReply(ctx, h.gdb, jobID, assistantText, artifacts, h.store, body.WorkerMetadata)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return echo.NewHTTPError(http.StatusNotFound, "job not found")

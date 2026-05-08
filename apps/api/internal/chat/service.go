@@ -48,6 +48,7 @@ type Service struct {
 
 	// latestAssistantHTMLKeys defaults to repo.GetLatestAssistantHTMLKeys; tests may replace it to simulate failures.
 	latestAssistantHTMLKeys func(context.Context, uuid.UUID) ([]string, error)
+	latestAssistantHTMLRefs func(context.Context, uuid.UUID) ([]AssistantHTMLRef, error)
 }
 
 // NewService constructs a chat service. worker may be nil (message routes unavailable).
@@ -58,6 +59,7 @@ func NewService(repo *Repository, jobsRepo *jobs.Repository, store storage.Stora
 	svc := &Service{repo: repo, jobsRepo: jobsRepo, store: store, profileRepo: profileRepo, profileSvc: profileSvc, worker: worker}
 	if repo != nil {
 		svc.latestAssistantHTMLKeys = repo.GetLatestAssistantHTMLKeys
+		svc.latestAssistantHTMLRefs = repo.GetLatestAssistantHTMLRefs
 	}
 	return svc
 }

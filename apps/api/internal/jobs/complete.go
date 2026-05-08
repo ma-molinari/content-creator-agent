@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -69,10 +70,26 @@ func ensureSlideArtifactsExist(ctx context.Context, jobID uuid.UUID, artifacts [
 	return nil
 }
 
+func workerMetadataValue(raw *json.RawMessage) *string {
+	if raw == nil || len(*raw) == 0 {
+		return nil
+	}
+	s := strings.TrimSpace(string(*raw))
+	if s == "" || s == "null" {
+		return nil
+	}
+	return &s
+}
+
 // CompleteAssistantReply persists the assistant message, slide images, and marks the job done.
 // If the job is already done, it returns alreadyDone=true and no error (idempotent).
 // If the job is failed, it returns ErrJobCompleteConflict.
-func CompleteAssistantReply(ctx context.Context, gdb *gorm.DB, jobID uuid.UUID, assistantText string, artifacts []ArtifactRef, store storage.StorageService) (alreadyDone bool, err error) {
+func CompleteAssistantReply(ctx context.Context, gdb *gorm.DB, jobID uuid.UUID, assistantText string, artifacts []ArtifactRef, store storage.StorageService, metadata ...*json.RawMessage) (alreadyDone bool, err error) {
+	var metadataArg *json.RawMessage
+	if len(metadata) > 0 {
+		metadataArg = metadata[0]
+	}
+	metadataValue := workerMetadataValue(metadataArg)
 	err = gdb.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var job db.Job
 		if e := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&job, "id = ?", jobID).Error; e != nil {
@@ -134,19 +151,28 @@ func CompleteAssistantReply(ctx context.Context, gdb *gorm.DB, jobID uuid.UUID, 
 			}
 		}
 		now := time.Now().UTC()
-		return tx.Model(&db.Job{}).Where("id = ?", job.ID).Updates(map[string]interface{}{
+		updates := map[string]interface{}{
 			"status":     db.JobStatusDone,
 			"error_msg":  nil,
 			"updated_at": now,
-		}).Error
+		}
+		if metadataValue != nil {
+			updates["worker_metadata"] = *metadataValue
+		}
+		return tx.Model(&db.Job{}).Where("id = ?", job.ID).Updates(updates).Error
 	})
 	return alreadyDone, err
 }
 
 // ApplyWorkerFailure marks the job failed when the worker reports an error.
 // Returns noop=true if the job was already terminal (done or failed), so the HTTP layer can return 204 without changing state.
-func ApplyWorkerFailure(ctx context.Context, gdb *gorm.DB, jobID uuid.UUID, workerErr string) (noop bool, err error) {
+func ApplyWorkerFailure(ctx context.Context, gdb *gorm.DB, jobID uuid.UUID, workerErr string, metadata ...*json.RawMessage) (noop bool, err error) {
 	msg := strings.TrimSpace(workerErr)
+	var metadataArg *json.RawMessage
+	if len(metadata) > 0 {
+		metadataArg = metadata[0]
+	}
+	metadataValue := workerMetadataValue(metadataArg)
 	err = gdb.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var job db.Job
 		if e := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&job, "id = ?", jobID).Error; e != nil {
@@ -158,11 +184,15 @@ func ApplyWorkerFailure(ctx context.Context, gdb *gorm.DB, jobID uuid.UUID, work
 			return nil
 		case db.JobStatusProcessing, db.JobStatusPending:
 			now := time.Now().UTC()
-			return tx.Model(&db.Job{}).Where("id = ?", job.ID).Updates(map[string]interface{}{
+			updates := map[string]interface{}{
 				"status":     db.JobStatusFailed,
 				"error_msg":  msg,
 				"updated_at": now,
-			}).Error
+			}
+			if metadataValue != nil {
+				updates["worker_metadata"] = *metadataValue
+			}
+			return tx.Model(&db.Job{}).Where("id = ?", job.ID).Updates(updates).Error
 		}
 		return fmt.Errorf("jobs: unexpected job status %q", job.Status)
 	})
