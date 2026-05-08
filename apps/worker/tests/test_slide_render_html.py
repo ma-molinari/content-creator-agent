@@ -5,7 +5,7 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
-from app.nodes.render_to_jpeg import _render_one_slide
+from app.nodes.render_and_contrast import _render_one
 from app.slide_asset_wait import wait_for_slide_images
 from app.slide_render_html import enhance_slide_html_for_render
 
@@ -90,6 +90,9 @@ class FakeRenderPage:
         self.screenshot_after_wait = self.wait_finished
         return b"jpeg"
 
+    async def content(self) -> str:
+        return self.html
+
     async def close(self) -> None:
         self.closed = True
 
@@ -109,33 +112,37 @@ class TestRenderToJpegAssetWait(unittest.IsolatedAsyncioTestCase):
         async def mark_wait_done(wait_page: FakeRenderPage) -> None:
             wait_page.wait_finished = True
 
-        with patch("app.nodes.render_to_jpeg.wait_for_slide_images", side_effect=mark_wait_done):
-            rendered, err = await _render_one_slide(
+        with patch("app.nodes.render_and_contrast.wait_for_slide_images", side_effect=mark_wait_done):
+            slide, rendered, err = await _render_one(
                 FakeRenderBrowser(page),  # type: ignore[arg-type]
                 {"filename": "slide_01.html", "html": "<html><head></head><body>x</body></html>"},
+                [],
             )
 
         self.assertIsNone(err)
+        self.assertEqual(slide["filename"], "slide_01.html")
         self.assertEqual(rendered, {"filename": "slide_01.jpeg", "jpeg_bytes": b"jpeg"})
         self.assertTrue(page.screenshot_after_wait)
         self.assertTrue(page.closed)
 
-    async def test_screenshot_continues_when_asset_wait_reports_issue(self) -> None:
+    async def test_reports_error_when_asset_wait_reports_issue(self) -> None:
         page = FakeRenderPage()
 
         async def raise_wait_issue(wait_page: FakeRenderPage) -> None:
             wait_page.wait_finished = True
             raise RuntimeError("timed out waiting for image")
 
-        with patch("app.nodes.render_to_jpeg.wait_for_slide_images", side_effect=raise_wait_issue):
-            rendered, err = await _render_one_slide(
+        with patch("app.nodes.render_and_contrast.wait_for_slide_images", side_effect=raise_wait_issue):
+            slide, rendered, err = await _render_one(
                 FakeRenderBrowser(page),  # type: ignore[arg-type]
                 {"filename": "slide_01.html", "html": "<html><head></head><body>x</body></html>"},
+                [],
             )
 
-        self.assertIsNone(err)
-        self.assertEqual(rendered, {"filename": "slide_01.jpeg", "jpeg_bytes": b"jpeg"})
-        self.assertTrue(page.screenshot_after_wait)
+        self.assertEqual(slide["filename"], "slide_01.html")
+        self.assertIsNone(rendered)
+        self.assertIn("timed out waiting for image", err or "")
+        self.assertFalse(page.screenshot_after_wait)
         self.assertTrue(page.closed)
 
 

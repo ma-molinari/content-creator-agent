@@ -87,6 +87,25 @@ def _build_assistant_text(state: AgentState) -> str:
     return "Conteúdo do carrossel foi gerado; veja as imagens anexas."
 
 
+def _build_worker_metadata(state: AgentState) -> dict[str, object]:
+    extra = dict(state.get("worker_metadata") or {})
+    base = {
+        "pipelineVersion": state.get("pipeline_version") or "worker-v2-json-html",
+        "intent": state.get("intent_result") or {},
+        "security": state.get("security_result") or {},
+        "validation": state.get("validation_report") or {},
+        "retryCount": int(state.get("retry_count") or 0),
+        "designRetryCount": int(state.get("design_retry_count") or 0),
+        "briefRetryCount": int(state.get("brief_retry_count") or 0),
+        "slideCount": len(state.get("slides_html") or []),
+        "artifactCount": len(state.get("artifacts") or []),
+        "attachmentCount": len(state.get("attachment_plan") or []),
+        "errors": list(state.get("errors") or [])[-12:],
+    }
+    base.update(extra)
+    return base
+
+
 async def _post_complete_with_transport_fallback(
     *,
     url: str,
@@ -175,7 +194,7 @@ async def finalize(state: AgentState) -> dict:
             mismatch_delivery=mismatch,
             html_artifact_delivery_failed=html_gap,
         )
-        body: dict[str, object] = {"error": api_error}
+        body: dict[str, object] = {"error": api_error, "workerMetadata": _build_worker_metadata(state)}
         await _post_complete_with_transport_fallback(
             url=url,
             headers=headers,
@@ -198,6 +217,7 @@ async def finalize(state: AgentState) -> dict:
             for a in artifacts
         ],
         "error": None,
+        "workerMetadata": _build_worker_metadata(state),
     }
 
     await _post_complete_with_transport_fallback(

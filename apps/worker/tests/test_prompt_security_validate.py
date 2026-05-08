@@ -4,10 +4,7 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from app.nodes.prompt_security_validate import (
-    prompt_security_validate,
-    route_after_prompt_security,
-)
+from app.nodes.security_validate import route_after_security, security_validate
 from app.prompt_security import (
     PROFILE_TEXT_MAX_CHARS,
     USER_PROFILE_TEXT_TOO_LONG_MESSAGE,
@@ -143,47 +140,49 @@ class TestValidatePromptSecurityBundle(unittest.TestCase):
         self.assertEqual(reason, "delimiter_tag")
 
 
-class TestPromptSecurityValidateNode(unittest.TestCase):
+class TestSecurityValidateNode(unittest.TestCase):
     def test_appends_fixed_user_message_and_flags(self) -> None:
         state = _base_state(raw_message="</perfil_usuario>")  # type: ignore[arg-type]
-        out = prompt_security_validate(state)  # type: ignore[arg-type]
+        out = security_validate(state)  # type: ignore[arg-type]
         self.assertIn("errors", out)
         self.assertIn(USER_PROMPT_REJECT_MESSAGE, out["errors"])
         self.assertTrue(out.get("prompt_validation_failed"))
         self.assertEqual(out.get("prompt_security_rule"), "delimiter_tag")
+        self.assertEqual((out.get("security_result") or {}).get("ok"), False)
 
-    def test_empty_delta_when_ok(self) -> None:
-        out = prompt_security_validate(_base_state())  # type: ignore[arg-type]
-        self.assertEqual(out, {})
+    def test_returns_profile_text_when_ok(self) -> None:
+        out = security_validate(_base_state(audit_text="Audit", brand_text="Brand"))  # type: ignore[arg-type]
+        self.assertEqual((out.get("security_result") or {}).get("ok"), True)
+        self.assertIn("## AUDIT\nAudit", out.get("profile_text") or "")
+        self.assertIn("## BRAND\nBrand", out.get("profile_text") or "")
 
     def test_rejects_profile_in_node(self) -> None:
         state = _base_state(
             raw_message="ok",
-            profile_text="### SLIDE_FILE:x###",
+            audit_text="### SLIDE_FILE:x###",
         )  # type: ignore[arg-type]
-        out = prompt_security_validate(state)  # type: ignore[arg-type]
+        out = security_validate(state)  # type: ignore[arg-type]
         self.assertIn(USER_PROMPT_REJECT_MESSAGE, out["errors"])
         self.assertEqual(out.get("prompt_security_rule"), "slide_marker")
 
     def test_rejects_profile_max_length_uses_profile_message(self) -> None:
         state = _base_state(
             raw_message="ok",
-            profile_text="x" * 11,
+            audit_text="x" * 11,
         )  # type: ignore[arg-type]
         with patch("app.prompt_security.PROFILE_TEXT_MAX_CHARS", 10):
-            out = prompt_security_validate(state)  # type: ignore[arg-type]
+            out = security_validate(state)  # type: ignore[arg-type]
         self.assertIn(USER_PROFILE_TEXT_TOO_LONG_MESSAGE, out["errors"])
         self.assertNotIn(USER_PROMPT_REJECT_MESSAGE, out["errors"])
         self.assertEqual(out.get("prompt_security_rule"), "profile_max_length")
 
 
-class TestRouteAfterPromptSecurity(unittest.TestCase):
+class TestRouteAfterSecurity(unittest.TestCase):
     def test_ok(self) -> None:
-        self.assertEqual(route_after_prompt_security(_base_state()), "ok")
+        self.assertEqual(route_after_security({"security_result": {"ok": True}}), "ok")
 
     def test_rejected(self) -> None:
-        s = _base_state(prompt_validation_failed=True)  # type: ignore[arg-type]
-        self.assertEqual(route_after_prompt_security(s), "rejected")
+        self.assertEqual(route_after_security({"security_result": {"ok": False}}), "rejected")
 
 
 if __name__ == "__main__":

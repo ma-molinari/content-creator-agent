@@ -1,6 +1,6 @@
 """Static HTML/CSS design checks for carousel slides (Phase 1 — no browser).
 
-Aligned with ``prompts/generate_slides.md``: no JS, no remote raster/CDN assets,
+Aligned with the structured slide-generation contract: no JS, no remote raster/CDN assets,
 Google Fonts only as external CSS, Plus Jakarta Sans default unless another GF family
 is clearly loaded and used, and viewport dimensions 1080×1350.
 
@@ -261,7 +261,7 @@ def check_viewport_canvas(html: str) -> list[str]:
 
 
 def collect_design_violations(html: str, prescription_blob: str = "") -> list[str]:
-    """Return human-readable violation messages (without ``design_validate:`` prefix)."""
+    """Return human-readable violation messages (without ``validate_design:`` prefix)."""
     errs: list[str] = []
     errs.extend(check_no_javascript(html))
     errs.extend(check_remote_assets(html))

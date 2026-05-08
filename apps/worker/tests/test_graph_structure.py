@@ -55,19 +55,31 @@ def test_graph_isr_ordering() -> None:
     tree = _load_graph_ast()
     edges, conditionals = _collect_edges(tree)
 
-    assert ("describe_references", "describe_user_attachments") in edges
-    assert ("describe_user_attachments", "detect_intent") in edges
-    assert ("describe_references", "detect_intent") not in edges
-    assert ("describe_references", "optimize_prompt") not in edges
+    assert ("prepare_input", "security_validate") in edges
+    assert ("profile_overview", "intent_detect") in edges
+    assert ("attachment_analyze", "build_generation_plan") in edges
+    assert ("build_generation_plan", "generate_or_edit_slides") in edges
+    assert ("generate_or_edit_slides", "validate_slide_package") in edges
+    assert ("render_and_contrast", "upload_assets") in edges
 
-    detect = next(m for loc, m in conditionals if loc == "detect_intent")
+    security = next(m for loc, m in conditionals if loc == "security_validate")
+    assert security["ok"] == "profile_overview"
+    assert security["rejected"] == "finalize"
+
+    detect = next(m for loc, m in conditionals if loc == "intent_detect")
     assert detect["fail"] == "finalize"
-    assert detect["edit"] == "edit_slides"
-    assert detect["new"] == "optimize_prompt"
+    assert detect["edit"] == "load_existing_slides"
+    assert detect["new"] == "attachment_analyze"
 
-    vb = next(m for loc, m in conditionals if loc == "validate_brief")
-    assert vb["ok"] == "generate_slides"
-    assert vb["retry"] == "optimize_prompt"
-    assert vb["fail"] == "finalize"
+    pkg = next(m for loc, m in conditionals if loc == "validate_slide_package")
+    assert pkg["continue"] == "validate_design"
+    assert pkg["retry"] == "generate_or_edit_slides"
+    assert pkg["fail"] == "finalize"
 
-    assert ("optimize_prompt", "validate_brief") in edges
+    design = next(m for loc, m in conditionals if loc == "validate_design")
+    assert design["continue"] == "validate_attachment_usage"
+    assert design["retry"] == "generate_or_edit_slides"
+
+    attach = next(m for loc, m in conditionals if loc == "validate_attachment_usage")
+    assert attach["continue"] == "render_and_contrast"
+    assert attach["retry"] == "generate_or_edit_slides"

@@ -12,7 +12,7 @@ def sanitize_brief_output(text: str) -> str:
     """Remove slide pipeline markers from the optimized brief (LLM 1 output).
 
     Prevents a compromised or manipulated brief from injecting delimiters that
-    would be misinterpreted by the generate_slides node (LLM 2).
+    would be misinterpreted by downstream slide handling.
     """
     text = _SLIDE_MARKER_RE.sub("", text)
     text = _END_SLIDE_RE.sub("", text)

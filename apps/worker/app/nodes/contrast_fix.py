@@ -1,20 +1,6 @@
-"""Fix low-contrast text in slide HTML using Playwright computed styles."""
+"""JavaScript helper used by render_and_contrast to fix low-contrast text."""
 
 from __future__ import annotations
-
-import asyncio
-import logging
-
-from playwright.async_api import Browser, Route, async_playwright
-
-from app.s3_image_utils import is_allowed_s3_url
-from app.slide_asset_wait import wait_for_slide_images
-from app.slide_render_html import enhance_slide_html_for_render
-from app.state import AgentState, SlideItem, copy_errors
-
-logger = logging.getLogger(__name__)
-
-_TIMEOUT_MS = 60_000
 
 # Trade-off vs compositing precise layer-by-layer:
 # Transparent background-color + linear/radial-gradient is evaluated by extracting
@@ -214,80 +200,3 @@ _CONTRAST_FIX_JS = """
   return { hadViolations };
 }
 """
-
-
-async def _allow_slide_route(route: Route) -> None:
-    """Block remote assets except Google Fonts and configured S3 image URLs."""
-    url = route.request.url
-    if url.startswith("data:"):
-        await route.continue_()
-        return
-    if "fonts.googleapis.com" in url or "fonts.gstatic.com" in url:
-        await route.continue_()
-        return
-    if is_allowed_s3_url(url):
-        await route.continue_()
-        return
-    await route.abort()
-
-
-async def _fix_one_slide(browser: Browser, item: SlideItem) -> tuple[SlideItem, str | None]:
-    fname = item.get("filename") or "slide.html"
-    raw_html = item.get("html") or ""
-    html = enhance_slide_html_for_render(raw_html)
-    page = await browser.new_page()
-    try:
-        await page.set_viewport_size({"width": 1080, "height": 1350})
-        await page.route("**/*", _allow_slide_route)
-        await page.set_content(html, wait_until="domcontentloaded", timeout=_TIMEOUT_MS)
-        try:
-            await page.evaluate("() => document.fonts.ready")
-        except Exception as exc:
-            logger.debug("contrast_fix: document.fonts.ready skipped (%s)", exc)
-        try:
-            await wait_for_slide_images(page)
-        except RuntimeError as exc:
-            logger.warning(
-                "contrast_fix: continuing after image asset wait issue slide=%s err=%s",
-                fname,
-                exc,
-            )
-        out = await page.evaluate(_CONTRAST_FIX_JS)
-        had = bool(out and out.get("hadViolations"))
-        if not had:
-            return ({"filename": fname, "html": raw_html}, None)
-        fixed_html = await page.content()
-        return ({"filename": fname, "html": fixed_html}, None)
-    except Exception as exc:  # noqa: BLE001 — capture Playwright errors per slide
-        return ({"filename": fname, "html": raw_html}, f"contrast_fix {fname}: {exc!s}")
-    finally:
-        await page.close()
-
-
-async def contrast_fix(state: AgentState) -> dict:
-    logger.info("node=contrast_fix job_id=%s", state.get("job_id"))
-    slides = state.get("slides_html") or []
-    errors = copy_errors(state)
-    if not slides:
-        return {"slides_html": [], "errors": errors}
-
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(
-            args=[
-                "--disable-background-networking",
-                "--disable-extensions",
-                "--no-default-browser-check",
-            ]
-        )
-        try:
-            results = await asyncio.gather(*[_fix_one_slide(browser, item) for item in slides])
-        finally:
-            await browser.close()
-
-    fixed_slides: list[SlideItem] = []
-    for slide_out, err in results:
-        fixed_slides.append(slide_out)
-        if err:
-            errors.append(err)
-
-    return {"slides_html": fixed_slides, "errors": errors}

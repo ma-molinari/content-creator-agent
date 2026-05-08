@@ -47,9 +47,9 @@ def test_existing_slides_index_lower_keys() -> None:
     assert "slide_01.html" in idx
 
 
-def test_parse_validate_visual_only_blocks_visible_text_change() -> None:
+def test_validate_slide_package_visual_only_blocks_visible_text_change() -> None:
     """visual_only refinement must not pass when visible copy diverges."""
-    from app.nodes.parse_validate import parse_validate
+    from app.nodes.validate_slide_package import validate_slide_package
 
     old_html = (
         "<html><head><meta charset=\"utf-8\"><title>s</title></head>"
@@ -59,10 +59,9 @@ def test_parse_validate_visual_only_blocks_visible_text_change() -> None:
         "<html><head><meta charset=\"utf-8\"><title>s</title></head>"
         "<body style=\"margin:0;width:1080px;height:1350px;\"><p>Beta label</p></body></html>"
     )
-    raw = f"###SLIDE_FILE: slide_01.html###\n{new_html}\n###END_SLIDE###\n"
     state: dict = {
         "job_id": "j",
-        "raw_slide_output": raw,
+        "slide_package": {"slides": [{"filename": "slide_01.html", "html": new_html}]},
         "retry_count": 0,
         "errors": [],
         "requested_slide_count": 1,
@@ -70,15 +69,15 @@ def test_parse_validate_visual_only_blocks_visible_text_change() -> None:
         "refinement_scope": "visual_only",
         "existing_slide_html": [{"filename": "slide_01.html", "html": old_html}],
     }
-    out = parse_validate(state)  # type: ignore[arg-type]
+    out = validate_slide_package(state)  # type: ignore[arg-type]
     assert out.get("slides_html") == []
     assert int(out.get("retry_count") or 0) == 1
     errs = out.get("errors") or []
     assert any("copy_preservation:" in (e or "") for e in errs)
 
 
-def test_parse_validate_visual_only_allows_css_only_edit() -> None:
-    from app.nodes.parse_validate import parse_validate
+def test_validate_slide_package_visual_only_allows_css_only_edit() -> None:
+    from app.nodes.validate_slide_package import validate_slide_package
 
     old_html = (
         "<html><head><meta charset=\"utf-8\"><title>s</title></head>"
@@ -90,10 +89,9 @@ def test_parse_validate_visual_only_allows_css_only_edit() -> None:
         "<body style=\"margin:0;width:1080px;height:1350px;background:#ff00ff;\">"
         "<p>Same</p></body></html>"
     )
-    raw = f"###SLIDE_FILE: slide_01.html###\n{new_html}\n###END_SLIDE###\n"
     state: dict = {
         "job_id": "j",
-        "raw_slide_output": raw,
+        "slide_package": {"slides": [{"filename": "slide_01.html", "html": new_html}]},
         "retry_count": 0,
         "errors": [],
         "requested_slide_count": 1,
@@ -101,7 +99,7 @@ def test_parse_validate_visual_only_allows_css_only_edit() -> None:
         "refinement_scope": "visual_only",
         "existing_slide_html": [{"filename": "slide_01.html", "html": old_html}],
     }
-    out = parse_validate(state)  # type: ignore[arg-type]
+    out = validate_slide_package(state)  # type: ignore[arg-type]
     slides = out.get("slides_html") or []
     assert len(slides) == 1
     assert "retry_count" not in out

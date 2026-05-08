@@ -1,4 +1,4 @@
-"""Tests for slide_design_checks and design_validate node."""
+"""Tests for slide_design_checks and validate_design node."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import unittest
 from unittest.mock import patch
 
 from app.config import get_settings
-from app.nodes.design_validate import design_validate, route_after_design
+from app.nodes.validate_design import route_after_validate_design, validate_design
 from app.slide_design_checks import (
     check_reference_colors,
     check_remote_assets,
@@ -171,7 +171,7 @@ class TestCheckReferenceColors(unittest.TestCase):
         self.assertEqual(check_reference_colors(html, "apenas #ff0000 aqui"), [])
 
 
-class TestDesignValidateNode(unittest.TestCase):
+class TestValidateDesignNode(unittest.TestCase):
     def test_continue_when_clean(self) -> None:
         slide = {"filename": "slide_01.html", "html": _minimal_valid_slide()}
         base: AgentState = {
@@ -191,9 +191,9 @@ class TestDesignValidateNode(unittest.TestCase):
             "errors": [],
             "design_retry_count": 2,
         }
-        out = design_validate(base)
+        out = validate_design(base)
         self.assertEqual(out.get("design_retry_count"), 0)
-        self.assertEqual(route_after_design({**base, **out}), "continue")
+        self.assertEqual(route_after_validate_design({**base, **out}), "continue")
 
     def test_retry_on_failure(self) -> None:
         bad_html = _minimal_valid_slide().replace("1080px", "100vw")
@@ -214,12 +214,12 @@ class TestDesignValidateNode(unittest.TestCase):
             "retry_count": 0,
             "errors": [],
         }
-        out = design_validate(base)
+        out = validate_design(base)
         self.assertEqual(out.get("slides_html"), [])
         self.assertEqual(out.get("design_retry_count"), 1)
-        self.assertTrue(any("design_validate:" in (e or "") for e in (out.get("errors") or [])))
-        routed = route_after_design({**base, **out})
-        self.assertEqual(routed, "retry_new")
+        self.assertTrue(any("validate_design:" in (e or "") for e in (out.get("errors") or [])))
+        routed = route_after_validate_design({**base, **out})
+        self.assertEqual(routed, "retry")
 
     def test_route_fail_when_retries_exhausted(self) -> None:
         bad_html = _minimal_valid_slide().replace("1080px", "100vw")
@@ -241,9 +241,9 @@ class TestDesignValidateNode(unittest.TestCase):
             "errors": [],
             "design_retry_count": 2,
         }
-        out = design_validate(base)
+        out = validate_design(base)
         self.assertEqual(out.get("design_retry_count"), 3)
-        self.assertEqual(route_after_design({**base, **out}), "fail")
+        self.assertEqual(route_after_validate_design({**base, **out}), "fail")
 
 
 if __name__ == "__main__":

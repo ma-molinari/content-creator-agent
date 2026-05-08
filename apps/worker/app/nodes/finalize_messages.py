@@ -16,7 +16,7 @@ JOB_FAILURE_HTML_ARTIFACT = (
 # Fallback when the complete callback must be retried with a minimal body — same tone as generic failure.
 JOB_FAILURE_CALLBACK_TRANSPORT = JOB_FAILURE_GENERIC
 
-# Follow-up message required HTML sources for edit_slides but keys or S3 fetch failed.
+# Follow-up message required existing HTML sources, but keys or S3 fetch failed.
 JOB_FAILURE_REFINEMENT_CONTEXT = (
     "Não foi possível carregar o HTML dos slides anteriores para esta edição. Tente novamente."
 )

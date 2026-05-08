@@ -1,6 +1,7 @@
 """Upload rendered JPEGs to S3 with exponential backoff."""
 
 import asyncio
+import json
 import logging
 import re
 
@@ -67,6 +68,22 @@ async def upload_assets(state: AgentState) -> dict:
         aws_secret_access_key=settings.aws_secret_access_key,
     )
     bucket = settings.aws_s3_bucket
+    uploaded_source_key: str | None = None
+    package = state.get("slide_package")
+    if package:
+        source_key = f"slides/{job_id}/slide_package.json"
+        try:
+            await _upload_with_retry(
+                client,
+                bucket,
+                source_key,
+                json.dumps(package, ensure_ascii=False).encode("utf-8"),
+                content_type="application/json; charset=utf-8",
+            )
+            uploaded_source_key = source_key
+        except (ClientError, BotoCoreError) as e:
+            logger.error("node=upload_assets job_id=%s source=%s err=%s", job_id, source_key, e)
+            errors.append(f"upload_assets {source_key}: {e!s}")
 
     slides_html = state.get("slides_html") or []
     html_by_filename: dict[str, str] = {}
@@ -121,4 +138,9 @@ async def upload_assets(state: AgentState) -> dict:
         except (ClientError, BotoCoreError) as e:
             errors.append(f"upload_assets {key}: {e!s}")
 
-    return {"artifacts": artifacts, "errors": errors}
+    out: dict[str, object] = {"artifacts": artifacts, "errors": errors}
+    if uploaded_source_key:
+        metadata = dict(state.get("worker_metadata") or {})
+        metadata["slidePackageS3Key"] = uploaded_source_key
+        out["worker_metadata"] = metadata
+    return out

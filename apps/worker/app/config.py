@@ -38,13 +38,13 @@ class Settings(BaseSettings):
         description="Base URL of Go API, e.g. http://api:8080",
     )
     worker_api_key: str = Field(..., min_length=1)
-    # Chat model for optimize_prompt and generate_slides.
+    # Chat model for structured slide generation.
     openai_chat_model: str = Field(default="gpt-5.4-mini", min_length=1)
     # Vision model for optional design reference images in describe_references.
     reference_vision_model: str = Field(default="gpt-5.4-mini", min_length=1)
     # Max bytes loaded per reference image from S3 (aligned with API upload cap for refs).
     reference_image_max_bytes: int = Field(default=5_242_880, ge=262_144, le=52_428_800)
-    # Dynamic max output tokens for generate_slides: min(base + per_slide * N, cap).
+    # Dynamic max output tokens for slide generation: min(base + per_slide * N, cap).
     generate_slides_tokens_base: int = Field(default=1500, ge=500)
     generate_slides_tokens_per_slide: int = Field(default=1200, ge=200)
     generate_slides_max_tokens_cap: int = Field(default=16_000, ge=2_000)

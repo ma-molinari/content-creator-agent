@@ -4,7 +4,7 @@ import unittest
 from types import SimpleNamespace
 
 from app.generate_slides_tokens import compute_max_output_tokens
-from app.nodes.parse_validate import parse_validate, route_after_parse
+from app.nodes.validate_slide_package import route_after_slide_package, validate_slide_package
 from app.slide_count_inference import infer_requested_slide_count
 
 
@@ -12,21 +12,26 @@ def _html_slide(body: str = "x" * 100) -> str:
     return f"<!DOCTYPE html><html><head><title>t</title></head><body><p>{body}</p></body></html>"
 
 
-def _wrapped_slides(n: int) -> str:
-    parts = []
-    for i in range(1, n + 1):
-        parts.append(f"###SLIDE_FILE:slide_{i:02d}.html###\n{_html_slide()}\n###END_SLIDE###")
-    return "\n".join(parts)
-
-
-def _wrapped_slide_with_body(filename: str, body: str) -> str:
-    return f"###SLIDE_FILE:{filename}###\n{_html_slide(body)}\n###END_SLIDE###"
+def _slide_package(n: int) -> dict:
+    return {
+        "slides": [
+            {"filename": f"slide_{i:02d}.html", "slide_number": i, "html": _html_slide()}
+            for i in range(1, n + 1)
+        ]
+    }
 
 
 class TestInferRequestedSlideCount(unittest.TestCase):
     def test_carrossel_de_n(self) -> None:
         self.assertEqual(infer_requested_slide_count("quero um carrossel de 6 slides"), 6)
         self.assertEqual(infer_requested_slide_count("Carrossel de 10 para o feed"), 10)
+
+    def test_carrousel_with_number_word(self) -> None:
+        self.assertEqual(
+            infer_requested_slide_count("crie um carrousel de dois slides sobre nostalgia"),
+            2,
+        )
+        self.assertEqual(infer_requested_slide_count("make a carousel with two slides"), 2)
 
     def test_n_slides(self) -> None:
         self.assertEqual(infer_requested_slide_count("faz 5 slides sobre marketing"), 5)
@@ -65,93 +70,47 @@ class TestComputeMaxOutputTokens(unittest.TestCase):
         self.assertEqual(compute_max_output_tokens(99, s), 4000)  # type: ignore[arg-type]
 
 
-class TestParseValidateCount(unittest.TestCase):
+class TestValidateSlidePackageCount(unittest.TestCase):
     def test_accepts_when_count_matches(self) -> None:
         state = {
             "job_id": "j1",
-            "raw_slide_output": _wrapped_slides(3),
+            "slide_package": _slide_package(3),
             "errors": [],
             "retry_count": 0,
             "requested_slide_count": 3,
         }
-        out = parse_validate(state)  # type: ignore[arg-type]
+        out = validate_slide_package(state)  # type: ignore[arg-type]
         self.assertEqual(len(out["slides_html"]), 3)
-        self.assertEqual(route_after_parse({**state, **out}), "continue")
+        self.assertEqual(route_after_slide_package({**state, **out}), "continue")
 
     def test_retries_when_count_mismatch(self) -> None:
         state = {
             "job_id": "j1",
-            "raw_slide_output": _wrapped_slides(2),
+            "slide_package": _slide_package(2),
             "errors": [],
             "retry_count": 0,
             "requested_slide_count": 3,
         }
-        out = parse_validate(state)  # type: ignore[arg-type]
+        out = validate_slide_package(state)  # type: ignore[arg-type]
         self.assertEqual(out.get("slides_html"), [])
         err_joined = " ".join(out.get("errors") or [])
-        self.assertIn("expected 3 slides", err_joined)
+        self.assertIn("esperados 3 slides", err_joined)
         self.assertEqual(out.get("retry_count"), 1)
         st2 = {**state, **out}
-        self.assertEqual(route_after_parse(st2), "retry_new")
+        self.assertEqual(route_after_slide_package(st2), "retry")
 
     def test_exhausted_retries_routes_to_fail(self) -> None:
         state = {
             "job_id": "j1",
-            "raw_slide_output": _wrapped_slides(1),
+            "slide_package": _slide_package(1),
             "errors": ["prev"],
             "retry_count": 3,
             "requested_slide_count": 2,
         }
-        out = parse_validate(state)  # type: ignore[arg-type]
+        out = validate_slide_package(state)  # type: ignore[arg-type]
         self.assertEqual(out.get("slides_html"), [])
         st2 = {**state, **out}
-        self.assertEqual(route_after_parse(st2), "fail")
-
-    def test_retries_when_cover_default_attachment_missing_from_slide_one(self) -> None:
-        state = {
-            "job_id": "j1",
-            "raw_slide_output": _wrapped_slides(2),
-            "errors": [],
-            "retry_count": 0,
-            "requested_slide_count": 2,
-            "user_attachment_s3_keys": ["users/u/chat-attachments/a.jpg"],
-            "user_attachment_signed_urls": ["https://bucket.s3.us-east-1.amazonaws.com/users/u/chat-attachments/a.jpg"],
-            "user_attachment_intent": "cover_default",
-        }
-        out = parse_validate(state)  # type: ignore[arg-type]
-        self.assertEqual(out.get("slides_html"), [])
-        self.assertIn("IMAGEM 1", " ".join(out.get("errors") or []))
-        self.assertEqual(out.get("retry_count"), 1)
-
-    def test_accepts_when_cover_default_attachment_is_on_slide_one(self) -> None:
-        url = "https://bucket.s3.us-east-1.amazonaws.com/users/u/chat-attachments/a.jpg"
-        state = {
-            "job_id": "j1",
-            "raw_slide_output": _wrapped_slide_with_body("slide_01.html", f"<img src='{url}' alt=''>"),
-            "errors": [],
-            "retry_count": 0,
-            "requested_slide_count": 1,
-            "user_attachment_s3_keys": ["users/u/chat-attachments/a.jpg"],
-            "user_attachment_signed_urls": [url],
-            "user_attachment_intent": "cover_default",
-        }
-        out = parse_validate(state)  # type: ignore[arg-type]
-        self.assertEqual(len(out["slides_html"]), 1)
-
-    def test_retries_when_explicit_attachment_url_missing_from_all_slides(self) -> None:
-        state = {
-            "job_id": "j1",
-            "raw_slide_output": _wrapped_slides(1),
-            "errors": [],
-            "retry_count": 0,
-            "requested_slide_count": 1,
-            "user_attachment_s3_keys": ["users/u/chat-attachments/a.jpg"],
-            "user_attachment_signed_urls": ["https://bucket.s3.us-east-1.amazonaws.com/users/u/chat-attachments/a.jpg"],
-            "user_attachment_intent": "explicit",
-        }
-        out = parse_validate(state)  # type: ignore[arg-type]
-        self.assertEqual(out.get("slides_html"), [])
-        self.assertIn("anexo obrigatório ausente", " ".join(out.get("errors") or []))
+        self.assertEqual(route_after_slide_package(st2), "fail")
 
 
 if __name__ == "__main__":

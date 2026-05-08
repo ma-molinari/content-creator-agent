@@ -26,7 +26,7 @@ REASON_SLIDE_MARKER = "slide_marker"
 REASON_INJECTION_PHRASE = "injection_phrase"
 
 # Covers API max persisted profile: 20k bytes per audit and brand (profile/sanitize.go);
-# load_profile adds "## AUDIT" / "## BRAND" headers. Count is Unicode code points.
+# security_validate adds "## AUDIT" / "## BRAND" headers. Count is Unicode code points.
 PROFILE_TEXT_MAX_CHARS = 48_000
 
 # Profile audit+brand blob exceeds PROFILE_TEXT_MAX_CHARS (Unicode code points).
@@ -153,7 +153,7 @@ def validate_user_prompt(state: AgentState) -> tuple[bool, str | None]:
 
 
 def validate_prompt_security_bundle(state: AgentState) -> tuple[bool, str | None]:
-    """Validate user message and loaded profile_text (after load_profile)."""
+    """Validate user message and loaded profile_text (after security_validate builds it)."""
     ok, reason = validate_user_prompt(state)
     if not ok:
         return False, reason
