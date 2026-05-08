@@ -73,6 +73,35 @@ func TestPostMessage_Multipart_Attachments(t *testing.T) {
 		ts.mu.Unlock()
 	})
 
+	t.Run("happy_path_png_over_previous_two_mb_body_limit", func(t *testing.T) {
+		ts := &trackingStorage{}
+		var capt capturedDispatch
+
+		env := newTestEnvWithStorage(t, workerCompletingSlideWithCapture(t, &capt), ts)
+		token, userID := registerAndLogin(t, env)
+		env.putTestProfile(t, token)
+		chatID := createChat(t, env, token)
+
+		png := append(validPNGBytes(1, 1), make([]byte, 2*1024*1024+128*1024)...)
+		res, err := postMessageMultipart(t, env, token, chatID, msg, []multipartFile{
+			{Filename: "large-but-valid.png", ContentType: "image/png", Data: png},
+		})
+		require.NoError(t, err)
+		defer res.Body.Close()
+		require.Equal(t, http.StatusAccepted, res.StatusCode)
+
+		ctx := context.Background()
+		var attachments []db.ChatContentAttachment
+		require.NoError(t, env.DB.WithContext(ctx).
+			Joins("JOIN chat_content ON chat_content.id = chat_content_attachment.chat_content_id").
+			Where("chat_content.chat_id = ?", chatID).
+			Find(&attachments).Error)
+		require.Len(t, attachments, 1)
+		require.Equal(t, "image/png", attachments[0].MimeType)
+		require.Contains(t, attachments[0].S3Key, "users/"+userID.String()+"/chat-attachments/")
+		require.Equal(t, []string{attachments[0].S3Key}, capt.lastUserAttachmentKeys())
+	})
+
 	t.Run("reject_five_attachments", func(t *testing.T) {
 		var hits atomic.Int32 // count worker /jobs callbacks
 		ts := &trackingStorage{}

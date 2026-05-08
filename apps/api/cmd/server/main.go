@@ -26,6 +26,8 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
+const maxRequestBodySize = "22M"
+
 func main() {
 	cfg := config.Load()
 	if cfg.JWTSecret == "" || cfg.JWTRefreshSecret == "" {
@@ -126,7 +128,7 @@ func main() {
 	e.IPExtractor = echo.ExtractIPFromXFFHeader(echo.TrustPrivateNet(true))
 	e.Use(middleware.Recover())
 	e.Use(middleware.Logger())
-	e.Use(middleware.BodyLimit("2M"))
+	e.Use(middleware.BodyLimit(maxRequestBodySize))
 	e.Use(appmw.SecurityHeaders(cookieSecure))
 	e.Use(appmw.CORS(cfg.CORSAllowedOrigins))
 

@@ -107,6 +107,7 @@ func buildEcho(gdb *gorm.DB, cfg *config.Config, worker jobs.WorkerClient, stor 
 	e := echo.New()
 	e.HideBanner = true
 	e.Use(middleware.Recover())
+	e.Use(middleware.BodyLimit("22M"))
 	e.Use(appmw.SecurityHeaders(false))
 	e.Use(appmw.CORS(cfg.CORSAllowedOrigins))
 
