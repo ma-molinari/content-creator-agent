@@ -46,7 +46,7 @@ export function ChatThread({
   const showPendingBubble =
     pendingText != null &&
     pendingText.length > 0 &&
-    !serverUserMessageCoversPending(contents, pendingText)
+    !serverUserMessageCoversPending(contents, pendingText, pendingAttachments?.length ?? 0)
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6">

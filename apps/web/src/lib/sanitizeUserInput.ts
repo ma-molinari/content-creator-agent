@@ -37,11 +37,21 @@ export function sanitizeUserInput(s: string): string {
 export function serverUserMessageCoversPending(
   contents: ChatContent[],
   pendingText: string,
+  pendingAttachmentCount = 0,
 ): boolean {
   const normalizedPending = sanitizeUserInput(pendingText)
   if (!normalizedPending) return false
+  let checkedLatestUserForAttachments = false
   for (let i = contents.length - 1; i >= 0; i--) {
     if (contents[i].role !== 'user') continue
+    if (
+      pendingAttachmentCount > 0 &&
+      !checkedLatestUserForAttachments &&
+      (contents[i].attachments?.length ?? 0) === pendingAttachmentCount
+    ) {
+      return true
+    }
+    checkedLatestUserForAttachments = true
     if (contents[i].content === normalizedPending) return true
   }
   return false
