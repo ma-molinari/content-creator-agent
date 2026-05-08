@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from urllib.parse import urlparse
 
 from playwright.async_api import Browser, Route, async_playwright
 
-from app.config import get_settings
+from app.s3_image_utils import is_allowed_s3_url
+from app.slide_asset_wait import wait_for_slide_images
 from app.slide_render_html import enhance_slide_html_for_render
 from app.state import AgentState, RenderedSlide, SlideItem, copy_errors
 
@@ -18,25 +18,9 @@ _VIEWPORT = {"width": 1080, "height": 1350}
 _JPEG_QUALITY = 92
 _TIMEOUT_MS = 60_000
 
-_ALLOWED_S3_HOSTS: frozenset[str] | None = None
-
-
-def _allowed_s3_hosts() -> frozenset[str]:
-    global _ALLOWED_S3_HOSTS
-    if _ALLOWED_S3_HOSTS is None:
-        s = get_settings()
-        _ALLOWED_S3_HOSTS = frozenset(
-            {
-                f"{s.aws_s3_bucket}.s3.{s.aws_region}.amazonaws.com",
-                f"{s.aws_s3_bucket}.s3.amazonaws.com",
-                f"s3.{s.aws_region}.amazonaws.com",
-            }
-        )
-    return _ALLOWED_S3_HOSTS
-
 
 async def _allow_slide_route(route: Route) -> None:
-    """Block remote assets except Google Fonts (needed for @import in slide HTML)."""
+    """Block remote assets except Google Fonts and configured S3 image URLs."""
     url = route.request.url
     if url.startswith("data:"):
         await route.continue_()
@@ -44,8 +28,7 @@ async def _allow_slide_route(route: Route) -> None:
     if "fonts.googleapis.com" in url or "fonts.gstatic.com" in url:
         await route.continue_()
         return
-    host = urlparse(url).hostname
-    if host and host in _allowed_s3_hosts():
+    if is_allowed_s3_url(url):
         await route.continue_()
         return
     await route.abort()
@@ -65,6 +48,14 @@ async def _render_one_slide(browser: Browser, item: SlideItem) -> tuple[Rendered
                 await page.evaluate("() => document.fonts.ready")
             except Exception as exc:
                 logger.debug("render_to_jpeg: document.fonts.ready skipped (%s)", exc)
+            try:
+                await wait_for_slide_images(page)
+            except RuntimeError as exc:
+                logger.warning(
+                    "render_to_jpeg: continuing after image asset wait issue slide=%s err=%s",
+                    fname,
+                    exc,
+                )
             data = await page.screenshot(
                 type="jpeg",
                 quality=_JPEG_QUALITY,

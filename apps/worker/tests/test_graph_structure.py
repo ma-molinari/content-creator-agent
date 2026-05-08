@@ -55,7 +55,9 @@ def test_graph_isr_ordering() -> None:
     tree = _load_graph_ast()
     edges, conditionals = _collect_edges(tree)
 
-    assert ("describe_references", "detect_intent") in edges
+    assert ("describe_references", "describe_user_attachments") in edges
+    assert ("describe_user_attachments", "detect_intent") in edges
+    assert ("describe_references", "detect_intent") not in edges
     assert ("describe_references", "optimize_prompt") not in edges
 
     detect = next(m for loc, m in conditionals if loc == "detect_intent")

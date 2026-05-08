@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+from html import unescape
 
 from app.refinement_validate import existing_slides_index, visual_copy_preserved
 from app.state import AgentState, SlideItem, copy_errors
@@ -107,6 +108,41 @@ def _failure_return(
     }
 
 
+def _slide_contains_url(item: SlideItem, url: str) -> bool:
+    html = unescape(item.get("html") or "")
+    return url in html
+
+
+def _attachment_usage_messages(state: AgentState, valid: list[SlideItem]) -> list[str]:
+    keys = state.get("user_attachment_s3_keys") or []
+    urls = [u for u in (state.get("user_attachment_signed_urls") or []) if u]
+    if not keys:
+        return []
+    if not urls:
+        return [
+            "parse_validate: anexos do usuário existem, mas nenhuma URL presignada chegou ao HTML; regenere usando as URLs completas dos anexos."
+        ]
+
+    intent = (state.get("user_attachment_intent") or "cover_default").strip().lower()
+    if intent == "cover_default":
+        first_url = urls[0]
+        first_slide = next(
+            (s for s in valid if (s.get("filename") or "").lower() == "slide_01.html"),
+            valid[0] if valid else None,
+        )
+        if first_slide is None or not _slide_contains_url(first_slide, first_url):
+            return [
+                "parse_validate: anexo obrigatório ausente — use a URL da IMAGEM 1 como visual dominante no slide_01.html."
+            ]
+        return []
+
+    if not any(_slide_contains_url(slide, url) for slide in valid for url in urls):
+        return [
+            "parse_validate: anexo obrigatório ausente — inclua pelo menos uma URL de <anexos_do_usuario> no HTML do slide indicado pelo pedido."
+        ]
+    return []
+
+
 def parse_validate(state: AgentState) -> dict:
     logger.info("node=parse_validate job_id=%s", state.get("job_id"))
     raw = state.get("raw_slide_output") or ""
@@ -127,6 +163,15 @@ def parse_validate(state: AgentState) -> dict:
     if not valid:
         head = "parse_validate: no valid slides after parsing markers"
         return _failure_return(errors, retry_count, [head] + diag)
+
+    attachment_msgs = _attachment_usage_messages(state, valid)
+    if attachment_msgs:
+        logger.info(
+            "node=parse_validate job_id=%s attachment_usage failed count=%s",
+            state.get("job_id"),
+            len(attachment_msgs),
+        )
+        return _failure_return(errors, retry_count, attachment_msgs)
 
     if (
         state.get("is_refinement")

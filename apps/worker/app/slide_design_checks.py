@@ -19,6 +19,8 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 from bs4 import BeautifulSoup
 
+from app.s3_image_utils import is_allowed_s3_url
+
 _ALLOWED_FONT_NETLOCS = frozenset({"fonts.googleapis.com", "fonts.gstatic.com"})
 
 _DEFAULT_FONT_FAMILY = "plus jakarta sans"
@@ -50,7 +52,11 @@ def _netloc(url: str) -> str:
 
 def _allowed_remote_netloc(url: str) -> bool:
     host = _netloc(url)
-    return host in _ALLOWED_FONT_NETLOCS or host.endswith(".fonts.gstatic.com")
+    return (
+        host in _ALLOWED_FONT_NETLOCS
+        or host.endswith(".fonts.gstatic.com")
+        or is_allowed_s3_url(url)
+    )
 
 
 def _extract_css_blob(html: str) -> str:

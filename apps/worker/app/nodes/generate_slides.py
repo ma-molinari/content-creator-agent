@@ -50,6 +50,15 @@ def _count_instruction(requested: int | None) -> str:
     )
 
 
+def _raw_message_for_attachment_instruction(state: AgentState, block: str) -> str:
+    if not block or state.get("user_attachment_intent") != "explicit":
+        return ""
+    raw = (state.get("raw_message") or "").strip()
+    if not raw:
+        return ""
+    return f"\n\n<raw_message>\n{raw}\n</raw_message>"
+
+
 async def generate_slides(state: AgentState) -> dict[str, object]:
     logger.info("node=generate_slides job_id=%s", state.get("job_id"))
     settings = get_settings()
@@ -85,6 +94,7 @@ async def generate_slides(state: AgentState) -> dict[str, object]:
     user_content += _retry_feedback(state.get("errors"))
     block = format_user_attachments_block(state)
     if block:
+        user_content += _raw_message_for_attachment_instruction(state, block)
         user_content += "\n\n" + block
 
     logger.info(

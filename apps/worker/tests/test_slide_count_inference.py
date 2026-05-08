@@ -19,6 +19,10 @@ def _wrapped_slides(n: int) -> str:
     return "\n".join(parts)
 
 
+def _wrapped_slide_with_body(filename: str, body: str) -> str:
+    return f"###SLIDE_FILE:{filename}###\n{_html_slide(body)}\n###END_SLIDE###"
+
+
 class TestInferRequestedSlideCount(unittest.TestCase):
     def test_carrossel_de_n(self) -> None:
         self.assertEqual(infer_requested_slide_count("quero um carrossel de 6 slides"), 6)
@@ -102,6 +106,52 @@ class TestParseValidateCount(unittest.TestCase):
         self.assertEqual(out.get("slides_html"), [])
         st2 = {**state, **out}
         self.assertEqual(route_after_parse(st2), "fail")
+
+    def test_retries_when_cover_default_attachment_missing_from_slide_one(self) -> None:
+        state = {
+            "job_id": "j1",
+            "raw_slide_output": _wrapped_slides(2),
+            "errors": [],
+            "retry_count": 0,
+            "requested_slide_count": 2,
+            "user_attachment_s3_keys": ["users/u/chat-attachments/a.jpg"],
+            "user_attachment_signed_urls": ["https://bucket.s3.us-east-1.amazonaws.com/users/u/chat-attachments/a.jpg"],
+            "user_attachment_intent": "cover_default",
+        }
+        out = parse_validate(state)  # type: ignore[arg-type]
+        self.assertEqual(out.get("slides_html"), [])
+        self.assertIn("IMAGEM 1", " ".join(out.get("errors") or []))
+        self.assertEqual(out.get("retry_count"), 1)
+
+    def test_accepts_when_cover_default_attachment_is_on_slide_one(self) -> None:
+        url = "https://bucket.s3.us-east-1.amazonaws.com/users/u/chat-attachments/a.jpg"
+        state = {
+            "job_id": "j1",
+            "raw_slide_output": _wrapped_slide_with_body("slide_01.html", f"<img src='{url}' alt=''>"),
+            "errors": [],
+            "retry_count": 0,
+            "requested_slide_count": 1,
+            "user_attachment_s3_keys": ["users/u/chat-attachments/a.jpg"],
+            "user_attachment_signed_urls": [url],
+            "user_attachment_intent": "cover_default",
+        }
+        out = parse_validate(state)  # type: ignore[arg-type]
+        self.assertEqual(len(out["slides_html"]), 1)
+
+    def test_retries_when_explicit_attachment_url_missing_from_all_slides(self) -> None:
+        state = {
+            "job_id": "j1",
+            "raw_slide_output": _wrapped_slides(1),
+            "errors": [],
+            "retry_count": 0,
+            "requested_slide_count": 1,
+            "user_attachment_s3_keys": ["users/u/chat-attachments/a.jpg"],
+            "user_attachment_signed_urls": ["https://bucket.s3.us-east-1.amazonaws.com/users/u/chat-attachments/a.jpg"],
+            "user_attachment_intent": "explicit",
+        }
+        out = parse_validate(state)  # type: ignore[arg-type]
+        self.assertEqual(out.get("slides_html"), [])
+        self.assertIn("anexo obrigatório ausente", " ".join(out.get("errors") or []))
 
 
 if __name__ == "__main__":

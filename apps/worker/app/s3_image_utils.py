@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 import mimetypes
+from urllib.parse import urlparse
 from typing import Mapping, Protocol, cast
+
+from pydantic import ValidationError
+
+from app.config import get_settings
 
 
 class _S3PresignClient(Protocol):
@@ -55,3 +60,43 @@ def presign_get_url(client: _S3PresignClient, bucket: str, key: str, expires_in_
         Params={"Bucket": bucket, "Key": key},
         ExpiresIn=expires_in_seconds,
     )
+
+
+def allowed_s3_hosts(bucket: str | None = None, region: str | None = None) -> frozenset[str]:
+    if bucket is None or region is None:
+        try:
+            settings = get_settings()
+        except ValidationError:
+            return frozenset()
+        bucket = bucket or settings.aws_s3_bucket
+        region = region or settings.aws_region
+    bucket = (bucket or "").strip()
+    region = (region or "").strip()
+    if not bucket or not region:
+        return frozenset()
+    return frozenset(
+        {
+            f"{bucket}.s3.{region}.amazonaws.com",
+            f"{bucket}.s3.amazonaws.com",
+            f"s3.{region}.amazonaws.com",
+            "s3.amazonaws.com",
+        }
+    )
+
+
+def is_allowed_s3_url(url: str, bucket: str | None = None, region: str | None = None) -> bool:
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return False
+    if parsed.scheme not in {"http", "https"}:
+        return False
+    host = (parsed.hostname or "").lower()
+    if not host:
+        return False
+    hosts = allowed_s3_hosts(bucket, region)
+    if host not in hosts:
+        return False
+    if bucket and host in {f"s3.{region}.amazonaws.com", "s3.amazonaws.com"}:
+        return parsed.path.startswith(f"/{bucket}/")
+    return True

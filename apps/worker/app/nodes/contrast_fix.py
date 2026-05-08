@@ -7,6 +7,8 @@ import logging
 
 from playwright.async_api import Browser, Route, async_playwright
 
+from app.s3_image_utils import is_allowed_s3_url
+from app.slide_asset_wait import wait_for_slide_images
 from app.slide_render_html import enhance_slide_html_for_render
 from app.state import AgentState, SlideItem, copy_errors
 
@@ -215,12 +217,15 @@ _CONTRAST_FIX_JS = """
 
 
 async def _allow_slide_route(route: Route) -> None:
-    """Block remote assets except Google Fonts (matches render_to_jpeg)."""
+    """Block remote assets except Google Fonts and configured S3 image URLs."""
     url = route.request.url
     if url.startswith("data:"):
         await route.continue_()
         return
     if "fonts.googleapis.com" in url or "fonts.gstatic.com" in url:
+        await route.continue_()
+        return
+    if is_allowed_s3_url(url):
         await route.continue_()
         return
     await route.abort()
@@ -239,6 +244,14 @@ async def _fix_one_slide(browser: Browser, item: SlideItem) -> tuple[SlideItem, 
             await page.evaluate("() => document.fonts.ready")
         except Exception as exc:
             logger.debug("contrast_fix: document.fonts.ready skipped (%s)", exc)
+        try:
+            await wait_for_slide_images(page)
+        except RuntimeError as exc:
+            logger.warning(
+                "contrast_fix: continuing after image asset wait issue slide=%s err=%s",
+                fname,
+                exc,
+            )
         out = await page.evaluate(_CONTRAST_FIX_JS)
         had = bool(out and out.get("hadViolations"))
         if not had:

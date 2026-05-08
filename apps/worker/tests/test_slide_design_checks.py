@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import os
 import unittest
+from unittest.mock import patch
 
+from app.config import get_settings
 from app.nodes.design_validate import design_validate, route_after_design
 from app.slide_design_checks import (
     check_reference_colors,
@@ -13,6 +16,16 @@ from app.slide_design_checks import (
 from app.state import AgentState
 
 _PJS_GF_URL = "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap"
+
+_SETTINGS_ENV = {
+    "OPENAI_API_KEY": "test-openai-key",
+    "AWS_REGION": "us-east-1",
+    "AWS_ACCESS_KEY_ID": "test-access",
+    "AWS_SECRET_ACCESS_KEY": "test-secret",
+    "AWS_S3_BUCKET": "post-mind-test",
+    "GO_API_URL": "http://api.test",
+    "WORKER_API_KEY": "test-worker-key",
+}
 
 
 def _minimal_valid_slide(variant: str = "default") -> str:
@@ -50,6 +63,27 @@ class TestSlideDesignChecks(unittest.TestCase):
         )
         msgs = collect_design_violations(html)
         self.assertTrue(any("remota" in m.lower() or "proibida" in m.lower() for m in msgs))
+
+    def test_configured_s3_attachment_url_allowed(self) -> None:
+        get_settings.cache_clear()
+        with patch.dict(os.environ, _SETTINGS_ENV, clear=False):
+            html = _minimal_valid_slide().replace(
+                "<main>",
+                '<main><img src="https://post-mind-test.s3.us-east-1.amazonaws.com/users/u/chat-attachments/a.jpg?X-Amz-Signature=abc" alt=""/>',
+            )
+            self.assertEqual(check_remote_assets(html), [])
+        get_settings.cache_clear()
+
+    def test_unconfigured_s3_bucket_rejected(self) -> None:
+        get_settings.cache_clear()
+        with patch.dict(os.environ, _SETTINGS_ENV, clear=False):
+            html = _minimal_valid_slide().replace(
+                "<main>",
+                '<main><img src="https://other-bucket.s3.us-east-1.amazonaws.com/users/u/chat-attachments/a.jpg" alt=""/>',
+            )
+            msgs = check_remote_assets(html)
+            self.assertTrue(any("proibida" in m.lower() for m in msgs))
+        get_settings.cache_clear()
 
     def test_multiple_remote_assets_all_reported(self) -> None:
         """All forbidden remote URLs are reported in one pass (no early return)."""

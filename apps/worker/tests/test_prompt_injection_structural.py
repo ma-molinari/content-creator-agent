@@ -4,6 +4,7 @@ import unittest
 
 from app.sanitize import sanitize_brief_output
 from app.nodes.load_profile import load_profile
+from app.nodes.generate_slides import _raw_message_for_attachment_instruction
 
 
 class TestSanitizeBriefOutput(unittest.TestCase):
@@ -116,6 +117,24 @@ class TestContextWrapperStructure(unittest.TestCase):
         content = self._build_generate_user_content("perfil", clean)
         self.assertNotIn("###SLIDE_FILE:", content)
         self.assertNotIn("###END_SLIDE###", content)
+
+    def test_generate_includes_raw_message_for_explicit_attachments(self) -> None:
+        state: dict = {
+            "raw_message": "Use a imagem anexada no slide 3.",
+            "user_attachment_intent": "explicit",
+        }
+        content = _raw_message_for_attachment_instruction(state, "<anexos_do_usuario />")  # type: ignore[arg-type]
+        self.assertIn("<raw_message>", content)
+        self.assertIn("Use a imagem anexada no slide 3.", content)
+        self.assertIn("</raw_message>", content)
+
+    def test_generate_omits_raw_message_for_default_attachment_intent(self) -> None:
+        state: dict = {
+            "raw_message": "Post sobre produtividade.",
+            "user_attachment_intent": "cover_default",
+        }
+        content = _raw_message_for_attachment_instruction(state, "<anexos_do_usuario />")  # type: ignore[arg-type]
+        self.assertEqual(content, "")
 
 
 if __name__ == "__main__":
