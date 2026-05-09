@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 
 import { logoutRemote } from '@/api/auth'
+import { useChats } from '@/api/chats'
 import { HelpButton } from '@/components/onboarding'
 import { NavItem } from '@/components/shell/NavItem'
 import { queryClient } from '@/lib/queryClient'
@@ -12,6 +13,8 @@ type Props = {
 
 export function SidebarRail({ onClose }: Props) {
   const navigate = useNavigate()
+  const { data: chats } = useChats()
+  const recentChats = chats?.slice(0, 4) ?? []
 
   const handleLogout = async () => {
     try {
@@ -43,11 +46,69 @@ export function SidebarRail({ onClose }: Props) {
           </button>
         )}
       </div>
-      <nav className="flex flex-1 flex-col gap-1 px-3 py-2">
+      <div className="px-3 pb-2">
+        <button
+          type="button"
+          onClick={() => {
+            navigate('/')
+            onClose?.()
+          }}
+          className="flex w-full items-center justify-center rounded-[var(--radius-md)] bg-[var(--color-cta-emphasis)] px-3 py-2 text-sm font-medium text-[var(--color-cta-emphasis-contrast)] hover:opacity-90"
+        >
+          Novo post
+        </button>
+      </div>
+      <nav className="flex flex-col gap-1 px-3 py-2">
         <NavItem to="/" icon={<IconHome />} label="Início" end />
         <NavItem to="/history" icon={<IconHistory />} label="Histórico" />
         <NavItem to="/profile" icon={<IconUser />} label="Perfil" />
       </nav>
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+        <div className="mb-2 flex items-center justify-between">
+          <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-text-muted)]">
+            Recentes
+          </p>
+          {recentChats.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                navigate('/history')
+                onClose?.()
+              }}
+              className="text-xs font-medium text-[var(--color-brand-primary)] hover:text-[var(--color-brand-primary-hover)]"
+            >
+              Ver todos
+            </button>
+          )}
+        </div>
+        {recentChats.length === 0 ? (
+          <p className="rounded-[var(--radius-md)] bg-[var(--color-bg-muted)] px-3 py-2 text-xs text-[var(--color-text-secondary)]">
+            Seus posts aparecerão aqui.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-1">
+            {recentChats.map((chat) => (
+              <li key={chat.id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigate(`/chat/${chat.id}`)
+                    onClose?.()
+                  }}
+                  className="w-full rounded-[var(--radius-md)] px-3 py-2 text-left hover:bg-[var(--color-bg-muted)]"
+                >
+                  <span className="line-clamp-1 text-xs font-medium text-[var(--color-text-primary)]">
+                    {chat.title ?? 'Chat sem título'}
+                  </span>
+                  <span className="text-[11px] text-[var(--color-text-muted)]">
+                    {chat.postType === 'carousel' ? 'Carrossel' : 'Post único'}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
       <div className="flex min-h-[var(--app-bottom-shelf-min-height)] items-center gap-1 border-t border-[var(--color-border-subtle)] p-3">
         <HelpButton />
         <button

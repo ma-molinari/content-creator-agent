@@ -19,6 +19,13 @@ async function bootstrapAsAuthenticated(page: Page) {
       body: JSON.stringify({ accessToken: 'e2e-profile-token' }),
     })
   })
+  await page.route('**/api/chats', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([]),
+    })
+  })
 }
 
 test.describe('profile (API mockada)', () => {
@@ -39,6 +46,7 @@ test.describe('profile (API mockada)', () => {
 
     await page.goto('/profile')
     await expect(page.locator('#audit-md')).toHaveValue('# Auditoria\nConteúdo do audit')
+    await page.getByRole('button', { name: 'Continuar' }).click()
     await expect(page.locator('#brand-md')).toHaveValue('# Marca\nConteúdo do brand')
   })
 
@@ -64,6 +72,10 @@ test.describe('profile (API mockada)', () => {
         })
         return
       }
+      if (path === '/api/chats' && method === 'GET') {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+        return
+      }
       if (path === '/api/profile' && method === 'PUT') {
         await route.fulfill({
           status: 200,
@@ -77,8 +89,10 @@ test.describe('profile (API mockada)', () => {
 
     await page.goto('/profile')
     await page.locator('#audit-md').fill('Meu audit')
+    await page.getByRole('button', { name: 'Continuar' }).click()
     await page.locator('#brand-md').fill('Minha marca')
-    await page.getByRole('button', { name: 'Salvar' }).click()
+    await page.getByRole('button', { name: 'Continuar' }).click()
+    await page.getByRole('button', { name: 'Salvar perfil' }).click()
 
     await expect(page.getByRole('status')).toContainText('Perfil salvo.')
   })
@@ -105,6 +119,10 @@ test.describe('profile (API mockada)', () => {
         })
         return
       }
+      if (path === '/api/chats' && method === 'GET') {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+        return
+      }
       if (path === '/api/profile' && method === 'PUT') {
         await route.fulfill({ status: 500 })
         return
@@ -114,7 +132,10 @@ test.describe('profile (API mockada)', () => {
 
     await page.goto('/profile')
     await page.locator('#audit-md').fill('Texto qualquer')
-    await page.getByRole('button', { name: 'Salvar' }).click()
+    await page.getByRole('button', { name: 'Continuar' }).click()
+    await page.locator('#brand-md').fill('Marca qualquer')
+    await page.getByRole('button', { name: 'Continuar' }).click()
+    await page.getByRole('button', { name: 'Salvar perfil' }).click()
 
     await expect(page.getByRole('status')).toContainText('Não foi possível salvar.')
   })
@@ -147,6 +168,10 @@ test.describe('profile (API mockada)', () => {
         })
         return
       }
+      if (path === '/api/chats' && method === 'GET') {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+        return
+      }
       if (path === '/api/profile/references' && method === 'POST') {
         hasRef = true
         await route.fulfill({
@@ -163,6 +188,7 @@ test.describe('profile (API mockada)', () => {
     })
 
     await page.goto('/profile')
+    await page.getByRole('button', { name: /Referências/ }).click()
 
     const fakeImage = Buffer.from(
       'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
@@ -205,6 +231,10 @@ test.describe('profile (API mockada)', () => {
         })
         return
       }
+      if (path === '/api/chats' && method === 'GET') {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: '[]' })
+        return
+      }
       if (path === `/api/profile/references/${REF_ID}` && method === 'DELETE') {
         deleted = true
         await route.fulfill({ status: 204 })
@@ -214,10 +244,11 @@ test.describe('profile (API mockada)', () => {
     })
 
     await page.goto('/profile')
+    await page.getByRole('button', { name: /Referências/ }).click()
     await expect(page.locator('img[src*="placehold.co"]')).toBeVisible()
 
-    page.on('dialog', (dialog) => dialog.accept())
-    await page.getByTitle('Remover').click({ force: true })
+    await page.getByTitle('Remover').click()
+    await page.getByRole('button', { name: 'Remover' }).last().click()
 
     await expect(page.locator('img[src*="placehold.co"]')).not.toBeVisible({ timeout: 5_000 })
   })

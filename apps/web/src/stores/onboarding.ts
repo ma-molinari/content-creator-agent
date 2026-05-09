@@ -46,7 +46,7 @@ type OnboardingState = {
 export const useOnboardingStore = create<OnboardingState>((set, get) => ({
   tourDone: tourDoneInitial,
   dismissedHints: dismissedInitial,
-  tourOpen: !tourDoneInitial,
+  tourOpen: false,
   tourStep: 0,
 
   openTour: () => set({ tourOpen: true, tourStep: 0 }),

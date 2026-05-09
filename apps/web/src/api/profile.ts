@@ -66,7 +66,14 @@ export function useDeleteReference() {
   const qc = useQueryClient()
   return useMutation<void, Error, string>({
     mutationFn: (id) => api.delete(`/profile/references/${id}`).then(() => undefined),
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
+      qc.setQueryData<ProfileResponse>(['profile'], (current) => {
+        if (!current) return current
+        return {
+          ...current,
+          references: current.references.filter((ref) => ref.id !== id),
+        }
+      })
       qc.invalidateQueries({ queryKey: ['profile'] })
     },
   })

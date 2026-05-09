@@ -24,14 +24,11 @@ export function AppShell() {
       )}
 
       {/* Mobile sidebar drawer */}
-      <div
-        className={[
-          'fixed inset-y-0 left-0 z-40 transition-transform duration-[var(--transition-normal)] md:hidden',
-          drawerOpen ? 'translate-x-0' : '-translate-x-full',
-        ].join(' ')}
-      >
-        <SidebarRail onClose={() => setDrawerOpen(false)} />
-      </div>
+      {drawerOpen && (
+        <div className="fixed inset-y-0 left-0 z-40 transition-transform duration-[var(--transition-normal)] md:hidden">
+          <SidebarRail onClose={() => setDrawerOpen(false)} />
+        </div>
+      )}
 
       <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {/* Mobile top bar */}

@@ -20,7 +20,9 @@ test.describe('auth — erros de formulário (API mockada)', () => {
       })
     })
 
+    const refresh = page.waitForResponse((res) => res.url().includes('/api/auth/refresh'))
     await page.goto('/login')
+    await refresh
     await page.getByLabel('Email').fill('wrong@example.com')
     await page.locator('#password').fill('wrongpassword')
     await page.getByRole('button', { name: 'Entrar' }).click()

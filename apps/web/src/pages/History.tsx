@@ -1,4 +1,4 @@
-import { useState, type MouseEvent } from 'react'
+import { useState, type MouseEvent, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import type { Chat } from '@/api/chats'
@@ -17,6 +17,16 @@ export default function History() {
 
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [confirmId, setConfirmId] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
+  const [typeFilter, setTypeFilter] = useState<'all' | 'single' | 'carousel'>('all')
+
+  const filteredChats =
+    chats?.filter((chat) => {
+      const matchesType = typeFilter === 'all' || chat.postType === typeFilter
+      const title = chat.title ?? 'Chat sem título'
+      const matchesQuery = title.toLowerCase().includes(query.trim().toLowerCase())
+      return matchesType && matchesQuery
+    }) ?? []
 
   async function handleDelete() {
     if (!confirmId) return
@@ -69,17 +79,45 @@ export default function History() {
                   title="Os seus posts"
                   description="Aqui ficam todos os seus posts anteriores. Abra qualquer um para rever os slides ou baixar o ZIP."
                 />
-                <ul className="flex flex-col gap-2">
-                  {chats.map((chat) => (
-                    <ChatListItem
-                      key={chat.id}
-                      chat={chat}
-                      deleting={deletingId === chat.id}
-                      onOpen={() => navigate(`/chat/${chat.id}`)}
-                      onDelete={() => setConfirmId(chat.id)}
+                <div className="mb-4 rounded-[var(--radius-lg)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] p-3">
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <input
+                      type="search"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="Buscar por título"
+                      className="min-w-0 flex-1 rounded-[var(--radius-md)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-app)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:ring-2 focus:ring-[var(--color-focus-ring)]"
                     />
-                  ))}
-                </ul>
+                    <div className="inline-flex rounded-[var(--radius-md)] bg-[var(--color-bg-muted)] p-1">
+                      <FilterButton active={typeFilter === 'all'} onClick={() => setTypeFilter('all')}>
+                        Todos
+                      </FilterButton>
+                      <FilterButton active={typeFilter === 'carousel'} onClick={() => setTypeFilter('carousel')}>
+                        Carrosséis
+                      </FilterButton>
+                      <FilterButton active={typeFilter === 'single'} onClick={() => setTypeFilter('single')}>
+                        Únicos
+                      </FilterButton>
+                    </div>
+                  </div>
+                </div>
+                {filteredChats.length === 0 ? (
+                  <p className="rounded-[var(--radius-md)] bg-[var(--color-bg-surface)] px-4 py-8 text-center text-sm text-[var(--color-text-secondary)]">
+                    Nenhum post encontrado com esses filtros.
+                  </p>
+                ) : (
+                  <ul className="flex flex-col gap-2">
+                    {filteredChats.map((chat) => (
+                      <ChatListItem
+                        key={chat.id}
+                        chat={chat}
+                        deleting={deletingId === chat.id}
+                        onOpen={() => navigate(`/chat/${chat.id}`)}
+                        onDelete={() => setConfirmId(chat.id)}
+                      />
+                    ))}
+                  </ul>
+                )}
               </>
             )}
           </div>
@@ -96,6 +134,29 @@ export default function History() {
         onCancel={() => setConfirmId(null)}
       />
     </>
+  )
+}
+
+type FilterButtonProps = {
+  active: boolean
+  onClick: () => void
+  children: ReactNode
+}
+
+function FilterButton({ active, onClick, children }: FilterButtonProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        'rounded-[calc(var(--radius-md)-2px)] px-3 py-1.5 text-xs font-medium transition-colors',
+        active
+          ? 'bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] shadow-[var(--shadow-sm)]'
+          : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
+      ].join(' ')}
+    >
+      {children}
+    </button>
   )
 }
 

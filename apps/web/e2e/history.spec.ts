@@ -73,14 +73,15 @@ test.describe('history (mocked API)', () => {
     await page.getByRole('link', { name: 'Histórico' }).click()
 
     await expect(page.getByRole('heading', { name: 'Histórico' })).toBeVisible()
-    await expect(page.getByText('Histórico e2e')).toBeVisible()
+    const historyItem = page.getByRole('button', { name: /Histórico e2e Carrossel ·/ })
+    await expect(historyItem).toBeVisible()
 
     await page.getByTitle('Excluir').first().click()
     await expect(page.getByRole('heading', { name: 'Excluir chat' })).toBeVisible()
     await page.getByRole('alertdialog').getByRole('button', { name: 'Excluir' }).click()
 
     await expect.poll(() => deleteCalls).toBe(1)
-    await expect(page.getByText('Histórico e2e')).not.toBeVisible()
+    await expect(historyItem).not.toBeVisible()
   })
 
   test('clicar em item da lista navega para /chat/:id', async ({ page }) => {
@@ -152,9 +153,10 @@ test.describe('history (mocked API)', () => {
     await page.getByRole('button', { name: 'Entrar' }).click()
 
     await page.getByRole('link', { name: 'Histórico' }).click()
-    await expect(page.getByText('Histórico e2e')).toBeVisible()
+    const historyItem = page.getByRole('button', { name: /Histórico e2e Carrossel ·/ })
+    await expect(historyItem).toBeVisible()
 
-    await page.getByText('Histórico e2e').click()
+    await historyItem.click()
     await expect(page).toHaveURL(new RegExp(`/chat/${CHAT_A}`))
   })
 })

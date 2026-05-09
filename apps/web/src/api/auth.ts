@@ -13,7 +13,7 @@ type LoginResult = { accessToken: string }
 export function useLogin() {
   return useMutation<LoginResult, Error, LoginVars>({
     mutationFn: (vars) =>
-      api.post<LoginResult>('/auth/login', vars).then((r) => r.data),
+      apiSession.post<LoginResult>('/auth/login', vars).then((r) => r.data),
   })
 }
 
