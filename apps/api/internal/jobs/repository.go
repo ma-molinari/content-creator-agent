@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"content-creator-agent/internal/db"
@@ -22,8 +23,15 @@ func NewRepository(gdb *gorm.DB) *Repository {
 
 // UpdateStatus sets job status and optional error message.
 func (r *Repository) UpdateStatus(ctx context.Context, id uuid.UUID, status db.JobStatus, errMsg *string) error {
+	stage := string(status)
+	progress := 0
+	if status == db.JobStatusDone || status == db.JobStatusFailed {
+		progress = 100
+	}
 	updates := map[string]interface{}{
 		"status":     status,
+		"stage":      stage,
+		"progress":   progress,
 		"updated_at": time.Now().UTC(),
 	}
 	if errMsg != nil {
@@ -34,13 +42,48 @@ func (r *Repository) UpdateStatus(ctx context.Context, id uuid.UUID, status db.J
 	return r.db.WithContext(ctx).Model(&db.Job{}).Where("id = ?", id).Updates(updates).Error
 }
 
+// UpdateProgress records worker stage/progress and refreshes the job heartbeat.
+func (r *Repository) UpdateProgress(ctx context.Context, id uuid.UUID, stage string, progress int, errorCode *string) error {
+	stage = strings.TrimSpace(stage)
+	if stage == "" {
+		stage = "processing"
+	}
+	if progress < 0 {
+		progress = 0
+	}
+	if progress > 100 {
+		progress = 100
+	}
+	now := time.Now().UTC()
+	updates := map[string]interface{}{
+		"stage":        stage,
+		"progress":     gorm.Expr("CASE WHEN progress > ? THEN progress ELSE ? END", progress, progress),
+		"heartbeat_at": now,
+		"updated_at":   now,
+	}
+	if errorCode != nil {
+		code := strings.TrimSpace(*errorCode)
+		if code == "" {
+			updates["error_code"] = nil
+		} else {
+			updates["error_code"] = code
+		}
+	}
+	return r.db.WithContext(ctx).Model(&db.Job{}).
+		Where("id = ? AND status = ?", id, db.JobStatusProcessing).
+		Updates(updates).Error
+}
+
 // FailStuckProcessingJobs marks processing jobs older than cutoff as failed.
 func (r *Repository) FailStuckProcessingJobs(ctx context.Context, cutoff time.Time, errMsg string) (int64, error) {
 	res := r.db.WithContext(ctx).Model(&db.Job{}).
-		Where("status = ? AND updated_at < ?", db.JobStatusProcessing, cutoff).
+		Where("status = ? AND COALESCE(heartbeat_at, updated_at) < ?", db.JobStatusProcessing, cutoff).
 		Updates(map[string]interface{}{
 			"status":     db.JobStatusFailed,
+			"stage":      "failed",
+			"progress":   100,
 			"error_msg":  errMsg,
+			"error_code": "stuck_processing",
 			"updated_at": time.Now().UTC(),
 		})
 	return res.RowsAffected, res.Error

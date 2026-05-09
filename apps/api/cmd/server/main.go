@@ -181,6 +181,7 @@ func main() {
 	internalE.HideBanner = true
 	internalE.Use(middleware.Logger())
 	internalE.POST("/internal/jobs/:id/complete", jobsH.Complete)
+	internalE.POST("/internal/jobs/:id/progress", jobsH.Progress)
 
 	addr := ":" + cfg.Port
 	go func() {

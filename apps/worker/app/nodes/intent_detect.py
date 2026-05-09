@@ -14,6 +14,11 @@ _NEW_HINT = re.compile(
     r"post sobre|carrossel sobre|new|from scratch|another topic)\b",
     re.IGNORECASE,
 )
+_EDIT_HINT = re.compile(
+    r"\b(edit|editar|edite|ajust|alter|mud|troca|substitu|refa[çc]|refin|melhor|"
+    r"mant[eé]m|manter|preserv|sem mudar|only change|keep|replace|change|adjust|improve)\b",
+    re.IGNORECASE,
+)
 _COPY_HINT = re.compile(r"\b(t[ií]tulo|cta|texto|copy|legenda|traduz|reescrev|corrig|palavra|frase)\b", re.I)
 _LAYOUT_HINT = re.compile(r"\b(layout|reposicion|mover|coluna|ordem|grid|estrutura|blocos?)\b", re.I)
 _VISUAL_HINT = re.compile(r"\b(cor|cores|tema|fundo|background|escuro|claro|borda|gradiente|sombra|paleta|contraste)\b", re.I)
@@ -73,6 +78,24 @@ def intent_detect(state: AgentState) -> dict[str, object]:
                 "confidence": "high",
                 "requires_existing_html": False,
                 "reason": "new-post wording with prior html available",
+            },
+            "is_refinement": False,
+        }
+
+    has_edit_hint = bool(
+        _EDIT_HINT.search(msg)
+        or _COPY_HINT.search(msg)
+        or _LAYOUT_HINT.search(msg)
+        or _VISUAL_HINT.search(msg)
+    )
+    if not has_edit_hint:
+        return {
+            "intent_result": {
+                "kind": "new",
+                "scope": None,
+                "confidence": "medium",
+                "requires_existing_html": False,
+                "reason": "prior html available but no edit wording",
             },
             "is_refinement": False,
         }

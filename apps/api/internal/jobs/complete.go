@@ -152,9 +152,13 @@ func CompleteAssistantReply(ctx context.Context, gdb *gorm.DB, jobID uuid.UUID, 
 		}
 		now := time.Now().UTC()
 		updates := map[string]interface{}{
-			"status":     db.JobStatusDone,
-			"error_msg":  nil,
-			"updated_at": now,
+			"status":       db.JobStatusDone,
+			"stage":        "done",
+			"progress":     100,
+			"error_msg":    nil,
+			"error_code":   nil,
+			"heartbeat_at": now,
+			"updated_at":   now,
 		}
 		if metadataValue != nil {
 			updates["worker_metadata"] = *metadataValue
@@ -167,6 +171,11 @@ func CompleteAssistantReply(ctx context.Context, gdb *gorm.DB, jobID uuid.UUID, 
 // ApplyWorkerFailure marks the job failed when the worker reports an error.
 // Returns noop=true if the job was already terminal (done or failed), so the HTTP layer can return 204 without changing state.
 func ApplyWorkerFailure(ctx context.Context, gdb *gorm.DB, jobID uuid.UUID, workerErr string, metadata ...*json.RawMessage) (noop bool, err error) {
+	return ApplyWorkerFailureWithCode(ctx, gdb, jobID, workerErr, nil, metadata...)
+}
+
+// ApplyWorkerFailureWithCode marks the job failed and optionally records a stable error code.
+func ApplyWorkerFailureWithCode(ctx context.Context, gdb *gorm.DB, jobID uuid.UUID, workerErr string, errorCode *string, metadata ...*json.RawMessage) (noop bool, err error) {
 	msg := strings.TrimSpace(workerErr)
 	var metadataArg *json.RawMessage
 	if len(metadata) > 0 {
@@ -185,9 +194,21 @@ func ApplyWorkerFailure(ctx context.Context, gdb *gorm.DB, jobID uuid.UUID, work
 		case db.JobStatusProcessing, db.JobStatusPending:
 			now := time.Now().UTC()
 			updates := map[string]interface{}{
-				"status":     db.JobStatusFailed,
-				"error_msg":  msg,
-				"updated_at": now,
+				"status":       db.JobStatusFailed,
+				"stage":        "failed",
+				"progress":     100,
+				"error_msg":    msg,
+				"heartbeat_at": now,
+				"updated_at":   now,
+			}
+			code := ""
+			if errorCode != nil {
+				code = strings.TrimSpace(*errorCode)
+			}
+			if code != "" {
+				updates["error_code"] = code
+			} else {
+				updates["error_code"] = "worker_failed"
 			}
 			if metadataValue != nil {
 				updates["worker_metadata"] = *metadataValue

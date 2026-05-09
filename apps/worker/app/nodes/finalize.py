@@ -26,7 +26,10 @@ logger = logging.getLogger(__name__)
 _CALLBACK_ERROR_SNIPPET_MAX = 384
 _HTTP_ERROR_LOG_BODY_MAX = 2048
 
-_FALLBACK_BODY: Mapping[str, str] = {"error": JOB_FAILURE_CALLBACK_TRANSPORT}
+_FALLBACK_BODY: Mapping[str, str] = {
+    "error": JOB_FAILURE_CALLBACK_TRANSPORT,
+    "errorCode": "callback_transport_error",
+}
 
 
 def _snippet_for_errors(text: str, *, max_len: int) -> str:
@@ -63,6 +66,7 @@ def _failure_message_for_callback(
     errors: list[str],
     *,
     mismatch_delivery: bool,
+    partial_delivery: bool,
     html_artifact_delivery_failed: bool,
 ) -> str:
     if any(e == USER_PROFILE_TEXT_TOO_LONG_MESSAGE for e in errors):
@@ -71,11 +75,31 @@ def _failure_message_for_callback(
         return USER_PROMPT_REJECT_MESSAGE
     if any(e == JOB_FAILURE_REFINEMENT_CONTEXT for e in errors):
         return JOB_FAILURE_REFINEMENT_CONTEXT
-    if mismatch_delivery:
+    if mismatch_delivery and partial_delivery:
         return JOB_FAILURE_INCOMPLETE_CAROUSEL
     if html_artifact_delivery_failed:
         return JOB_FAILURE_HTML_ARTIFACT
     return JOB_FAILURE_GENERIC
+
+
+def _failure_code_for_callback(
+    errors: list[str],
+    *,
+    mismatch_delivery: bool,
+    partial_delivery: bool,
+    html_artifact_delivery_failed: bool,
+) -> str:
+    if any(e == USER_PROFILE_TEXT_TOO_LONG_MESSAGE for e in errors):
+        return "profile_text_too_long"
+    if any(e == USER_PROMPT_REJECT_MESSAGE for e in errors):
+        return "prompt_rejected"
+    if any(e == JOB_FAILURE_REFINEMENT_CONTEXT for e in errors):
+        return "refinement_context_unavailable"
+    if mismatch_delivery and partial_delivery:
+        return "incomplete_carousel"
+    if html_artifact_delivery_failed:
+        return "html_artifact_missing"
+    return "worker_failed"
 
 
 def _build_assistant_text(state: AgentState) -> str:
@@ -158,6 +182,7 @@ async def finalize(state: AgentState) -> dict:
     artifacts: list[ArtifactRef] = list(state.get("artifacts") or [])
     expected = _compute_expected_delivery(state)
     mismatch = expected > 0 and len(artifacts) != expected
+    partial_delivery = len(artifacts) > 0
     failure_no_output = len(artifacts) == 0 and bool(errors)
     html_gap = settings.require_html_artifact_upload and _artifacts_missing_required_html_keys(artifacts)
     send_failure_payload = mismatch or failure_no_output or html_gap
@@ -170,6 +195,15 @@ async def finalize(state: AgentState) -> dict:
     }
 
     if send_failure_payload:
+        logger.error(
+            "node=finalize job_id=%s failure expected=%s artifacts=%s mismatch=%s html_gap=%s errors=%s",
+            job_id,
+            expected,
+            len(artifacts),
+            mismatch,
+            html_gap,
+            errors[-6:],
+        )
         removal_keys: list[str] = []
         for a in artifacts:
             sk = (a.get("s3_key") or "").strip()
@@ -192,9 +226,20 @@ async def finalize(state: AgentState) -> dict:
         api_error = _failure_message_for_callback(
             errors,
             mismatch_delivery=mismatch,
+            partial_delivery=partial_delivery,
             html_artifact_delivery_failed=html_gap,
         )
-        body: dict[str, object] = {"error": api_error, "workerMetadata": _build_worker_metadata(state)}
+        error_code = _failure_code_for_callback(
+            errors,
+            mismatch_delivery=mismatch,
+            partial_delivery=partial_delivery,
+            html_artifact_delivery_failed=html_gap,
+        )
+        body: dict[str, object] = {
+            "error": api_error,
+            "errorCode": error_code,
+            "workerMetadata": _build_worker_metadata(state),
+        }
         await _post_complete_with_transport_fallback(
             url=url,
             headers=headers,

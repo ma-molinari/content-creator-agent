@@ -24,21 +24,32 @@ def build_generation_plan(state: AgentState) -> dict[str, object]:
         "attachment_requirements": [
             {
                 "id": a.get("id"),
+                "render_ref": f"attachment://{a.get('id')}",
                 "url": a.get("url"),
                 "description": a.get("description"),
                 "required_slide_number": a.get("required_slide_number"),
+                "suggested_slide_number": a.get("suggested_slide_number"),
                 "role": a.get("role"),
                 "usage_rule": (
                     "mandatory_exact_url_on_required_slide"
                     if a.get("required_slide_number")
-                    else "use_when_relevant"
+                    else (
+                        "strongly_prefer_as_cover_visual"
+                        if a.get("role") == "cover_visual"
+                        else "use_when_relevant"
+                    )
                 ),
                 "composition_rule": (
                     "Use as a visible, prominent design element on the required slide. "
                     "Prefer hero image, full-bleed background with overlay, large editorial crop, "
                     "or a framed image occupying meaningful canvas area. Do not create a placeholder label."
                     if a.get("required_slide_number")
-                    else "Use as supporting visual only when it strengthens the slide narrative."
+                    else (
+                        "Prefer as a visible cover visual on slide 1 when it fits the prompt. "
+                        "If it would weaken the narrative, use it only as visual reference; never create a placeholder label."
+                        if a.get("role") == "cover_visual"
+                        else "Use as supporting visual only when it strengthens the slide narrative."
+                    )
                 ),
             }
             for a in attachment_plan
@@ -60,9 +71,9 @@ def build_generation_plan(state: AgentState) -> dict[str, object]:
             "Each slide html must be a complete document with <html> and </html>.",
             "Canvas must be 1080px wide and 1350px tall.",
             "No JavaScript or inline event handlers.",
-            "Remote assets allowed only for Google Fonts and provided S3 attachment URLs.",
-            "When an attachment has required_slide_number, include its exact attachment_requirements.url in that slide HTML.",
-            "Do not satisfy image requirements with labels/placeholders; the URL must appear in an img src/srcset or CSS background-image.",
+            "Remote assets allowed only for Google Fonts. For attachments, use the provided attachment_requirements.render_ref.",
+            "When an attachment has required_slide_number, include its exact attachment_requirements.render_ref in that slide HTML.",
+            "Do not satisfy image requirements with labels/placeholders; the render_ref must appear in an img src/srcset or CSS background-image.",
         ],
     }
     return {"generation_plan": plan}

@@ -127,6 +127,12 @@ async def upload_assets(state: AgentState) -> dict:
                     )
                     errors.append(f"upload_assets {html_key}: {e!s}")
             elif settings.require_html_artifact_upload:
+                logger.error(
+                    "node=upload_assets job_id=%s slide=%s missing_html_source expected=%s",
+                    job_id,
+                    fname,
+                    html_key,
+                )
                 errors.append(f"upload_assets missing html source for {fname} (expected {html_key})")
             artifacts.append(
                 {
@@ -136,6 +142,7 @@ async def upload_assets(state: AgentState) -> dict:
                 }
             )
         except (ClientError, BotoCoreError) as e:
+            logger.error("node=upload_assets job_id=%s slide=%s err=%s", job_id, key, e)
             errors.append(f"upload_assets {key}: {e!s}")
 
     out: dict[str, object] = {"artifacts": artifacts, "errors": errors}

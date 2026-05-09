@@ -194,10 +194,12 @@ func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, raw
 		Content: body,
 	}
 	job := &db.Job{
-		ID:     uuid.New(),
-		ChatID: chatID,
-		UserID: userID,
-		Status: db.JobStatusProcessing,
+		ID:       uuid.New(),
+		ChatID:   chatID,
+		UserID:   userID,
+		Status:   db.JobStatusProcessing,
+		Stage:    "dispatching",
+		Progress: 0,
 	}
 	var setTitle *string
 	if chatNeedsTitle(chatRow) {
@@ -217,6 +219,11 @@ func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, raw
 	}
 	if err := s.repo.CreateUserMessageAndJob(ctx, userMsg, job, setTitle, chatAtts); err != nil {
 		return nil, err
+	}
+	knownChatAtts, err := s.repo.ListAttachmentsForChat(ctx, chatID)
+	if err != nil {
+		log.Printf("[chat] known attachments chat_id=%s err=%v", chatID, err)
+		knownChatAtts = chatAtts
 	}
 	var existingHTMLRefs []AssistantHTMLRef
 	if s.latestAssistantHTMLRefs != nil {
@@ -256,6 +263,15 @@ func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, raw
 			SortOrder: att.SortOrder,
 		})
 	}
+	dispatchKnownAttachments := make([]jobs.DispatchAttachment, 0, len(knownChatAtts))
+	for _, att := range knownChatAtts {
+		dispatchKnownAttachments = append(dispatchKnownAttachments, jobs.DispatchAttachment{
+			ID:        att.ID,
+			S3Key:     att.S3Key,
+			MimeType:  att.MimeType,
+			SortOrder: att.SortOrder,
+		})
+	}
 	dispatchSlideSources := make([]jobs.DispatchSlideSource, 0, len(existingHTMLRefs))
 	for _, ref := range existingHTMLRefs {
 		dispatchSlideSources = append(dispatchSlideSources, jobs.DispatchSlideSource{
@@ -275,6 +291,7 @@ func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, raw
 		ReferenceS3Keys:        refKeys,
 		UserAttachmentS3Keys:   attKeys,
 		UserAttachments:        dispatchAttachments,
+		KnownAttachments:       dispatchKnownAttachments,
 		ExistingSlideHTMLKeys:  existingHTMLKeys,
 		ExistingSlideHTML:      dispatchSlideSources,
 		ExpectsSlideRefinement: expectsSlideRefinement,
@@ -292,9 +309,12 @@ func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, raw
 
 // JobStatusView is returned by GET /chats/:id/jobs/:jobId/status.
 type JobStatusView struct {
-	JobID  uuid.UUID `json:"jobId"`
-	Status string    `json:"status"`
-	Error  *string   `json:"error"`
+	JobID     uuid.UUID `json:"jobId"`
+	Status    string    `json:"status"`
+	Stage     string    `json:"stage"`
+	Progress  int       `json:"progress"`
+	Error     *string   `json:"error"`
+	ErrorCode *string   `json:"errorCode,omitempty"`
 }
 
 // GetJobStatus returns job status when the user owns the chat.
@@ -307,8 +327,11 @@ func (s *Service) GetJobStatus(ctx context.Context, userID, chatID, jobID uuid.U
 		return nil, err
 	}
 	return &JobStatusView{
-		JobID:  j.ID,
-		Status: string(j.Status),
-		Error:  j.ErrorMsg,
+		JobID:     j.ID,
+		Status:    string(j.Status),
+		Stage:     j.Stage,
+		Progress:  j.Progress,
+		Error:     j.ErrorMsg,
+		ErrorCode: j.ErrorCode,
 	}, nil
 }

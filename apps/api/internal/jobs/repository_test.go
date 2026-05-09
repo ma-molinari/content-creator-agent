@@ -23,6 +23,10 @@ func testJobsDB(t *testing.T) *gorm.DB {
 		user_id TEXT NOT NULL,
 		status TEXT NOT NULL,
 		error_msg TEXT,
+		stage TEXT NOT NULL DEFAULT 'queued',
+		progress INTEGER NOT NULL DEFAULT 0,
+		heartbeat_at DATETIME,
+		error_code TEXT,
 		created_at DATETIME,
 		updated_at DATETIME
 	)`).Error)
@@ -121,7 +125,46 @@ func TestJobRepository_FailStuckProcessingJobs(t *testing.T) {
 	require.Equal(t, db.JobStatusFailed, stuck.Status)
 	require.NotNil(t, stuck.ErrorMsg)
 	require.Equal(t, StuckJobErrorMsg, *stuck.ErrorMsg)
+	require.Equal(t, "failed", stuck.Stage)
+	require.Equal(t, 100, stuck.Progress)
+	require.NotNil(t, stuck.ErrorCode)
+	require.Equal(t, "stuck_processing", *stuck.ErrorCode)
 
 	require.NoError(t, gdb.First(&fresh, "id = ?", freshID).Error)
 	require.Equal(t, db.JobStatusProcessing, fresh.Status)
+}
+
+func TestJobRepository_UpdateProgress(t *testing.T) {
+	gdb := testJobsDB(t)
+	repo := NewRepository(gdb)
+	ctx := context.Background()
+	id := uuid.New()
+	now := time.Now().UTC()
+	require.NoError(t, gdb.WithContext(ctx).Create(&db.Job{
+		ID:        id,
+		ChatID:    uuid.New(),
+		UserID:    uuid.New(),
+		Status:    db.JobStatusProcessing,
+		Stage:     "dispatching",
+		Progress:  0,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}).Error)
+
+	code := "temporary"
+	require.NoError(t, repo.UpdateProgress(ctx, id, "rendering_slides", 88, &code))
+
+	var got db.Job
+	require.NoError(t, gdb.WithContext(ctx).First(&got, "id = ?", id).Error)
+	require.Equal(t, "rendering_slides", got.Stage)
+	require.Equal(t, 88, got.Progress)
+	require.NotNil(t, got.HeartbeatAt)
+	require.NotNil(t, got.ErrorCode)
+	require.Equal(t, code, *got.ErrorCode)
+
+	require.NoError(t, repo.UpdateProgress(ctx, id, "generating_slides", 55, nil))
+	var retry db.Job
+	require.NoError(t, gdb.WithContext(ctx).First(&retry, "id = ?", id).Error)
+	require.Equal(t, "generating_slides", retry.Stage)
+	require.Equal(t, 88, retry.Progress)
 }

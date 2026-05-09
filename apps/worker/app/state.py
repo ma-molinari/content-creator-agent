@@ -50,6 +50,7 @@ class IntentResult(TypedDict):
 class AttachmentPlanItem(TypedDict):
     id: str
     s3_key: str
+    render_ref: NotRequired[str]
     url: str
     mime_type: str
     description: str
@@ -121,6 +122,7 @@ class AgentState(TypedDict):
     chat_post_type: NotRequired[str]
     input: NotRequired[dict]
     input_attachments: NotRequired[list[InputAttachment]]
+    known_attachments: NotRequired[list[InputAttachment]]
     existing_slide_sources: NotRequired[list[ExistingSlideSource]]
     profile_overview: NotRequired[dict]
     security_result: NotRequired[SecurityResult]

@@ -18,7 +18,7 @@
 **Presigned URL TTL:** 1 hour (`signedURLExpiry = time.Hour`)
 **Upload retry:** 3 attempts with exponential backoff (100ms, 200ms)
 **Batch delete:** up to 1000 keys per `DeleteObjects` call
-**Slide HTML source (worker):** each slide JPEG can have a sibling object `slides/{jobId}/slide_XX.html` (`Content-Type: text/html`). The Go API persists `chat_content_image.html_s3_key` only when the worker sends `htmlS3Key` on the completion callback (`HeadObject` must succeed before commit). Behaviour is configurable via **`REQUIRE_HTML_ARTIFACT_UPLOAD`** on the worker (default false): when true, missing HTML artefacts fail the job and uploaded JPEG/HTML keys from that attempt are cleaned up before the failure callback.
+**Slide HTML source (worker):** each slide JPEG can have a sibling object `slides/{jobId}/slide_XX.html` (`Content-Type: text/html`). The Go API persists `chat_content_image.html_s3_key` only when the worker sends `htmlS3Key` on the completion callback (`HeadObject` must succeed before commit). Behaviour is configurable via **`REQUIRE_HTML_ARTIFACT_UPLOAD`** on the worker (default true): when true, missing HTML artefacts fail the job and uploaded JPEG/HTML keys from that attempt are cleaned up before the failure callback.
 
 **Diagnosing missing HTML in S3 (operational checklist):**
 
@@ -73,16 +73,34 @@
   "audit_text": "...",
   "brand_text": "...",
   "reference_s3_keys": ["slides/..."],
+  "user_attachments": [{"id": "<uuid>", "s3_key": "users/.../current.png", "mime_type": "image/png", "sort_order": 0}],
+  "known_attachments": [{"id": "<uuid>", "s3_key": "users/.../historical.png", "mime_type": "image/png", "sort_order": 0}],
   "existing_slide_html_s3_keys": ["slides/{jobId}/slide_01.html"],
   "expects_slide_refinement": false
 }
 ```
+- `user_attachments` (optional): only images attached to the current user message; used by the worker as prompt context and potential slide requirements.
+- `known_attachments` (optional): all chat attachments known to the API, including prior messages; used only to resolve stable `attachment://<id>` references when rendering/refining historical HTML.
 - `existing_slide_html_s3_keys` (optional): S3 keys for HTML sources of slides from a prior assistant turn; the worker loads them for the `edit_slides` path when non-empty.
 - `expects_slide_refinement` (optional): when `true`, the API indicates the chat already had slide JPEGs before this job — the worker must refine from those HTML keys or fail with a user-facing message (`JOB_FAILURE_REFINEMENT_CONTEXT` in `apps/worker/app/nodes/finalize_messages.py`) if keys are missing or S3 fetch is incomplete. When `false`/omitted and keys are present, fetch failure degrades silently to a new-generation path (empty prior HTML).
 **Response:** `202 {"accepted": true, "job_id": "..."}` — dispatch is fire-and-forget; worker processes in background.
 **Implementation:** `apps/api/internal/jobs/worker_client.go` — `HTTPWorkerClient`
 **Configuration:** `WORKER_URL` (e.g., `http://worker:8000`), `WORKER_API_KEY`
 **Fallback:** if `WORKER_URL` is empty, the worker client is `nil` and PostMessage returns `503 "async generation is not configured on this server"`.
+
+## Inter-Service Communication: Worker → API (Progress)
+
+**Protocol:** HTTP/JSON
+**Endpoint:** `POST {GO_API_URL}/internal/jobs/:id/progress`
+**Authentication:** same `X-Worker-API-Key` header
+**Payload:**
+```json
+{
+  "stage": "rendering_slides",
+  "progress": 88
+}
+```
+The API stores `jobs.stage`, monotonic `jobs.progress`, and `jobs.heartbeat_at`. The public job status endpoint returns these fields so the SPA can show a more specific loading state and progress bar. Stuck-job cleanup uses `COALESCE(heartbeat_at, updated_at)` to avoid failing jobs that are still reporting progress.
 
 ---
 

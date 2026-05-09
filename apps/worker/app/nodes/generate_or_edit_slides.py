@@ -26,7 +26,7 @@ Schema obrigatório:
 
 Contrato técnico:
 - Gere um documento HTML completo por slide, CSS autocontido, canvas fixo 1080x1350, sem JS.
-- Use Google Fonts e SOMENTE URLs S3 fornecidas em attachment_requirements como imagens raster remotas.
+- Use Google Fonts como único recurso remoto. Para imagens anexadas, use SOMENTE os render_ref fornecidos em attachment_requirements.
 - Cada slide precisa ter `body{width:1080px;height:1350px;margin:0;overflow:hidden}` e layout em grid/flex.
 - Use Plus Jakarta Sans por padrão, contraste AA, safe area e texto legível em mobile.
 
@@ -37,13 +37,18 @@ Direção de design:
 - Se houver anexo obrigatório, ele NÃO é decoração nem referência abstrata: deve entrar como material visual real do slide.
 
 Uso de imagens anexadas:
-- Cada item em generation_plan.attachment_requirements tem `id`, `url`, `description`, `required_slide_number`, `role` e `composition_rule`.
-- Quando `required_slide_number` existir, o slide alvo DEVE conter a imagem real usando a URL exata em `<img src="...">` ou `background-image:url("...")`.
+- Cada item em generation_plan.attachment_requirements tem `id`, `render_ref`, `description`, `required_slide_number`, `role` e `composition_rule`.
+- Quando `required_slide_number` existir, o slide alvo DEVE conter a imagem real usando o render_ref exato em `<img src="attachment://...">` ou `background-image:url("attachment://...")`.
 - A imagem anexada deve ser parte visível do design: hero recortado, fundo com overlay, moldura editorial grande, textura/foto integrada ou split visual expressivo.
 - Para slide de capa com anexo, reserve normalmente 45% a 80% do canvas para a imagem ou use-a fullscreen com overlay. Não use miniatura pequena.
 - Se usar texto sobre imagem, aplique overlay/gradiente/blur para legibilidade. Não esconda a imagem atrás de painéis opacos.
 - Preencha `used_attachment_ids` no slide e `attachment_usage` explicando onde a imagem entrou.
 - Nunca substitua a imagem por uma descrição textual ou por placeholder.
+
+Modo de edição:
+- Quando `generation_plan.mode` for `edit`, devolva EXATAMENTE o mesmo número de slides de `existing_slides`.
+- Em `edit`, preserve os mesmos `filename` e `slide_number` dos slides existentes, apenas atualizando o HTML.
+- Se o pedido falar de layout/visual, preserve o conteúdo textual e reorganize composição, hierarquia, tipografia, espaçamento e superfícies.
 """
 
 

@@ -56,14 +56,18 @@ async def attachment_analyze(state: AgentState) -> dict[str, object]:
     dest = _requested_slide_for_attachment(state.get("raw_message") or "")
     plan = []
     for i, att in enumerate(attachments):
+        att_id = str(att.get("id") or f"attachment-{i + 1}")
+        required_slide_number = dest if dest is not None else None
         plan.append(
             {
-                "id": str(att.get("id") or f"attachment-{i + 1}"),
+                "id": att_id,
                 "s3_key": str(att.get("s3_key") or ""),
+                "render_ref": f"attachment://{att_id}",
                 "url": urls[i] if i < len(urls) else "",
                 "mime_type": mimes[i] if i < len(mimes) else str(att.get("mime_type") or "image/jpeg"),
                 "description": descs[i] if i < len(descs) else "",
-                "required_slide_number": dest if dest is not None else (1 if i == 0 else None),
+                "required_slide_number": required_slide_number,
+                "suggested_slide_number": 1 if dest is None and i == 0 else None,
                 "role": "explicit" if dest is not None else ("cover_visual" if i == 0 else "supporting_visual"),
             }
         )

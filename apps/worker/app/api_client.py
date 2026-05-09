@@ -31,7 +31,7 @@ def _transport_retryable(exc: BaseException) -> bool:
     )
 
 
-async def post_complete_callback(
+async def _post_json_with_retries(
     url: str,
     *,
     json_body: Mapping[str, object] | None,
@@ -40,7 +40,7 @@ async def post_complete_callback(
     attempts: int = DEFAULT_ATTEMPTS,
     backoff_initial: float = DEFAULT_BACKOFF_INITIAL,
 ) -> httpx.Response:
-    """POST JSON to the job complete endpoint; retries transport errors and 5xx."""
+    """POST JSON with retries for transport errors and 5xx responses."""
     attempts = max(1, attempts)
     hdr = dict(headers) if headers else None
     payload = dict(json_body) if json_body is not None else None
@@ -54,7 +54,7 @@ async def post_complete_callback(
                     raise
                 if attempt >= attempts - 1:
                     logger.error(
-                        "complete callback transport failed after %d attempts url=%s",
+                        "callback transport failed after %d attempts url=%s",
                         attempts,
                         url,
                         exc_info=exc,
@@ -62,7 +62,7 @@ async def post_complete_callback(
                     raise
                 delay = backoff_initial * (2**attempt)
                 logger.warning(
-                    "complete callback transport error attempt=%d/%d url=%s retry_in=%.2fs err=%s",
+                    "callback transport error attempt=%d/%d url=%s retry_in=%.2fs err=%s",
                     attempt + 1,
                     attempts,
                     url,
@@ -77,7 +77,7 @@ async def post_complete_callback(
                     return response
                 delay = backoff_initial * (2**attempt)
                 logger.warning(
-                    "complete callback 5xx attempt=%d/%d url=%s status=%d retry_in=%.2fs",
+                    "callback 5xx attempt=%d/%d url=%s status=%d retry_in=%.2fs",
                     attempt + 1,
                     attempts,
                     url,
@@ -88,3 +88,41 @@ async def post_complete_callback(
                 continue
 
             return response
+
+
+async def post_complete_callback(
+    url: str,
+    *,
+    json_body: Mapping[str, object] | None,
+    headers: Mapping[str, str] | None,
+    timeout: float = 30.0,
+    attempts: int = DEFAULT_ATTEMPTS,
+    backoff_initial: float = DEFAULT_BACKOFF_INITIAL,
+) -> httpx.Response:
+    """POST JSON to the job complete endpoint."""
+    return await _post_json_with_retries(
+        url,
+        json_body=json_body,
+        headers=headers,
+        timeout=timeout,
+        attempts=attempts,
+        backoff_initial=backoff_initial,
+    )
+
+
+async def post_progress_callback(
+    url: str,
+    *,
+    json_body: Mapping[str, object] | None,
+    headers: Mapping[str, str] | None,
+    timeout: float = 5.0,
+) -> httpx.Response:
+    """POST best-effort job progress to the API."""
+    return await _post_json_with_retries(
+        url,
+        json_body=json_body,
+        headers=headers,
+        timeout=timeout,
+        attempts=2,
+        backoff_initial=0.25,
+    )

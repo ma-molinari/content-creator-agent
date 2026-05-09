@@ -227,6 +227,19 @@ func (r *Repository) GetLatestAssistantHTMLRefs(ctx context.Context, chatID uuid
 	return refs, nil
 }
 
+// ListAttachmentsForChat returns all user-uploaded message attachments for a chat.
+func (r *Repository) ListAttachmentsForChat(ctx context.Context, chatID uuid.UUID) ([]db.ChatContentAttachment, error) {
+	var attachments []db.ChatContentAttachment
+	err := r.db.WithContext(ctx).
+		Model(&db.ChatContentAttachment{}).
+		Joins("JOIN chat_content ON chat_content.id = chat_content_attachment.chat_content_id").
+		Where("chat_content.chat_id = ?", chatID).
+		Order("chat_content.created_at ASC").
+		Order("chat_content_attachment.sort_order ASC").
+		Find(&attachments).Error
+	return attachments, err
+}
+
 // ListImagesForContent returns images for a single assistant (or any) content row in the chat.
 func (r *Repository) ListImagesForContent(ctx context.Context, chatID, contentID uuid.UUID) ([]db.ChatContentImage, error) {
 	var imgs []db.ChatContentImage

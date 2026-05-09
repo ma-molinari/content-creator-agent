@@ -27,7 +27,15 @@ type CompleteBody struct {
 		HTMLS3Key   *string `json:"htmlS3Key,omitempty"`
 	} `json:"artifacts"`
 	Error          *string          `json:"error"`
+	ErrorCode      *string          `json:"errorCode,omitempty"`
 	WorkerMetadata *json.RawMessage `json:"workerMetadata,omitempty"`
+}
+
+// ProgressBody is sent by the worker while a job is processing.
+type ProgressBody struct {
+	Stage     string  `json:"stage"`
+	Progress  int     `json:"progress"`
+	ErrorCode *string `json:"errorCode,omitempty"`
 }
 
 // Handler serves internal worker routes.
@@ -42,11 +50,18 @@ func NewHandler(cfg *config.Config, gdb *gorm.DB, store storage.StorageService) 
 	return &Handler{cfg: cfg, gdb: gdb, store: store}
 }
 
-// Complete handles POST /internal/jobs/:id/complete.
-func (h *Handler) Complete(c echo.Context) error {
+func (h *Handler) requireWorker(c echo.Context) *echo.HTTPError {
 	key := strings.TrimSpace(c.Request().Header.Get(workerAPIKeyHeader))
 	if h.cfg.WorkerAPIKey == "" || key != h.cfg.WorkerAPIKey {
 		return echo.NewHTTPError(http.StatusUnauthorized, "invalid worker API key")
+	}
+	return nil
+}
+
+// Complete handles POST /internal/jobs/:id/complete.
+func (h *Handler) Complete(c echo.Context) error {
+	if err := h.requireWorker(c); err != nil {
+		return err
 	}
 	jobID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -59,7 +74,7 @@ func (h *Handler) Complete(c echo.Context) error {
 	ctx := c.Request().Context()
 	if body.Error != nil && strings.TrimSpace(*body.Error) != "" {
 		msg := strings.TrimSpace(*body.Error)
-		noop, err := ApplyWorkerFailure(ctx, h.gdb, jobID, msg, body.WorkerMetadata)
+		noop, err := ApplyWorkerFailureWithCode(ctx, h.gdb, jobID, msg, body.ErrorCode, body.WorkerMetadata)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return echo.NewHTTPError(http.StatusNotFound, "job not found")
@@ -113,6 +128,29 @@ func (h *Handler) Complete(c echo.Context) error {
 		log.Printf("[jobs] complete job_id=%s status=done (idempotent no-op)", jobID)
 	} else {
 		log.Printf("[jobs] complete job_id=%s status=done", jobID)
+	}
+	return c.NoContent(http.StatusNoContent)
+}
+
+// Progress handles POST /internal/jobs/:id/progress.
+func (h *Handler) Progress(c echo.Context) error {
+	if err := h.requireWorker(c); err != nil {
+		return err
+	}
+	jobID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid job id")
+	}
+	var body ProgressBody
+	if err := c.Bind(&body); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "invalid JSON body")
+	}
+	if strings.TrimSpace(body.Stage) == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "stage is required")
+	}
+	repo := NewRepository(h.gdb)
+	if err := repo.UpdateProgress(c.Request().Context(), jobID, body.Stage, body.Progress, body.ErrorCode); err != nil {
+		return httperr.Internal("[jobs] progress update", err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }

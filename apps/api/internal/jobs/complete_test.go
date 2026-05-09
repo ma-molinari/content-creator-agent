@@ -72,6 +72,10 @@ func testCompleteSchemaDB(t *testing.T) *gorm.DB {
 			user_id TEXT NOT NULL,
 			status TEXT NOT NULL,
 			error_msg TEXT,
+			stage TEXT NOT NULL DEFAULT 'queued',
+			progress INTEGER NOT NULL DEFAULT 0,
+			heartbeat_at DATETIME,
+			error_code TEXT,
 			worker_metadata TEXT,
 			created_at DATETIME,
 			updated_at DATETIME

@@ -27,6 +27,7 @@ type DispatchPayload struct {
 	ReferenceS3Keys       []string              `json:"reference_s3_keys,omitempty"`
 	UserAttachmentS3Keys  []string              `json:"user_attachment_s3_keys,omitempty"`
 	UserAttachments       []DispatchAttachment  `json:"user_attachments,omitempty"`
+	KnownAttachments      []DispatchAttachment  `json:"known_attachments,omitempty"`
 	ExistingSlideHTMLKeys []string              `json:"existing_slide_html_s3_keys,omitempty"`
 	ExistingSlideHTML     []DispatchSlideSource `json:"existing_slide_html,omitempty"`
 	RequestedSlideCount   *int                  `json:"requested_slide_count,omitempty"`

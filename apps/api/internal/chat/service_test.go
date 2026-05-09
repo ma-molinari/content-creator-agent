@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"testing"
@@ -27,6 +28,13 @@ func (m *mockDispatchWorker) DispatchJob(ctx context.Context, p jobs.DispatchPay
 		return m.fn(&p)
 	}
 	return nil
+}
+
+func validTestPNGBytes(t *testing.T) []byte {
+	t.Helper()
+	b, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
+	require.NoError(t, err)
+	return b
 }
 
 type mockStorage struct {
@@ -276,6 +284,10 @@ func TestPostMessage_latestHTMLKeysError_degradesGracefully(t *testing.T) {
 			user_id TEXT NOT NULL,
 			status TEXT NOT NULL,
 			error_msg TEXT,
+			stage TEXT NOT NULL DEFAULT 'queued',
+			progress INTEGER NOT NULL DEFAULT 0,
+			heartbeat_at DATETIME,
+			error_code TEXT,
 			created_at DATETIME,
 			updated_at DATETIME,
 			FOREIGN KEY (user_id) REFERENCES users(id),
@@ -332,6 +344,10 @@ func TestPostMessage_dispatchRawMessageAndExistingSlideHTMLKeys(t *testing.T) {
 			user_id TEXT NOT NULL,
 			status TEXT NOT NULL,
 			error_msg TEXT,
+			stage TEXT NOT NULL DEFAULT 'queued',
+			progress INTEGER NOT NULL DEFAULT 0,
+			heartbeat_at DATETIME,
+			error_code TEXT,
 			created_at DATETIME,
 			updated_at DATETIME,
 			FOREIGN KEY (user_id) REFERENCES users(id),
@@ -402,6 +418,91 @@ func TestPostMessage_dispatchRawMessageAndExistingSlideHTMLKeys(t *testing.T) {
 	require.Equal(t, wantHTMLKeys[0], dispatched.ExistingSlideHTML[0].HTMLS3Key)
 }
 
+func TestPostMessage_dispatchesKnownAttachmentsIncludingHistoricalAndCurrent(t *testing.T) {
+	gdb, u := testDBWithUser(t)
+	for _, ddl := range []string{
+		`CREATE TABLE user_profiles (
+			id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL UNIQUE,
+			audit_text TEXT NOT NULL DEFAULT '',
+			brand_text TEXT NOT NULL DEFAULT '',
+			created_at DATETIME,
+			updated_at DATETIME,
+			FOREIGN KEY (user_id) REFERENCES users(id)
+		)`,
+		`CREATE TABLE jobs (
+			id TEXT PRIMARY KEY,
+			chat_id TEXT NOT NULL,
+			user_id TEXT NOT NULL,
+			status TEXT NOT NULL,
+			error_msg TEXT,
+			stage TEXT NOT NULL DEFAULT 'queued',
+			progress INTEGER NOT NULL DEFAULT 0,
+			heartbeat_at DATETIME,
+			error_code TEXT,
+			created_at DATETIME,
+			updated_at DATETIME,
+			FOREIGN KEY (user_id) REFERENCES users(id),
+			FOREIGN KEY (chat_id) REFERENCES chats(id)
+		)`,
+	} {
+		require.NoError(t, gdb.Exec(ddl).Error)
+	}
+	require.NoError(t, gdb.Create(&db.UserProfile{
+		ID:        uuid.New(),
+		UserID:    u.ID,
+		AuditText: "audit",
+		BrandText: "brand",
+	}).Error)
+	chat := &db.Chat{ID: uuid.New(), UserID: u.ID, PostType: db.PostTypeCarousel}
+	require.NoError(t, gdb.Create(chat).Error)
+
+	priorContentID := uuid.New()
+	priorAttachmentID := uuid.New()
+	require.NoError(t, gdb.Create(&db.ChatContent{
+		ID:        priorContentID,
+		ChatID:    chat.ID,
+		Role:      db.ChatContentRoleUser,
+		Content:   "post com imagem anterior",
+		CreatedAt: time.Now().UTC().Add(-time.Hour),
+		UpdatedAt: time.Now().UTC().Add(-time.Hour),
+	}).Error)
+	require.NoError(t, gdb.Create(&db.ChatContentAttachment{
+		ID:            priorAttachmentID,
+		ChatContentID: priorContentID,
+		S3Key:         "users/u/chat-attachments/prior.png",
+		MimeType:      "image/png",
+		SizeBytes:     123,
+		SortOrder:     0,
+		CreatedAt:     time.Now().UTC().Add(-time.Hour),
+	}).Error)
+
+	var dispatched jobs.DispatchPayload
+	worker := &mockDispatchWorker{
+		fn: func(p *jobs.DispatchPayload) error {
+			dispatched = *p
+			return nil
+		},
+	}
+	svc := NewService(NewRepository(gdb), jobs.NewRepository(gdb), &mockStorage{}, profile.NewRepository(gdb), nil, worker)
+
+	res, err := svc.PostMessage(context.Background(), u.ID, chat.ID, "refine usando a imagem", []AttachmentInput{
+		{Data: validTestPNGBytes(t), SortOrder: 0},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, res)
+
+	require.Len(t, dispatched.UserAttachments, 1)
+	require.Len(t, dispatched.KnownAttachments, 2)
+	knownByID := map[uuid.UUID]jobs.DispatchAttachment{}
+	for _, att := range dispatched.KnownAttachments {
+		knownByID[att.ID] = att
+	}
+	require.Equal(t, "users/u/chat-attachments/prior.png", knownByID[priorAttachmentID].S3Key)
+	current := knownByID[dispatched.UserAttachments[0].ID]
+	require.Equal(t, dispatched.UserAttachments[0].S3Key, current.S3Key)
+}
+
 func TestPostMessage_dispatchSetsExpectsSlideRefinementWhenPriorAssistantSlidesExist(t *testing.T) {
 	gdb, u := testDBWithUser(t)
 	for _, ddl := range []string{
@@ -420,6 +521,10 @@ func TestPostMessage_dispatchSetsExpectsSlideRefinementWhenPriorAssistantSlidesE
 			user_id TEXT NOT NULL,
 			status TEXT NOT NULL,
 			error_msg TEXT,
+			stage TEXT NOT NULL DEFAULT 'queued',
+			progress INTEGER NOT NULL DEFAULT 0,
+			heartbeat_at DATETIME,
+			error_code TEXT,
 			created_at DATETIME,
 			updated_at DATETIME,
 			FOREIGN KEY (user_id) REFERENCES users(id),

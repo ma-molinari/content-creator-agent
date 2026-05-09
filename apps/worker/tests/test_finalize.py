@@ -9,6 +9,7 @@ import httpx
 
 from app.nodes.finalize import finalize
 from app.nodes.finalize_messages import (
+    JOB_FAILURE_GENERIC,
     JOB_FAILURE_HTML_ARTIFACT,
     JOB_FAILURE_INCOMPLETE_CAROUSEL,
     JOB_FAILURE_REFINEMENT_CONTEXT,
@@ -113,6 +114,31 @@ class TestFinalize(IsolatedAsyncioTestCase):
         self.assertIn("error", first)
         self.assertEqual(first["error"], JOB_FAILURE_INCOMPLETE_CAROUSEL)
         self.assertEqual(cleanup_called["n"], 1)
+
+    async def test_no_artifact_validation_failure_uses_generic_error(self) -> None:
+        resp = httpx.Response(204)
+        settings_mock = MagicMock()
+        settings_mock.go_api_url = "http://api"
+        settings_mock.worker_api_key = "k"
+        settings_mock.require_html_artifact_upload = False
+
+        with (
+            patch("app.nodes.finalize.get_settings", return_value=settings_mock),
+            patch("app.nodes.finalize.post_complete_callback", new_callable=AsyncMock) as post,
+        ):
+            post.return_value = resp
+            await finalize(
+                _minimal_state(
+                    requested_slide_count=4,
+                    artifacts=[],
+                    rendered_slides=[],
+                    errors=["slide_package: esperados 4 slides; recebidos 0."],
+                ),
+            )
+
+        first = post.await_args_list[0].kwargs["json_body"]
+        self.assertEqual(first["error"], JOB_FAILURE_GENERIC)
+        self.assertEqual(first["errorCode"], "worker_failed")
 
     async def test_security_rejection_preserves_prompt_message(self) -> None:
         resp = httpx.Response(204)
@@ -223,4 +249,3 @@ class TestFinalize(IsolatedAsyncioTestCase):
         self.assertIn("error", first)
         self.assertEqual(first["error"], JOB_FAILURE_HTML_ARTIFACT)
         self.assertEqual(cleanup_called["n"], 1)
-
