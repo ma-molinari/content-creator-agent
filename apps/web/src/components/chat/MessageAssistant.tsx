@@ -56,20 +56,26 @@ export function MessageAssistant({ message, isLatestVersion }: Props) {
           </p>
 
           {files.length > 0 && (
-            <div className="mt-3">
-              {!isLatestVersion && (
-                <div className="mb-2">
-                  <span className="inline-flex rounded-[var(--radius-md)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-muted)] px-2 py-0.5 text-xs font-medium text-[var(--color-text-muted)]">
-                    Versão anterior
-                  </span>
+            <div className="mt-3 rounded-[var(--radius-md)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-app)] p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+                    Slides prontos
+                  </p>
+                  <p className="text-xs text-[var(--color-text-muted)]">
+                    {files.length} {files.length === 1 ? 'imagem' : 'imagens'} em formato 4:5
+                  </p>
                 </div>
-              )}
+                <span className="inline-flex rounded-[var(--radius-pill)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] px-2 py-0.5 text-xs font-medium text-[var(--color-text-muted)]">
+                  {isLatestVersion ? 'Última versão' : 'Versão anterior'}
+                </span>
+              </div>
               <SlideViewer chatId={message.chatId} files={files} />
               <button
                 type="button"
                 disabled={downloading}
                 onClick={() => void handleDownloadZip()}
-                className="mt-3 inline-flex items-center gap-1.5 rounded-[var(--radius-md)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-muted)] disabled:pointer-events-none disabled:opacity-50"
+                className="mt-3 inline-flex items-center gap-1.5 rounded-[var(--radius-md)] bg-[var(--color-cta-emphasis)] px-3 py-1.5 text-xs font-medium text-[var(--color-cta-emphasis-contrast)] hover:opacity-90 disabled:pointer-events-none disabled:opacity-50"
               >
                 <IconDownload size={14} />
                 {downloading ? 'A baixar…' : 'Baixar ZIP'}

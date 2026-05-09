@@ -246,7 +246,10 @@ export type JobStatus = 'pending' | 'processing' | 'done' | 'failed'
 export type JobStatusView = {
   jobId: string
   status: JobStatus
+  stage: string
+  progress: number
   error: string | null
+  errorCode?: string | null
 }
 
 export async function postChatMessage(
@@ -269,6 +272,18 @@ export async function postChatMessage(
   const { data } = await api.post<{ jobId: string }>(
     `/chats/${chatId}/messages`,
     form,
+    {
+      transformRequest: [
+        (body, headers) => {
+          if (body instanceof FormData) {
+            if (headers && typeof headers === 'object' && 'Content-Type' in headers) {
+              delete (headers as Record<string, string>)['Content-Type']
+            }
+          }
+          return body
+        },
+      ],
+    },
   )
   return data
 }
@@ -333,4 +348,3 @@ export function useJobStatus(chatId: string | null, jobId: string | null) {
     staleTime: 0,
   })
 }
-

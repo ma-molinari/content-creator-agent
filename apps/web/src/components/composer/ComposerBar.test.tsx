@@ -16,7 +16,7 @@ describe('ComposerBar', () => {
     const input = screen.getByRole('textbox', { name: /mensagem/i })
     await user.type(input, 'hello')
     await user.click(screen.getByRole('button', { name: /enviar/i }))
-    expect(onSend).toHaveBeenCalledWith('hello', [])
+    expect(onSend).toHaveBeenCalledWith('hello', [], { postType: 'carousel' })
     expect(input).toHaveValue('hello')
   })
 
@@ -27,7 +27,7 @@ describe('ComposerBar', () => {
     const input = screen.getByRole('textbox', { name: /mensagem/i })
     await user.type(input, 'hello')
     await user.click(screen.getByRole('button', { name: /enviar/i }))
-    expect(onSend).toHaveBeenCalledWith('hello', [])
+    expect(onSend).toHaveBeenCalledWith('hello', [], { postType: 'carousel' })
     expect(input).toHaveValue('')
   })
 })

@@ -13,6 +13,8 @@ type Props = {
   /** Local preview URLs for attachments sent with the pending message. */
   pendingAttachments?: { id: string; url: string; mimeType: string }[]
   jobStatus: JobStatus | undefined
+  jobStage?: string
+  jobProgress?: number
   /** Error message from a failed job. */
   jobError: string | null | undefined
   onRetry?: () => void
@@ -23,6 +25,8 @@ export function ChatThread({
   pendingText,
   pendingAttachments,
   jobStatus,
+  jobStage,
+  jobProgress,
   jobError,
   onRetry,
 }: Props) {
@@ -84,6 +88,8 @@ export function ChatThread({
             <JobStatusIndicator
               status={jobStatus}
               hasUserAttachments={lastUserHasAttachments}
+              stage={jobStage}
+              progress={jobProgress}
             />
           </div>
         </div>

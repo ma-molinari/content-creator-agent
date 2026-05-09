@@ -28,7 +28,7 @@ type ActiveJob = {
   chatId: string
   jobId: string
   pendingText: string
-  pendingAttachments: { id: string; url: string; mimeType: string }[]
+  pendingAttachments: { id: string; url: string; mimeType: string; file?: File }[]
 }
 
 function normalizeActiveJob(
@@ -45,6 +45,7 @@ function normalizeActiveJob(
 type LastJobFailure = {
   error: string
   pendingText: string
+  pendingAttachments: ActiveJob['pendingAttachments']
 }
 
 /** Survives remount after `/` → `/chat/:id` where router `state.pendingJob` may be stripped before rerender. */
@@ -112,6 +113,7 @@ export default function Chat() {
   const [lastJobFailure, setLastJobFailure] = useState<LastJobFailure | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [isDownloadingZip, setIsDownloadingZip] = useState(false)
+  const [draftPostType, setDraftPostType] = useState<'single' | 'carousel'>('carousel')
 
   const setup = useSetupStatus()
   const chat = useChat(id)
@@ -201,7 +203,11 @@ export default function Chat() {
       const err = jobStatus.data?.error ?? UNKNOWN_JOB_ERROR
       const hydrateId = activeJob.chatId
       const jobSnapshot = activeJob
-      setLastJobFailure({ error: err, pendingText: activeJob.pendingText })
+      setLastJobFailure({
+        error: err,
+        pendingText: activeJob.pendingText,
+        pendingAttachments: activeJob.pendingAttachments,
+      })
       toast.error('Não foi possível gerar o post.')
       clearActiveJobSoon(jobSnapshot, hydrateId)
     }
@@ -251,6 +257,7 @@ export default function Chat() {
         id: crypto.randomUUID(),
         url: URL.createObjectURL(f),
         mimeType: f.type,
+        file: f,
       }))
 
       let jobId: string
@@ -286,6 +293,7 @@ export default function Chat() {
 
   const handleChipClick = useCallback(
     (text: string, postType: 'single' | 'carousel') => {
+      setDraftPostType(postType)
       void handleSend(text, [], { postType }).catch(() => undefined)
     },
     [handleSend],
@@ -293,13 +301,17 @@ export default function Chat() {
 
   const handleRetry = useCallback(() => {
     const text = activeJob?.pendingText ?? lastJobFailure?.pendingText
+    const attachments = activeJob?.pendingAttachments ?? lastJobFailure?.pendingAttachments ?? []
+    const files = attachments
+      .map((a) => a.file)
+      .filter((file): file is File => file instanceof File)
     if (activeJob) {
       activeJob.pendingAttachments?.forEach((a) => URL.revokeObjectURL(a.url))
     }
     setLastJobFailure(null)
     setActiveJob(null)
     if (text) {
-      void handleSend(text, []).catch(() => undefined)
+      void handleSend(text, files).catch(() => undefined)
     }
   }, [activeJob, lastJobFailure, handleSend])
 
@@ -396,7 +408,11 @@ export default function Chat() {
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           {!id ? (
-            <EmptyChatState onChipClick={setupConfigured ? handleChipClick : undefined} />
+            setupConfigured ? (
+              <EmptyChatState onChipClick={handleChipClick} />
+            ) : (
+              <SetupRequiredState />
+            )
           ) : chat.isLoading && !showJobLoading ? (
             <div className="flex items-center justify-center py-20">
               <InlineSpinner size={24} />
@@ -409,6 +425,8 @@ export default function Chat() {
                 showJobLoading ? (activeJob?.pendingAttachments ?? []) : undefined
               }
               jobStatus={assistantThreadJobStatus}
+              jobStage={jobStatus.data?.stage}
+              jobProgress={jobStatus.data?.progress}
               jobError={jobError}
               onRetry={jobError != null ? handleRetry : undefined}
             />
@@ -430,8 +448,16 @@ export default function Chat() {
             </div>
           )}
           <ComposerBar
-            onSend={(text, files) => handleSend(text, files)}
+            onSend={(text, files, options) => handleSend(text, files, options)}
             disabled={showJobLoading || !setupConfigured}
+            placeholder={
+              setupConfigured
+                ? 'Descreva o post que você quer criar…'
+                : 'Complete o perfil da marca para liberar o chat'
+            }
+            postType={id ? (chat.data?.postType ?? draftPostType) : draftPostType}
+            onPostTypeChange={setDraftPostType}
+            lockedPostType={!!id && !!chat.data}
           />
         </div>
       </div>
@@ -446,5 +472,41 @@ export default function Chat() {
         onCancel={() => setConfirmDelete(false)}
       />
     </>
+  )
+}
+
+function SetupRequiredState() {
+  return (
+    <div className="flex min-h-full flex-col items-center justify-center px-6 py-12 text-center">
+      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+        <IconProfile />
+      </div>
+      <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">
+        Configure sua marca primeiro
+      </h1>
+      <p className="mt-2 max-w-md text-sm text-[var(--color-text-secondary)]">
+        O Post Mind precisa da auditoria do perfil e do guia de marca para gerar posts alinhados ao seu tom, público e visual.
+      </p>
+      <Link
+        to="/profile"
+        className="mt-6 rounded-[var(--radius-md)] bg-[var(--color-brand-primary)] px-4 py-2 text-sm font-medium text-white hover:bg-[var(--color-brand-primary-hover)]"
+      >
+        Configurar perfil da marca
+      </Link>
+    </div>
+  )
+}
+
+function IconProfile() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.5" />
+      <path
+        d="M5.5 20.5v-.5c0-3 2.5-5.5 6.5-5.5s6.5 2.5 6.5 5.5v.5"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
   )
 }

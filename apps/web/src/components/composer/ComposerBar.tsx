@@ -1,16 +1,24 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { IconClose, IconPaperclip } from "@/components/ui/action-icons";
 import { InlineSpinner } from "@/components/ui/InlineSpinner";
 import { toast } from "@/lib/toast";
 
 type Props = {
-  onSend: (text: string, files: File[]) => Promise<void>;
+  onSend: (
+    text: string,
+    files: File[],
+    options?: { postType?: PostType },
+  ) => Promise<void>;
   disabled?: boolean;
   placeholder?: string;
+  postType?: PostType;
+  onPostTypeChange?: (postType: PostType) => void;
+  lockedPostType?: boolean;
 };
 
 type PendingAttachment = { id: string; file: File; previewUrl: string };
+type PostType = "single" | "carousel";
 
 const MAX_CHARS = 2000;
 const MAX_ATTACHMENTS = 4;
@@ -25,6 +33,9 @@ export function ComposerBar({
   onSend,
   disabled = false,
   placeholder = "Descreva o post que você quer criar…",
+  postType = "carousel",
+  onPostTypeChange,
+  lockedPostType = false,
 }: Props) {
   const [text, setText] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -134,7 +145,7 @@ export function ComposerBar({
     const files = snapshot.map((a) => a.file);
     setSubmitting(true);
     try {
-      await onSend(trimmed, files);
+      await onSend(trimmed, files, { postType });
       snapshot.forEach((a) => URL.revokeObjectURL(a.previewUrl));
       setAttachments([]);
       setText("");
@@ -159,6 +170,33 @@ export function ComposerBar({
     <div className="min-h-[var(--app-bottom-shelf-min-height)] shrink-0 border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] px-4 py-3">
       <div className="mx-auto max-w-3xl">
         <div className="flex flex-col gap-2 rounded-[var(--radius-lg)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-app)] px-3 py-2 shadow-[var(--shadow-composer)] focus-within:ring-2 focus-within:ring-[var(--color-focus-ring)]">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--color-border-subtle)] pb-2">
+            <div
+              className="inline-flex rounded-[var(--radius-md)] bg-[var(--color-bg-muted)] p-1"
+              role="radiogroup"
+              aria-label="Tipo de post"
+            >
+              <PostTypeButton
+                active={postType === "single"}
+                disabled={disabled || submitting || lockedPostType}
+                onClick={() => onPostTypeChange?.("single")}
+              >
+                Post único
+              </PostTypeButton>
+              <PostTypeButton
+                active={postType === "carousel"}
+                disabled={disabled || submitting || lockedPostType}
+                onClick={() => onPostTypeChange?.("carousel")}
+              >
+                Carrossel
+              </PostTypeButton>
+            </div>
+            <span className="text-xs text-[var(--color-text-muted)]">
+              {lockedPostType
+                ? "Tipo fixo deste chat"
+                : "Escolha antes de enviar"}
+            </span>
+          </div>
           {attachments.length > 0 && (
             <div className="flex flex-wrap gap-2 pb-1">
               {attachments.map((a) => (
@@ -236,9 +274,46 @@ export function ComposerBar({
               </button>
             </div>
           </div>
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--color-text-muted)]">
+            <span>Até {MAX_ATTACHMENTS} imagens de referência por mensagem.</span>
+            <span>Enter envia · Shift+Enter quebra linha</span>
+          </div>
         </div>
       </div>
     </div>
+  );
+}
+
+type PostTypeButtonProps = {
+  active: boolean;
+  disabled: boolean;
+  onClick: () => void;
+  children: ReactNode;
+};
+
+function PostTypeButton({
+  active,
+  disabled,
+  onClick,
+  children,
+}: PostTypeButtonProps) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={active}
+      disabled={disabled}
+      onClick={onClick}
+      className={[
+        "rounded-[calc(var(--radius-md)-2px)] px-3 py-1.5 text-xs font-medium transition-colors",
+        active
+          ? "bg-[var(--color-bg-surface)] text-[var(--color-text-primary)] shadow-[var(--shadow-sm)]"
+          : "text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]",
+        disabled ? "cursor-not-allowed opacity-60" : "",
+      ].join(" ")}
+    >
+      {children}
+    </button>
   );
 }
 
