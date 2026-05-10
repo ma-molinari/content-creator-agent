@@ -47,8 +47,7 @@ type Chat struct {
 	Title     *string   `gorm:"size:255"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	Contents  []ChatContent      `gorm:"foreignKey:ChatID"`
-	Resume    *ChatContentResume `gorm:"foreignKey:ChatID"`
+	Contents  []ChatContent `gorm:"foreignKey:ChatID"`
 }
 
 func (Chat) TableName() string { return "chats" }
@@ -94,19 +93,6 @@ type ChatContentAttachment struct {
 }
 
 func (ChatContentAttachment) TableName() string { return "chat_content_attachment" }
-
-type ChatContentResume struct {
-	ID            uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	ChatID        uuid.UUID  `gorm:"type:uuid;not null;uniqueIndex"`
-	Chat          Chat       `gorm:"constraint:OnDelete:CASCADE"`
-	Summary       *string    `gorm:"type:text"`
-	LastContentAt *time.Time `gorm:"column:last_content_at"`
-	SummarizedAt  *time.Time `gorm:"column:summarized_at"`
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
-}
-
-func (ChatContentResume) TableName() string { return "chat_content_resume" }
 
 // JobStatus is stored as PostgreSQL enum job_status_enum.
 type JobStatus string

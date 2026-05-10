@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -20,7 +19,6 @@ import (
 	appmw "content-creator-agent/internal/middleware"
 	"content-creator-agent/internal/profile"
 	"content-creator-agent/internal/storage"
-	"content-creator-agent/internal/summarizer"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -72,27 +70,6 @@ func main() {
 	jobsH := jobs.NewHandler(&cfg, gdb, stor)
 
 	sched := appcron.New()
-	if cfg.OpenAIAPIKey != "" {
-		var summOverlap sync.Mutex
-		summRepo := summarizer.NewRepository(gdb)
-		summClient := summarizer.NewClient(cfg.OpenAIAPIKey)
-		summSvc := summarizer.NewService(summRepo, summClient)
-		if err := sched.Register(cfg.SummarizeCron, func() {
-			if !summOverlap.TryLock() {
-				log.Printf("[summarizer] skip run: previous invocation still running (overlap)")
-				return
-			}
-			defer summOverlap.Unlock()
-			appcron.SafelyRun("summarizer", func() {
-				summSvc.Run(context.Background())
-			})
-		}); err != nil {
-			log.Fatalf("cron summarizer: %v", err)
-		}
-		log.Printf("[summarizer] cron registered expr=%q (UTC)", cfg.SummarizeCron)
-	} else {
-		log.Print("[summarizer] OPENAI_API_KEY not set; daily summarization cron disabled")
-	}
 	if strings.TrimSpace(cfg.StuckJobCron) != "" {
 		maxAge := time.Duration(cfg.StuckJobProcessingMinutes) * time.Minute
 		if err := sched.RegisterSafe(cfg.StuckJobCron, "stuck-job-cleanup", func() {

@@ -45,19 +45,6 @@
 
 ---
 
-## AI / LLM — Chat Summarization (API)
-
-**Service:** OpenAI API
-**Purpose:** Nightly condensation of chat histories to maintain useful context over long sessions.
-**Implementation:** `apps/api/internal/summarizer/openai.go` — uses `sashabaranov/go-openai`, model **`gpt-5.4-mini`** (fixed in the summarizer client)
-**Trigger:** robfig/cron scheduler registered at startup if `OPENAI_API_KEY` is set
-**Configuration:**
-- `OPENAI_API_KEY` in `apps/api/.env`
-- `SUMMARIZE_CRON` — cron expression (default `0 2 * * *` UTC)
-**Budget:** 5-minute wall-clock timeout per run; errors on individual chats are logged and skipped
-
----
-
 ## Inter-Service Communication: API → Worker
 
 **Protocol:** HTTP/JSON
@@ -149,7 +136,7 @@ The API stores `jobs.stage`, monotonic `jobs.progress`, and `jobs.heartbeat_at`.
 ## PostgreSQL
 
 **Service:** PostgreSQL 16 (Alpine)
-**Purpose:** Primary data store for users, chats, messages, jobs, profiles, references, summaries.
+**Purpose:** Primary data store for users, chats, messages, jobs, profiles, and references.
 **Configuration:** `DATABASE_URL` env var (libpq connection string)
 **Migrations:** golang-migrate v4; SQL files in `apps/api/internal/db/migrations/` numbered 001–009; applied automatically at API startup via `db.RunMigrations()`
 **Connection:** GORM + pgx/v5 driver; single connection pool shared across all repositories

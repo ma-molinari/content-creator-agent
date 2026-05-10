@@ -23,7 +23,6 @@ Files observed:
 - `apps/api/internal/jobs/repository_test.go`
 - `apps/api/internal/jobs/slide_key_test.go`
 - `apps/api/internal/profile/service_test.go`
-- `apps/api/internal/summarizer/service_test.go`
 - `apps/api/internal/config/config_test.go`
 - `apps/api/internal/db/db_test.go`
 - `apps/api/internal/storage/s3_test.go`

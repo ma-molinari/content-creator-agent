@@ -21,7 +21,6 @@
 - Rate limiting: `ulule/limiter/v3` v3.11.2 (in-memory store)
 - Scheduling: `robfig/cron/v3` v3.0.1
 - Storage client: `aws/aws-sdk-go-v2/service/s3` v1.99.0
-- OpenAI client: `sashabaranov/go-openai` v1.41.2
 - ID generation: `google/uuid` v1.6.0
 - Test assertion: `stretchr/testify` v1.11.1
 - SQLite (test only): `gorm.io/driver/sqlite` v1.6.0
@@ -32,7 +31,7 @@
 - API framework: FastAPI ≥ 0.115.0 + Uvicorn ≥ 0.32.0
 - Agent orchestration: LangGraph ≥ 0.2.0
 - LLM SDK: LangChain-OpenAI ≥ 0.2.0, LangChain-Core ≥ 0.3.0
-- LLM defaults: worker chat + vision **`gpt-5.4-mini`** (`OPENAI_CHAT_MODEL`, `REFERENCE_VISION_MODEL`); API summarizer **`gpt-5.4-mini`** (`apps/api/internal/summarizer/openai.go`). Details: `docs/INTEGRATIONS.md`.
+- LLM defaults: worker chat + vision **`gpt-5.4-mini`** (`OPENAI_CHAT_MODEL`, `REFERENCE_VISION_MODEL`). Details: `docs/INTEGRATIONS.md`.
 - HTML → image rendering: Playwright ≥ 1.49.0 (headless Chromium)
 - AWS client: boto3 ≥ 1.35.0
 - HTTP client: httpx ≥ 0.27.0
@@ -62,7 +61,7 @@
 ## External Services
 
 - Object storage: AWS S3 (slide JPEG uploads, profile reference images)
-- AI/LLM: OpenAI API (slide generation via worker; nightly chat summarization via API)
+- AI/LLM: OpenAI API (slide generation and vision via worker)
 - Container runtime: Docker (Docker Compose for local + prod)
 
 ## Development Tools

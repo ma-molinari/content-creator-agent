@@ -80,16 +80,7 @@ Refresh JWTs embed a JTI persisted in `refresh_tokens`. Login inserts a row; `/a
 
 ---
 
-### 7. Summarizer runs in the same process as the HTTP server with blocking DB queries
-
-**Files:** `apps/api/internal/summarizer/service.go`, `apps/api/internal/cron/scheduler.go`
-**Evidence:** The cron fires `summSvc.Run(context.Background())` synchronously inside a goroutine spawned by robfig/cron. The run calls OpenAI (`Summarize`) and performs DB writes for every eligible chat within a 5-minute budget.
-**Risk:** Under load, many simultaneous OpenAI calls (one per eligible chat) from the summarizer can exhaust the DB connection pool or the process's goroutine count, degrading API latency.
-**Fix:** Rate-limit OpenAI calls within the summarizer (e.g., `golang.org/x/time/rate`), or move summarization to a separate worker/job queue.
-
----
-
-### 8. Worker slide-generation node is synchronous (`llm.invoke`)
+### 7. Worker slide-generation node is synchronous (`llm.invoke`)
 
 **File:** `apps/worker/app/nodes/generate_slides.py`
 **Evidence:**
@@ -104,7 +95,7 @@ msg = llm.invoke([SystemMessage(...), HumanMessage(...)])
 
 ## LOW — Security / Hardening
 
-### 9. S3 key path-traversal validation is in the jobs callback only
+### 8. S3 key path-traversal validation is in the jobs callback only
 
 **File:** `apps/api/internal/jobs/slide_key.go`
 **Evidence:** `validateSlideArtifactKey` is called only in `CompleteAssistantReply`. Profile reference upload paths are not validated with the same strictness (not verified in code review — warrants audit).
@@ -113,7 +104,7 @@ msg = llm.invoke([SystemMessage(...), HumanMessage(...)])
 
 ---
 
-### 10. No CI/CD configuration committed
+### 9. No CI/CD configuration committed
 
 **Evidence:** No `.github/`, `.gitlab-ci.yml`, or similar CI files are present in the repository. Tests are manually triggered or via `make e2e`.
 **Risk:** No automated gate prevents broken builds or failed tests from reaching production.

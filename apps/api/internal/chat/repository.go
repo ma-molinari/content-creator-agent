@@ -92,7 +92,6 @@ func (r *Repository) GetByIDWithContents(ctx context.Context, id uuid.UUID) (*db
 		Preload("Contents.Attachments", func(g *gorm.DB) *gorm.DB {
 			return g.Order("chat_content_attachment.sort_order ASC")
 		}).
-		Preload("Resume").
 		First(&c, "id = ?", id).Error
 	if err != nil {
 		return nil, err

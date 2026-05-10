@@ -38,7 +38,6 @@ O **Post Mind** é uma plataforma web que apoia a criação de posts para o **In
 - **Geração assíncrona:** `POST /chats/:id/messages` → **202** + `jobId`; *polling* `GET /chats/:id/jobs/:jobId/status`; conclusão via *callback* do worker para a API.
 - Pipeline no **worker:** LangGraph (perfil, validação de segurança do prompt, descrição de referências, otimização de *brief*, validação do *brief*, HTML de slides, validação de parse, **validação de design estático** (sem JS, sem assets remotos, tipografia Inter/GF, viewport 1080×1350), JPEG via Playwright, *upload* S3, *finalize*).
 - Download de arquivos e ZIP; telas de histórico e chat na SPA (`apps/web`).
-- *Cron* de sumarização diária na **API** (OpenAI), se `OPENAI_API_KEY` estiver definida.
 - Segurança: *rate limit*, sanitização, CORS explícito, medidas descritas em `docs/CONCERNS.md` (dívidas técnicas conhecidas).
 
 ### Fora de escopo (V1)
@@ -63,7 +62,7 @@ Monorepo: **React (Vite)** ↔ **API Go (Echo)** ↔ **PostgreSQL** e **S3**; a 
 | Componente | Responsabilidade |
 | ---------- | ---------------- |
 | **SPA** | Autenticação, perfil, chat, histórico, *poll* de *jobs* |
-| **API Go** | JWT, CRUD, perfis, S3 (presign, ZIP), criação de *jobs*, despacho HTTP ao worker, *callback* `/internal/jobs/:id/complete`, sumarizador |
+| **API Go** | JWT, CRUD, perfis, S3 (presign, ZIP), criação de *jobs*, despacho HTTP ao worker, *callback* `/internal/jobs/:id/complete` |
 | **Worker Python** | Cadeia LangGraph, OpenAI, Playwright, *upload* para S3, *callback* à API |
 | **S3** | JPEGs e imagens de referência |
 | **PostgreSQL** | Usuários, chats, conteúdo, imagens, *jobs*, resumos, perfis e referências |
@@ -92,12 +91,6 @@ flowchart LR
 6. O cliente usa `GET /chats/:id/jobs/:jobId/status` até `done` ou `failed` e atualiza o fio do chat.
 
 Modelos OpenAI no worker: ver **`docs/INTEGRATIONS.md`** (defaults **`gpt-5.4-mini`** para chat e visão, configuráveis por env). *Max tokens* e *prompts* em `apps/worker/`.
-
-### Fluxo — sumarização
-
-1. *Cron* na API (UTC), expressão `SUMMARIZE_CRON`, por predefinição `0 2 * * *`.
-2. Orquestração em `apps/api/internal/summarizer/`, cliente `sashabaranov/go-openai` (modelo **`gpt-5.4-mini`** em `openai.go`; detalhes em **`docs/INTEGRATIONS.md`**).
-3. Orçamento de tempo por execução e escrita em `chat_content_resume`.
 
 ### Fluxo — “*setup*”
 
@@ -139,7 +132,6 @@ HTTP/1.1 202 Accepted
 - **chats** — `user_id`, `post_type` (`single` | `carousel`), `title` opcional.
 - **chat_content** — `chat_id`, `role` (`user` | `assistant`), `content`.
 - **chat_content_image** — `s3_key`, `url` (presign ou URL servida; TTL presign: ver `docs/CONCERNS.md` e `docs/INTEGRATIONS.md`), `slide_number`.
-- **chat_content_resume** — resumo, `last_content_at`, `summarized_at`.
 - **jobs** — `chat_id`, `user_id`, `status` (*pending* / *processing* / *done* / *failed*), `error_msg` opcional.
 - **user_profiles** — `audit_text`, `brand_text` por usuário.
 - **user_profile_references** — chaves S3 e ordenação.
@@ -170,7 +162,7 @@ Fonte: **`docs/INTEGRATIONS.md`** (S3, OpenAI no worker e na API, contratos `Dis
 | Risco | Notas / mitigação |
 | ----- | ----------------- |
 | Indisponibilidade OpenAI | Tratamento de erros no worker e API; *jobs* `failed` com mensagem |
-| Custos de API | Sumarização compacta; `max_tokens` nos nós; monitorização manual |
+| Custos de API | Uso de OpenAI no worker; `max_tokens` nos nós; monitorização manual |
 | *Rate limit* em memória | Não partilhado entre réplicas; Redis como evolução |
 | URLs S3 presign expiradas na BD | Documentado em `CONCERNS` — preferir *presign* à leitura ou só `s3_key` |
 | *Jobs* presos em *processing* | Crashes do worker; falta *timeout* de reconciliação (ideia em `CONCERNS`) |
@@ -188,7 +180,6 @@ As fases abaixo descrevem a ordem lógica de entrega. O estado concreto do códi
 | Core | Chats, S3, *jobs*, despacho ao worker, *callback* |
 | Worker | LangGraph, Playwright, integração OpenAI |
 | Web | *SPA*, *poll* de *jobs*, perfis |
-| *Cron* | Sumarizador |
 | *QA* | *Tests* de `docs/TESTING.md` |
 
 ---

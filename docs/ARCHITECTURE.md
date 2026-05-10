@@ -105,15 +105,6 @@ load_profile → prompt_security_validate ─┬─► describe_references → o
 - Worker callback: protected by shared `WORKER_API_KEY` header
 - S3 artifact key validation: enforces `slides/{jobId}/` prefix, rejects `..` and absolute paths
 
-### Nightly chat summarizer
-
-**Location:** `apps/api/internal/summarizer/`, `apps/api/internal/cron/`
-**Purpose:** condense chat histories via OpenAI to keep context useful for future sessions.
-- Cron expression defaults to `0 2 * * *` (UTC), configurable via `SUMMARIZE_CRON`
-- Only active when `OPENAI_API_KEY` is set
-- Uses `chat_content_resume` table (one row per chat, upserted)
-- Runs with a 5-minute wall-clock budget
-
 ## Data Flow
 
 ### Message → Slide generation
@@ -163,7 +154,6 @@ internal/
   middleware/              # JWT, CORS, security headers, rate limiters
   profile/                 # user profile + design references
   storage/                 # S3 interface + implementation
-  summarizer/              # OpenAI client, summarize service
 integration/               # integration tests (build tag: integration)
 ```
 

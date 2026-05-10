@@ -75,10 +75,6 @@ apps/api/
 │   │   └── references_repository.go # UserProfileReference DB queries
 │   ├── storage/
 │   │   └── s3.go                    # StorageService interface + S3 implementation
-│   └── summarizer/
-│       ├── service.go               # Batch summarization orchestration
-│       ├── openai.go                # OpenAI API client wrapper
-│       └── repository.go            # ChatContentResume DB queries
 └── integration/                     # Integration tests (build tag: integration)
     ├── helpers_test.go              # newTestEnv, buildEcho, registerAndLogin helpers
     ├── auth_test.go

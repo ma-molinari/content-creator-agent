@@ -6,8 +6,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSummarizeCronDefault(t *testing.T) {
-	t.Setenv("SUMMARIZE_CRON", "")
+func TestStuckJobCronDefault(t *testing.T) {
+	t.Setenv("STUCK_JOB_CRON", "")
 	cfg := Load()
-	require.Equal(t, "0 2 * * *", cfg.SummarizeCron)
+	require.Equal(t, "*/10 * * * *", cfg.StuckJobCron)
 }

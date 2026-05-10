@@ -118,16 +118,6 @@ func testDBWithUser(t *testing.T) (*gorm.DB, *db.User) {
 			created_at DATETIME,
 			FOREIGN KEY (chat_content_id) REFERENCES chat_content(id)
 		)`,
-		`CREATE TABLE chat_content_resume (
-			id TEXT PRIMARY KEY,
-			chat_id TEXT NOT NULL UNIQUE,
-			summary TEXT,
-			last_content_at DATETIME,
-			summarized_at DATETIME,
-			created_at DATETIME,
-			updated_at DATETIME,
-			FOREIGN KEY (chat_id) REFERENCES chats(id)
-		)`,
 	}
 	for _, q := range stmts {
 		if err := gdb.Exec(q).Error; err != nil {
@@ -367,13 +357,6 @@ func TestPostMessage_dispatchRawMessageAndExistingSlideHTMLKeys(t *testing.T) {
 	profileRepo := profile.NewRepository(gdb)
 	chat := &db.Chat{ID: uuid.New(), UserID: u.ID, PostType: db.PostTypeSingle}
 	require.NoError(t, gdb.Create(chat).Error)
-
-	sum := "Resumo antigo: usuário pediu paleta rosa."
-	require.NoError(t, gdb.Create(&db.ChatContentResume{
-		ID:      uuid.New(),
-		ChatID:  chat.ID,
-		Summary: &sum,
-	}).Error)
 
 	require.NoError(t, gdb.Create(&db.ChatContent{
 		ID:        uuid.New(),

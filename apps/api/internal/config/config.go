@@ -21,10 +21,6 @@ type Config struct {
 	WorkerURL string
 	// WorkerAPIKey is shared between the Go API and the worker for internal calls.
 	WorkerAPIKey string
-	// OpenAIAPIKey enables nightly chat summarization when set (see summarizer package).
-	OpenAIAPIKey string
-	// SummarizeCron is a standard cron expression in UTC (default 02:00 daily).
-	SummarizeCron string
 	// StuckJobCron runs stuck-job cleanup (default every 10 minutes UTC). Empty disables the job.
 	StuckJobCron string
 	// StuckJobProcessingMinutes marks processing jobs as failed when UpdatedAt is older than this (default 20).
@@ -50,10 +46,6 @@ func Load() Config {
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
-	}
-	summarizeCron := os.Getenv("SUMMARIZE_CRON")
-	if summarizeCron == "" {
-		summarizeCron = "0 2 * * *"
 	}
 	stuckJobCron := os.Getenv("STUCK_JOB_CRON")
 	if stuckJobCron == "" {
@@ -89,8 +81,6 @@ func Load() Config {
 		S3Bucket:                  os.Getenv("AWS_S3_BUCKET"),
 		WorkerURL:                 os.Getenv("WORKER_URL"),
 		WorkerAPIKey:              os.Getenv("WORKER_API_KEY"),
-		OpenAIAPIKey:              os.Getenv("OPENAI_API_KEY"),
-		SummarizeCron:             summarizeCron,
 		StuckJobCron:              stuckJobCron,
 		StuckJobProcessingMinutes: stuckJobMinutes,
 		ProfileRefMaxCount:        profileRefMax,

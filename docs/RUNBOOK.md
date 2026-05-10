@@ -10,8 +10,7 @@
 | `WORKER_URL` | API | Base URL do worker (ex.: `http://worker:8000`) |
 | `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_S3_BUCKET` | API + Worker | Necessários para uploads e ZIP |
 | `COOKIE_SECURE` | API | `true` em HTTPS (override de dev com `false`); ver `docker-compose.prod.yml` |
-| `OPENAI_API_KEY` | API | Opcional; se definido, habilita cron de sumarização |
-| `SUMMARIZE_CRON` | API | Cron em UTC (padrão `0 2 * * *`) |
+| `OPENAI_API_KEY` | Worker | Obrigatória para geração no worker |
 | `STUCK_JOB_CRON` | API | Opcional; cron UTC para marcar jobs em `processing` há muito tempo como falha (padrão `*/10 * * * *`). Vazio desativa. |
 | `STUCK_JOB_PROCESSING_MINUTES` | API | Idade mínima de `jobs.updated_at` em `processing` para falhar (padrão `20`). Valores baixos podem falhar jobs legítimos lentos. |
 
@@ -33,7 +32,7 @@ Encerrar:
 make prod-down
 ```
 
-O ficheiro `docker-compose.prod.yml` define `restart: unless-stopped` e injeta `COOKIE_SECURE`, `OPENAI_API_KEY` e `SUMMARIZE_CRON`. O texto de perfil (auditoria e marca) fica na base de dados via `PUT /profile` na aplicação.
+O ficheiro `docker-compose.prod.yml` define `restart: unless-stopped` e injeta `COOKIE_SECURE`. O texto de perfil (auditoria e marca) fica na base de dados via `PUT /profile` na aplicação.
 
 ## Health checks
 

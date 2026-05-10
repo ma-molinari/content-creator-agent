@@ -30,11 +30,9 @@ A skill **`map-instagram-profile`** descreve a **estrutura de captura offline** 
 
 - **Histórico:** até **5** chats ativos por usuário; ao criar um 6.º, remove-se o mais antigo (e artefatos S3 associados) ou o usuário pode apagar manualmente. Download em `.jpg` (slides), novas mensagens no mesmo chat para iteração.
 
-## Trabalho do agente e sumarização
+## Trabalho do agente
 
 - Interface de chat no estilo de produtos de mercado; *prompts* alinhados a *Prompt Engineering Meta* e contextualizados com a skill `create-social-post` (regras em `.cursor/`).
-
-- **Cron diário** (API Go, `SUMMARIZE_CRON`, predefinido `0 2 * * *` UTC): condensa o histórico de chats com conteúdo novo para reduzir tokens em reutilizações; usa o cliente OpenAI na API (**`gpt-5.4-mini`** em `apps/api/internal/summarizer/openai.go`). Só corre se `OPENAI_API_KEY` estiver definida.
 
 ## Segurança
 
@@ -60,8 +58,6 @@ A skill **`map-instagram-profile`** descreve a **estrutura de captura offline** 
 ### LLM (geração e suporte)
 
 - **Worker:** OpenAI — defaults **`gpt-5.4-mini`** para chat (`optimize_prompt`, `generate_slides` via `OPENAI_CHAT_MODEL`) e visão (`describe_references` via `REFERENCE_VISION_MODEL`); ver `apps/worker/app/config.py` e `docs/INTEGRATIONS.md`.
-- **API (sumarização):** OpenAI via `sashabaranov/go-openai`, modelo alinhado ao código do sumarizador.
-
 ### Banco e rede
 
 - **PostgreSQL** (16 no Compose).
@@ -69,7 +65,7 @@ A skill **`map-instagram-profile`** descreve a **estrutura de captura offline** 
 
 ### Tabelas (conceito)
 
-- `users` (incl. `role`), `chats`, `chat_content`, `chat_content_image`, `chat_content_resume`, **`jobs`**, **`user_profiles`**, **`user_profile_references`**.
+- `users` (incl. `role`), `chats`, `chat_content`, `chat_content_image`, **`jobs`**, **`user_profiles`**, **`user_profile_references`**.
 
 *Campos e enums:* ver `apps/api/internal/db/models.go` e migrações SQL.
 
