@@ -103,3 +103,31 @@ def test_validate_slide_package_visual_only_allows_css_only_edit() -> None:
     slides = out.get("slides_html") or []
     assert len(slides) == 1
     assert "retry_count" not in out
+
+
+def test_validate_slide_package_layout_blocks_visible_text_change() -> None:
+    from app.nodes.validate_slide_package import validate_slide_package
+
+    old_html = (
+        "<html><head><meta charset=\"utf-8\"><title>s</title></head>"
+        "<body style=\"margin:0;width:1080px;height:1350px;\"><p>Conteúdo original</p></body></html>"
+    )
+    new_html = (
+        "<html><head><meta charset=\"utf-8\"><title>s</title></head>"
+        "<body style=\"margin:0;width:1080px;height:1350px;\"><p>Explicando a melhoria de layout</p></body></html>"
+    )
+    state: dict = {
+        "job_id": "j",
+        "slide_package": {"slides": [{"filename": "slide_01.html", "html": new_html}]},
+        "retry_count": 0,
+        "errors": [],
+        "requested_slide_count": 1,
+        "is_refinement": True,
+        "refinement_scope": "layout",
+        "existing_slide_html": [{"filename": "slide_01.html", "html": old_html}],
+    }
+    out = validate_slide_package(state)  # type: ignore[arg-type]
+    assert out.get("slides_html") == []
+    assert int(out.get("retry_count") or 0) == 1
+    errs = out.get("errors") or []
+    assert any("copy_preservation:" in (e or "") for e in errs)

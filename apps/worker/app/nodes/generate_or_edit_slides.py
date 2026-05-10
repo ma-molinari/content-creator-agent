@@ -48,7 +48,9 @@ Uso de imagens anexadas:
 Modo de edição:
 - Quando `generation_plan.mode` for `edit`, devolva EXATAMENTE o mesmo número de slides de `existing_slides`.
 - Em `edit`, preserve os mesmos `filename` e `slide_number` dos slides existentes, apenas atualizando o HTML.
+- Em `edit`, trate `generation_plan.raw_message` como instrução de patch sobre os slides existentes, nunca como tema para novo conteúdo.
 - Se o pedido falar de layout/visual, preserve o conteúdo textual e reorganize composição, hierarquia, tipografia, espaçamento e superfícies.
+- Se o pedido falar de layout/visual, não crie slides explicando a mudança pedida e não troque o assunto central do carrossel.
 """
 
 

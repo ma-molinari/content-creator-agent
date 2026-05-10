@@ -44,11 +44,8 @@ def validate_slide_package(state: AgentState) -> dict[str, object]:
     if isinstance(expected, int) and len(valid) != expected:
         diagnostics.append(f"slide_package: esperados {expected} slides; recebidos {len(valid)}.")
 
-    if (
-        state.get("is_refinement")
-        and (state.get("refinement_scope") or "").strip().lower() == "visual_only"
-        and valid
-    ):
+    refinement_scope = (state.get("refinement_scope") or "").strip().lower()
+    if state.get("is_refinement") and refinement_scope in {"visual_only", "layout"} and valid:
         ok, copy_errs = visual_copy_preserved(
             existing_slides_index(state.get("existing_slide_html")),
             valid,

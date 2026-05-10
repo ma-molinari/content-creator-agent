@@ -20,7 +20,14 @@ _EDIT_HINT = re.compile(
     re.IGNORECASE,
 )
 _COPY_HINT = re.compile(r"\b(t[ií]tulo|cta|texto|copy|legenda|traduz|reescrev|corrig|palavra|frase)\b", re.I)
-_LAYOUT_HINT = re.compile(r"\b(layout|reposicion|mover|coluna|ordem|grid|estrutura|blocos?)\b", re.I)
+_LAYOUT_HINT = re.compile(
+    r"\b("
+    r"layout|reposicion|mover|coluna|ordem|grid|estrutura|blocos?|"
+    r"disposi[cç][aã]o|vertical|empilh|divid|quebr|respiro|leitura|"
+    r"lado a lado|um do lado do outro|colocar em cima"
+    r")\b",
+    re.I,
+)
 _VISUAL_HINT = re.compile(r"\b(cor|cores|tema|fundo|background|escuro|claro|borda|gradiente|sombra|paleta|contraste)\b", re.I)
 
 

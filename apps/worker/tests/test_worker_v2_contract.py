@@ -84,6 +84,24 @@ def test_intent_detect_edit_wording_with_prior_html_stays_edit() -> None:
     assert out["is_refinement"] is True
 
 
+def test_intent_detect_layout_refinement_wording_maps_to_layout_scope() -> None:
+    out = intent_detect(
+        {
+            "job_id": "j",
+            "raw_message": (
+                "Melhore a disposição do conteúdo nos slides, não utilize os conteúdos um do lado do outro, "
+                "sempre na vertical, se necessário divida em mais slides."
+            ),
+            "existing_slide_sources": [{"slide_number": 1, "html_s3_key": "slides/old/slide_01.html"}],
+            "expects_slide_refinement": True,
+        },  # type: ignore[arg-type]
+    )
+
+    assert out["intent_result"]["kind"] == "edit"  # type: ignore[index]
+    assert out["intent_result"]["scope"] == "layout"  # type: ignore[index]
+    assert out["is_refinement"] is True
+
+
 def test_validate_slide_package_rejects_wrong_count() -> None:
     out = validate_slide_package(
         {
