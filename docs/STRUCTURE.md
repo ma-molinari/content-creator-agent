@@ -100,10 +100,10 @@ apps/worker/
 │   └── nodes/
 │       ├── load_profile.py              # Fetches audit/brand text from Go API
 │       ├── prompt_security_validate.py  # Deterministic safety gate on raw user message
-│       ├── describe_references.py       # Vision model (default gpt-5.4-mini) on design reference images
+│       ├── describe_references.py       # Vision model (default gpt-5.4) on design reference images
 │       ├── optimize_prompt.py           # Rewrites user brief → structured brief
 │       ├── validate_brief.py            # Validates optimized brief; retries or fails
-│       ├── generate_slides.py           # Chat model (default gpt-5.4-mini) → HTML slide blocks
+│       ├── generate_slides.py           # Chat model (default gpt-5.4) → HTML slide blocks
 │       ├── parse_validate.py            # Parses delimited output; triggers retry
 │       ├── design_validate.py           # Static design QA gate (uses slide_design_checks); up to 3 retries
 │       ├── render_to_jpeg.py            # Playwright screenshot per slide

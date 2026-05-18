@@ -31,7 +31,7 @@
 - API framework: FastAPI ≥ 0.115.0 + Uvicorn ≥ 0.32.0
 - Agent orchestration: LangGraph ≥ 0.2.0
 - LLM SDK: LangChain-OpenAI ≥ 0.2.0, LangChain-Core ≥ 0.3.0
-- LLM defaults: worker chat + vision **`gpt-5.4-mini`** (`OPENAI_CHAT_MODEL`, `REFERENCE_VISION_MODEL`). Details: `docs/INTEGRATIONS.md`.
+- LLM defaults: worker chat + vision **`gpt-5.4`** (`OPENAI_CHAT_MODEL`, `REFERENCE_VISION_MODEL`). Details: `docs/INTEGRATIONS.md`.
 - HTML → image rendering: Playwright ≥ 1.49.0 (headless Chromium)
 - AWS client: boto3 ≥ 1.35.0
 - HTTP client: httpx ≥ 0.27.0

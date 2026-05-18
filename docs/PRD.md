@@ -57,7 +57,7 @@ A skill **`map-instagram-profile`** descreve a **estrutura de captura offline** 
 
 ### LLM (geração e suporte)
 
-- **Worker:** OpenAI — defaults **`gpt-5.4-mini`** para chat (`optimize_prompt`, `generate_slides` via `OPENAI_CHAT_MODEL`) e visão (`describe_references` via `REFERENCE_VISION_MODEL`); ver `apps/worker/app/config.py` e `docs/INTEGRATIONS.md`.
+- **Worker:** OpenAI — defaults **`gpt-5.4`** para chat (`optimize_prompt`, `generate_slides` via `OPENAI_CHAT_MODEL`) e visão (`describe_references` via `REFERENCE_VISION_MODEL`); ver `apps/worker/app/config.py` e `docs/INTEGRATIONS.md`.
 ### Banco e rede
 
 - **PostgreSQL** (16 no Compose).

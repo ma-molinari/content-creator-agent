@@ -39,9 +39,9 @@ class Settings(BaseSettings):
     )
     worker_api_key: str = Field(..., min_length=1)
     # Chat model for structured slide generation.
-    openai_chat_model: str = Field(default="gpt-5.4-mini", min_length=1)
+    openai_chat_model: str = Field(default="gpt-5.4", min_length=1)
     # Vision model for optional design reference images in describe_references.
-    reference_vision_model: str = Field(default="gpt-5.4-mini", min_length=1)
+    reference_vision_model: str = Field(default="gpt-5.4", min_length=1)
     # Max bytes loaded per reference image from S3 (aligned with API upload cap for refs).
     reference_image_max_bytes: int = Field(default=5_242_880, ge=262_144, le=52_428_800)
     # Dynamic max output tokens for slide generation: min(base + per_slide * N, cap).

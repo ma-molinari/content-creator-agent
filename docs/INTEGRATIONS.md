@@ -32,15 +32,15 @@
 
 ## AI / LLM — Slide Generation (Worker)
 
-**Service:** OpenAI API — defaults **`gpt-5.4-mini`** for chat (`optimize_prompt`, `generate_slides`) and vision (`describe_references`). Override with `OPENAI_CHAT_MODEL` and `REFERENCE_VISION_MODEL` (`apps/worker/app/config.py`, `apps/worker/.env.example`).
+**Service:** OpenAI API — defaults **`gpt-5.4`** for chat (`optimize_prompt`, `generate_slides`) and vision (`describe_references`). Override with `OPENAI_CHAT_MODEL` and `REFERENCE_VISION_MODEL` (`apps/worker/app/config.py`, `apps/worker/.env.example`).
 **Purpose:** Optimize user brief into a structured prompt, describe design reference images (vision), and generate HTML carousel slides.
 **Implementation:** `apps/worker/app/nodes/`
-- `optimize_prompt.py` — ChatOpenAI with `OPENAI_CHAT_MODEL` (default `gpt-5.4-mini`)
-- `describe_references.py` — vision via `REFERENCE_VISION_MODEL` (default `gpt-5.4-mini`); reads S3 reference images and produces textual descriptions
+- `optimize_prompt.py` — ChatOpenAI with `OPENAI_CHAT_MODEL` (default `gpt-5.4`)
+- `describe_references.py` — vision via `REFERENCE_VISION_MODEL` (default `gpt-5.4`); reads S3 reference images and produces textual descriptions
 - `generate_slides.py` — ChatOpenAI with `OPENAI_CHAT_MODEL`; `max_tokens` computed from settings (`generate_slides_*` in config); output is delimited HTML slide blocks
 **Configuration:**
 - `OPENAI_API_KEY` in `apps/worker/.env`
-- `OPENAI_CHAT_MODEL`, `REFERENCE_VISION_MODEL` — optional; default `gpt-5.4-mini` each
+- `OPENAI_CHAT_MODEL`, `REFERENCE_VISION_MODEL` — optional; default `gpt-5.4` each
 **Prompt storage:** `apps/worker/prompts/` — markdown files read at call time (no caching)
 
 ---

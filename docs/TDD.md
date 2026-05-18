@@ -90,7 +90,7 @@ flowchart LR
 5. A API grava resposta do assistente e imagens, marca o *job* como concluído.
 6. O cliente usa `GET /chats/:id/jobs/:jobId/status` até `done` ou `failed` e atualiza o fio do chat.
 
-Modelos OpenAI no worker: ver **`docs/INTEGRATIONS.md`** (defaults **`gpt-5.4-mini`** para chat e visão, configuráveis por env). *Max tokens* e *prompts* em `apps/worker/`.
+Modelos OpenAI no worker: ver **`docs/INTEGRATIONS.md`** (defaults **`gpt-5.4`** para chat e visão, configuráveis por env). *Max tokens* e *prompts* em `apps/worker/`.
 
 ### Fluxo — “*setup*”
 
