@@ -2,8 +2,9 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: app
-      POSTGRES_PASSWORD: app
+      # Defaults are intentionally local-only and must not be reused outside development.
+      POSTGRES_USER: "${POSTGRES_USER:-local_dev_user}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-local_dev_password_change_me}"
       POSTGRES_DB: content_creator
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -27,7 +28,7 @@ services:
         required: false
     environment:
       PORT: "8080"
-      DATABASE_URL: postgres://app:app@postgres:5432/content_creator?sslmode=disable
+      DATABASE_URL: "postgres://${POSTGRES_USER:-local_dev_user}:${POSTGRES_PASSWORD:-local_dev_password_change_me}@postgres:5432/content_creator?sslmode=disable"
       COOKIE_SECURE: "false"
       WORKER_URL: http://worker:8000
     ports:

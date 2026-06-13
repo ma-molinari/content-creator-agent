@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "screenshots": "npm run build && playwright test e2e/screenshots.spec.ts",
+    "screenshots:readme": "npm run build && playwright test e2e/readme-screenshots.spec.ts",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "test:e2e:dev": "PLAYWRIGHT_BASE_URL=http://localhost:5173 playwright test --project=chromium"

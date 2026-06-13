@@ -12,10 +12,23 @@ Plataforma web para criação de posts Instagram (single e carrossel) com apoio 
 
 A API delega geração ao worker; o worker chama `POST /internal/jobs/:id/complete` na API. Dados em **PostgreSQL**; slides e referências em **AWS S3**. Detalhe em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) e [docs/TDD.md](docs/TDD.md).
 
+## Screenshots
+
+| Login | Perfil da marca |
+| --- | --- |
+| ![Tela de login do Post Mind](docs/images/readme/login.png) | ![Tela de perfil da marca do Post Mind](docs/images/readme/profile-brand.png) |
+
+| Chat com slides | Histórico |
+| --- | --- |
+| ![Tela de chat com slides gerados no Post Mind](docs/images/readme/chat-slides.png) | ![Tela de histórico de posts no Post Mind](docs/images/readme/history.png) |
+
+Assets regeneráveis com `cd apps/web && npm run screenshots:readme`.
+
 ## Desenvolvimento local
 
 1. **Variáveis de ambiente**  
    Copie e preencha os exemplos: `apps/api/.env.example` → `apps/api/.env`, `apps/worker/.env.example` → `apps/worker/.env` (incluindo `OPENAI_API_KEY`, credenciais S3 e `WORKER_API_KEY` alinhada entre API e worker).
+   Os valores de exemplo são deliberadamente placeholders de desenvolvimento: troque `JWT_*`, `WORKER_API_KEY` e qualquer senha local antes de subir o ambiente.
 
 2. **Stack com Docker** (Postgres, API, worker):
 
