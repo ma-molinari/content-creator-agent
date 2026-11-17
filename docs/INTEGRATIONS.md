@@ -32,16 +32,7 @@
 
 ## AI / LLM — Slide Generation (Worker)
 
-**Service:** OpenAI API — defaults **`gpt-5.4`** for chat (`optimize_prompt`, `generate_slides`) and vision (`describe_references`). Override with `OPENAI_CHAT_MODEL` and `REFERENCE_VISION_MODEL` (`apps/worker/app/config.py`, `apps/worker/.env.example`).
-**Purpose:** Optimize user brief into a structured prompt, describe design reference images (vision), and generate HTML carousel slides.
-**Implementation:** `apps/worker/app/nodes/`
-- `optimize_prompt.py` — ChatOpenAI with `OPENAI_CHAT_MODEL` (default `gpt-5.4`)
-- `describe_references.py` — vision via `REFERENCE_VISION_MODEL` (default `gpt-5.4`); reads S3 reference images and produces textual descriptions
-- `generate_slides.py` — ChatOpenAI with `OPENAI_CHAT_MODEL`; `max_tokens` computed from settings (`generate_slides_*` in config); output is delimited HTML slide blocks
-**Configuration:**
-- `OPENAI_API_KEY` in `apps/worker/.env`
-- `OPENAI_CHAT_MODEL`, `REFERENCE_VISION_MODEL` — optional; default `gpt-5.4` each
-**Prompt storage:** `apps/worker/prompts/` — markdown files read at call time (no caching)
+**Serviço:** OpenAI no worker. `OPENAI_CHAT_MODEL` e `REFERENCE_VISION_MODEL` usam `gpt-5.4` por padrão. O grafo atual analisa referências e anexos, planeja e gera ou edita um pacote JSON com HTML por slide. Os prompts ficam em `apps/worker/prompts/`; a implementação está em `apps/worker/app/nodes/` e `graph.py`.
 
 ---
 
@@ -56,6 +47,8 @@
   "job_id": "<uuid>",
   "user_id": "<uuid>",
   "chat_id": "<uuid>",
+  "message_id": "<uuid>",
+  "chat_post_type": "carousel",
   "raw_message": "...",
   "audit_text": "...",
   "brand_text": "...",
@@ -63,13 +56,15 @@
   "user_attachments": [{"id": "<uuid>", "s3_key": "users/.../current.png", "mime_type": "image/png", "sort_order": 0}],
   "known_attachments": [{"id": "<uuid>", "s3_key": "users/.../historical.png", "mime_type": "image/png", "sort_order": 0}],
   "existing_slide_html_s3_keys": ["slides/{jobId}/slide_01.html"],
+  "existing_slide_html": [{"slide_number": 1, "html_s3_key": "slides/{jobId}/slide_01.html"}],
   "expects_slide_refinement": false
 }
 ```
 - `user_attachments` (optional): only images attached to the current user message; used by the worker as prompt context and potential slide requirements.
 - `known_attachments` (optional): all chat attachments known to the API, including prior messages; used only to resolve stable `attachment://<id>` references when rendering/refining historical HTML.
 - `existing_slide_html_s3_keys` (optional): S3 keys for HTML sources of slides from a prior assistant turn; the worker loads them for the `edit_slides` path when non-empty.
-- `expects_slide_refinement` (optional): when `true`, the API indicates the chat already had slide JPEGs before this job — the worker must refine from those HTML keys or fail with a user-facing message (`JOB_FAILURE_REFINEMENT_CONTEXT` in `apps/worker/app/nodes/finalize_messages.py`) if keys are missing or S3 fetch is incomplete. When `false`/omitted and keys are present, fetch failure degrades silently to a new-generation path (empty prior HTML).
+- `existing_slide_html` (optional): numbered HTML sources; preferred over the legacy key list.
+- `expects_slide_refinement` (optional): when `true`, the API indicates the chat already had slide JPEGs. If no HTML sources are available, intent detection fails with `JOB_FAILURE_REFINEMENT_CONTEXT`. If sources exist, intent detection can choose a new post or an edit; an edit fails if the HTML fetch is incomplete.
 **Response:** `202 {"accepted": true, "job_id": "..."}` — dispatch is fire-and-forget; worker processes in background.
 **Implementation:** `apps/api/internal/jobs/worker_client.go` — `HTTPWorkerClient`
 **Configuration:** `WORKER_URL` (e.g., `http://worker:8000`), `WORKER_API_KEY`
@@ -87,7 +82,7 @@
   "progress": 88
 }
 ```
-The API stores `jobs.stage`, monotonic `jobs.progress`, and `jobs.heartbeat_at`. The public job status endpoint returns these fields so the SPA can show a more specific loading state and progress bar. Stuck-job cleanup uses `COALESCE(heartbeat_at, updated_at)` to avoid failing jobs that are still reporting progress.
+The API stores `jobs.stage`, monotonic `jobs.progress`, and `jobs.heartbeat_at`. The public job status endpoint returns stage and progress so the SPA can show a more specific loading state and progress bar. Stuck-job cleanup uses `COALESCE(heartbeat_at, updated_at)` to avoid failing jobs that are still reporting progress.
 
 ---
 
@@ -122,7 +117,7 @@ The API stores `jobs.stage`, monotonic `jobs.progress`, and `jobs.heartbeat_at`.
 
 **Service:** Playwright (headless Chromium, bundled)
 **Purpose:** Convert LLM-generated HTML slide markup into pixel-perfect JPEG images.
-**Implementation:** `apps/worker/app/nodes/render_to_jpeg.py`
+**Implementation:** `apps/worker/app/nodes/render_and_contrast.py`
 **Settings:**
 - Viewport: 1080 × 1350 px (4:5 portrait, alinhado ao feed Instagram)
 - Screenshot: tamanho do viewport apenas (`full_page=False`), evitando JPEG com altura errada se o HTML tiver overflow
@@ -138,7 +133,7 @@ The API stores `jobs.stage`, monotonic `jobs.progress`, and `jobs.heartbeat_at`.
 **Service:** PostgreSQL 16 (Alpine)
 **Purpose:** Primary data store for users, chats, messages, jobs, profiles, and references.
 **Configuration:** `DATABASE_URL` env var (libpq connection string)
-**Migrations:** golang-migrate v4; SQL files in `apps/api/internal/db/migrations/` numbered 001–009; applied automatically at API startup via `db.RunMigrations()`
+**Migrations:** golang-migrate v4; SQL files in `apps/api/internal/db/migrations/` numbered 001–016; applied automatically at API startup via `db.RunMigrations()`
 **Connection:** GORM + pgx/v5 driver; single connection pool shared across all repositories
 **Notable schema features:**
 - PostgreSQL native `uuid` type with `gen_random_uuid()` default

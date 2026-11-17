@@ -34,9 +34,9 @@ O **Post Mind** é uma plataforma web que apoia a criação de posts para o **In
 
 - Autenticação: cadastro (chave de segurança exibida uma vez), login, *refresh* (cookie HttpOnly), recuperação de senha.
 - **Perfil na aplicação:** `GET`/`PUT /profile` com textos de auditoria e marca; `POST`/`DELETE` referências de design (S3); `GET /setup/status` antes de enviar mensagens.
-- Chat: CRUD de chats, limite de **5** chats por usuário com remoção do mais antigo ao criar o 6.º.
+- Chat: CRUD de chats, limite de **5** chats por usuário com remoção do mais antigo ao criar o 6.º; limpeza de S3 em best-effort.
 - **Geração assíncrona:** `POST /chats/:id/messages` → **202** + `jobId`; *polling* `GET /chats/:id/jobs/:jobId/status`; conclusão via *callback* do worker para a API.
-- Pipeline no **worker:** LangGraph (perfil, validação de segurança do prompt, descrição de referências, otimização de *brief*, validação do *brief*, HTML de slides, validação de parse, **validação de design estático** (sem JS, sem assets remotos, tipografia Inter/GF, viewport 1080×1350), JPEG via Playwright, *upload* S3, *finalize*).
+- Pipeline no **worker:** LangGraph (perfil, validação de segurança, detecção de intenção, carregamento de HTML anterior, análise de anexos, planejamento, geração ou edição, validações, renderização e contraste via Playwright, upload S3 e callback).
 - Download de arquivos e ZIP; telas de histórico e chat na SPA (`apps/web`).
 - Segurança: *rate limit*, sanitização, CORS explícito, medidas descritas em `docs/CONCERNS.md` (dívidas técnicas conhecidas).
 
@@ -65,7 +65,7 @@ Monorepo: **React (Vite)** ↔ **API Go (Echo)** ↔ **PostgreSQL** e **S3**; a 
 | **API Go** | JWT, CRUD, perfis, S3 (presign, ZIP), criação de *jobs*, despacho HTTP ao worker, *callback* `/internal/jobs/:id/complete` |
 | **Worker Python** | Cadeia LangGraph, OpenAI, Playwright, *upload* para S3, *callback* à API |
 | **S3** | JPEGs e imagens de referência |
-| **PostgreSQL** | Usuários, chats, conteúdo, imagens, *jobs*, resumos, perfis e referências |
+| **PostgreSQL** | Usuários, chats, conteúdo, imagens, *jobs*, perfis, anexos e referências |
 
 **Diagrama (alinhado a `docs/ARCHITECTURE.md`):**
 
@@ -83,8 +83,8 @@ flowchart LR
 
 ### Fluxo — criação de conteúdo (mensagem → slides)
 
-1. Usuário com perfil configurado envia `POST /chats/:id/messages` (corpo de texto; referências já estão no perfil/S3).
-2. A API valida JWT, *rate limit* de LLM, perfil completo (`SETUP_REQUIRED` se faltar auditoria/marca), cria `ChatContent` do usuário, registro de `Job` e envia `POST {WORKER_URL}/jobs` com *payload* documentado em `docs/INTEGRATIONS.md`.
+1. Usuário com perfil configurado envia `POST /chats/:id/messages` (texto e até quatro imagens; referências de marca estão no perfil/S3).
+2. A API valida JWT, *rate limit* de LLM, perfil completo (`SETUP_REQUIRED` se faltar auditoria/marca), cria `ChatContent` do usuário, anexos e `Job` em processamento e envia `POST {WORKER_URL}/jobs` com *payload* documentado em `docs/INTEGRATIONS.md`.
 3. Resposta **202** com `jobId` (não devolve a mensagem do assistente no mesmo *request*).
 4. O worker executa o grafo; no fim chama `POST /internal/jobs/:id/complete` com *artifacts* (chaves S3 `slides/{jobId}/...`).
 5. A API grava resposta do assistente e imagens, marca o *job* como concluído.
@@ -101,13 +101,13 @@ Modelos OpenAI no worker: ver **`docs/INTEGRATIONS.md`** (defaults **`gpt-5.4`**
 
 **Público / *health*:** `GET /health`
 
-**Auth** (*rate limit* por IP: `POST /auth/register`, `login`, `refresh`, `recover-password`).
+**Auth** (*rate limit* por IP: `POST /auth/register`, `login`, `logout`, `refresh`, `recover-password`).
 
-**Protegido (JWT):** `GET /me`; `GET|POST|GET|DELETE /chats` e `chats/:id`; `GET /chats/:id/files`, `.../files/:fileId`, `.../files/download`; `GET /setup/status`; `GET|PUT /profile`; `POST /profile/references`, `DELETE /profile/references/:id`.
+**Protegido (JWT):** `GET /me`; `GET|POST /chats` e `GET|DELETE /chats/:id`; `GET /chats/:id/files`, `.../files/:fileId`, `.../files/download`, `.../contents/:contentId/download`; `GET /setup/status`; `GET|PUT /profile`; `POST /profile/references`, `DELETE /profile/references/:id`.
 
 **LLM** (*rate limit* por usuário): `POST /chats/:id/messages` (**202**), `GET /chats/:id/jobs/:jobId/status`; `GET /api/llm/ready`.
 
-**Interno (worker, chave partilhada):** `POST /internal/jobs/:id/complete`
+**Interno (worker, chave partilhada):** `POST /internal/jobs/:id/complete` e `POST /internal/jobs/:id/progress`
 
 **Exemplo assíncrono** — criar mensagem (contrato lógico):
 
@@ -140,13 +140,13 @@ Migrações: **SQL** numeradas em `apps/api/internal/db/migrations/` (golang-mig
 
 ### Integrações externas
 
-Fonte: **`docs/INTEGRATIONS.md`** (S3, OpenAI no worker e na API, contratos `DispatchPayload` e `CompleteBody`, Playwright, Compose).
+Fonte: **`docs/INTEGRATIONS.md`** (S3, OpenAI no worker, contratos `DispatchPayload` e `CompleteBody`, Playwright, Compose).
 
 ### Segurança (resumo; detalhe em secções anteriores do histórico + `docs/CONCERNS.md`)
 
 - Access token curto (memória no cliente), refresh em cookie HttpOnly, CORS, cabeçalhos de segurança.
 - *Rate limit* em memória (ver limites em `docs/ARCHITECTURE.md` e implicação multi-réplica em `docs/CONCERNS.md`).
-- Palavra-passe: HTTPS + bcrypt; extensão RSA no cliente comentada em `apps/web/src/lib/crypto.ts`.
+- Senha: transporte via HTTPS e armazenamento com bcrypt.
 
 ### Testes (autoridade: `docs/TESTING.md`)
 
@@ -164,8 +164,8 @@ Fonte: **`docs/INTEGRATIONS.md`** (S3, OpenAI no worker e na API, contratos `Dis
 | Indisponibilidade OpenAI | Tratamento de erros no worker e API; *jobs* `failed` com mensagem |
 | Custos de API | Uso de OpenAI no worker; `max_tokens` nos nós; monitorização manual |
 | *Rate limit* em memória | Não partilhado entre réplicas; Redis como evolução |
-| URLs S3 presign expiradas na BD | Documentado em `CONCERNS` — preferir *presign* à leitura ou só `s3_key` |
-| *Jobs* presos em *processing* | Crashes do worker; falta *timeout* de reconciliação (ideia em `CONCERNS`) |
+| URLs S3 presign | Expiram; consultas renovam URLs a partir das chaves S3 |
+| *Jobs* interrompidos | Limpeza periódica marca jobs sem progresso como falhos |
 | Playwright no worker | *Dockerfile* do worker com Chromium; falha de render → *job* falhado, não a API a invocar *script* Node na API |
 
 ---
@@ -210,7 +210,7 @@ Referência cruzada: **`docs/ARCHITECTURE.md`** (substitui documentos de arquite
 | 1 | Limite de 5 chats | Remoção automática do mais antigo ao criar o 6.º; usuário pode apagar antes. |
 | 2 | Redis | Opcional; *V1* com *rate limit* em memória. |
 | 3 | *Refresh* | HttpOnly *cookie* + *access* em memória. |
-| 4 | Geração de *slides* | LLM gera **HTML** (blocos); gate `design_validate` verifica estaticamente (sem JS, sem assets remotos, tipografia Inter/GF, viewport 1080×1350, até 3 retentativas); **Playwright** no **worker** exporta **JPEG** 1080×1350 (4:5, qualidade ~92). Modelos: ver `docs/INTEGRATIONS.md` (não DALL·E). |
+| 4 | Geração de *slides* | LLM gera pacote JSON com HTML por slide; `validate_design` verifica regras estáticas e pode solicitar nova geração; **Playwright** no **worker** exporta **JPEG** 1080×1350 (4:5, qualidade ~92). Modelos: ver `docs/INTEGRATIONS.md` (não DALL·E). |
 | 5 | *Tokens* | *Max tokens* no gerador p.ex. 4000 no nó de *slides*; afinar com dados reais. |
 
 ---

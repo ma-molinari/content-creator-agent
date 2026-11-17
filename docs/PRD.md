@@ -24,11 +24,11 @@ A skill **`map-instagram-profile`** descreve a **estrutura de captura offline** 
 
 ## Experiência principal e histórico
 
-- **Tela principal** com entrada de texto (e possibilidade de anexar imagens de referência, conforme a UI) e, quando aplicável, apoio a bons padrões de *prompt* (alinhado a *Prompt Engineering Meta* e `create-social-post`).
+- **Tela principal** com entrada de texto e até 4 imagens de 5 MB por mensagem e, quando aplicável, apoio a bons padrões de *prompt* (alinhado a *Prompt Engineering Meta* e `create-social-post`).
 
 - A geração de slides é **assíncrona**: a API responde `202` com `jobId` e o cliente consulta o estado do trabalho até conclusão; depois há visualização e *download* de ficheiro único ou `.zip` (ver `docs/ARCHITECTURE.md`).
 
-- **Histórico:** até **5** chats ativos por usuário; ao criar um 6.º, remove-se o mais antigo (e artefatos S3 associados) ou o usuário pode apagar manualmente. Download em `.jpg` (slides), novas mensagens no mesmo chat para iteração.
+- **Histórico:** até **5** chats ativos por usuário; ao criar um 6.º, remove-se o mais antigo (com limpeza dos artefatos S3 em best-effort) ou o usuário pode apagar manualmente. Download em `.jpg` (slides), novas mensagens no mesmo chat para criar ou refinar slides existentes.
 
 ## Trabalho do agente
 
@@ -38,7 +38,7 @@ A skill **`map-instagram-profile`** descreve a **estrutura de captura offline** 
 
 - **Em trânsito:** TLS (HTTPS) em produção; refresh token em cookie com `COOKIE_SECURE` em HTTPS (`docs/RUNBOOK.md`).
 - **No servidor:** palavras-passe e chave de segurança com *hash* (bcrypt); *rate limiting* na API, sanitização de entrada, boas práticas contra *prompt injection* e *SQL injection* (GORM parametrizado). CORS com origens explícitas.
-- Criptografia **RSA** extra em cliente ↔ API está **prevista** como evolução (`apps/web/src/lib/crypto.ts`); o V1 transporta *password* em JSON sobre HTTPS com *hash* no servidor.
+- Criptografia **RSA** extra em cliente ↔ API é uma possível evolução; o V1 transporta *password* em JSON sobre HTTPS com *hash* no servidor.
 
 ## Tecnologia (alinhada a `docs/STACK.md`)
 
@@ -57,7 +57,7 @@ A skill **`map-instagram-profile`** descreve a **estrutura de captura offline** 
 
 ### LLM (geração e suporte)
 
-- **Worker:** OpenAI — defaults **`gpt-5.4`** para chat (`optimize_prompt`, `generate_slides` via `OPENAI_CHAT_MODEL`) e visão (`describe_references` via `REFERENCE_VISION_MODEL`); ver `apps/worker/app/config.py` e `docs/INTEGRATIONS.md`.
+- **Worker:** OpenAI — defaults **`gpt-5.4`** para chat (geração e edição via `OPENAI_CHAT_MODEL`) e visão (`describe_references` via `REFERENCE_VISION_MODEL`); ver `apps/worker/app/config.py` e `docs/INTEGRATIONS.md`.
 ### Banco e rede
 
 - **PostgreSQL** (16 no Compose).

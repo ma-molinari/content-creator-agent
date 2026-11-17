@@ -48,7 +48,7 @@
 **Location:** `apps/api/internal/jobs/`, `apps/worker/app/main.py`
 **Purpose:** offload long-running generation work without blocking the HTTP request.
 **Implementation:**
-1. `POST /chats/:id/messages` → creates `Job{status: pending}` in DB, dispatches `POST /jobs` to worker, returns `202 {jobId}`.
+1. `POST /chats/:id/messages` → creates `Job{status: processing}` in DB, dispatches `POST /jobs` to worker, returns `202 {jobId}`.
 2. Worker receives the dispatch, starts a FastAPI `BackgroundTask` running the LangGraph graph.
 3. On completion the worker calls back `POST /internal/jobs/:id/complete` (authenticated by shared `X-Worker-API-Key`), which persists the assistant message + slide image records inside a DB transaction and sets `status: done` (or `failed`).
 4. Frontend polls `GET /chats/:id/jobs/:jobId/status` until terminal status.
@@ -57,27 +57,7 @@
 
 **Location:** `apps/worker/app/graph.py`, `apps/worker/app/nodes/`
 **Purpose:** structured multi-step AI workflow with conditional retry.
-**Node sequence:**
-
-```
-load_profile → prompt_security_validate ─┬─► describe_references → optimize_prompt → validate_brief ─┬─► generate_slides
-              (rejected → finalize)       │                         (retry → optimize_prompt)          │
-                                          │   parse_validate ─┬─► design_validate ─┬─► render_to_jpeg → upload_assets → finalize → END
-                                          │                   └─► generate_slides  └─► generate_slides
-                                          │   (retry on parse)    (retry on design)
-```
-
-- `load_profile` — fetches profile context (audit + brand text) from Go API
-- `prompt_security_validate` — deterministic safety checks on the raw user message; routes to `finalize` if rejected
-- `describe_references` — vision model (`REFERENCE_VISION_MODEL`, default `gpt-5.4`) describes S3 design reference images
-- `optimize_prompt` — rewrites the user brief into a structured generation brief
-- `validate_brief` — validates the optimized brief; retries `optimize_prompt` up to a budget, then routes to `generate_slides` or `finalize`
-- `generate_slides` — produces HTML slide blocks via configurable chat model (`OPENAI_CHAT_MODEL`, default `gpt-5.4`)
-- `parse_validate` — parses the delimited HTML output; routes to retry (`generate_slides`) or continue
-- `design_validate` — static HTML/CSS quality gate (`app/slide_design_checks.py`): no JS, no remote raster assets, Google Fonts only, Inter typography, 1080×1350 viewport; up to 3 retries back to `generate_slides`
-- `render_to_jpeg` — runs Playwright (headless Chromium) at 1080×1350 (4:5) to screenshot each slide
-- `upload_assets` — uploads JPEG bytes to S3 under `slides/{jobId}/`
-- `finalize` — calls back the Go API `/internal/jobs/:id/complete` with artifact keys
+**Fluxo atual:** `prepare_input` → `security_validate` → `profile_overview` → `intent_detect`. Em edição, `load_existing_slides` recupera os HTMLs anteriores. Em seguida: `attachment_analyze` → `build_generation_plan` → `generate_or_edit_slides` → `validate_slide_package` → `validate_design` → `validate_attachment_usage` → `render_and_contrast` → `upload_assets` → `finalize`. As validações podem solicitar nova geração ou encerrar com falha. O worker tenta informar progresso à API antes de cada etapa; operações longas sem novos eventos podem exceder o limite da limpeza. O HTML e os JPEGs são armazenados no S3; Playwright renderiza em 1080×1350.
 
 ### JWT dual-token auth
 
@@ -113,7 +93,7 @@ load_profile → prompt_security_validate ─┬─► describe_references → o
 User types message
   → POST /chats/:id/messages (Bearer token)
   → [API] creates user ChatContent row
-  → [API] creates Job{status: pending}
+  → [API] creates Job{status: processing}
   → [API] POST http://worker:8000/jobs  (X-Worker-API-Key)
   → [API] returns 202 {jobId}
   → [Worker] LangGraph ainvoke in background task

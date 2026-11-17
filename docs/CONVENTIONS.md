@@ -97,7 +97,7 @@ func mapChatErr(err error) *echo.HTTPError {
 ### Naming conventions
 
 **Files / modules:** snake_case.
-Examples: `generate_slides.py`, `render_to_jpeg.py`, `parse_validate.py`
+Examples: `generate_or_edit_slides.py`, `render_and_contrast.py`, `validate_slide_package.py`
 
 **Classes:** PascalCase.
 Examples: `DispatchPayload`, `AgentState`, `SlideItem`, `RenderedSlide`

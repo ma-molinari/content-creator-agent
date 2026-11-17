@@ -24,16 +24,16 @@ React SPA (Vite/TS)  ←— HTTPS/REST + JWT —→  Go API (Echo, :8080)
 
 | Serviço | Pasta | Responsabilidade |
 |---------|-------|------------------|
-| **API Go** | `apps/api/` | Auth (JWT dual-token), CRUD chats, perfil, S3 presign/ZIP, dispatch de jobs, callback do worker, cron de sumarização |
-| **Worker Python** | `apps/worker/` | Pipeline LangGraph (perfil → security validate → describe refs → optimize prompt → validate brief → generate HTML slides → parse → **design validate** → Playwright JPEG → upload S3 → finalize callback) |
+| **API Go** | `apps/api/` | Auth (JWT dual-token), CRUD chats, perfil, S3 presign/ZIP, dispatch de jobs, callbacks de progresso e conclusão, limpeza de jobs travados |
+| **Worker Python** | `apps/worker/` | LangGraph: segurança, perfil, intenção, anexos, geração/edição, validações, Playwright, S3 e callback |
 | **SPA React** | `apps/web/` | Auth, perfil, chat, poll de jobs, visualização e download de slides |
 
 ### Fluxo principal (mensagem → slides)
 
 1. Usuário envia `POST /chats/:id/messages` (precisa de perfil configurado — gate `SETUP_REQUIRED`).
-2. API cria `ChatContent` + `Job{pending}`, despacha `POST /jobs` ao worker, retorna **202** + `jobId`.
+2. API cria `ChatContent` + `Job{processing}`, despacha `POST /jobs` ao worker, retorna **202** + `jobId`.
 3. Worker executa grafo LangGraph, renderiza HTML→JPEG via Playwright (1080×1350, 4:5), faz upload S3.
-4. Worker chama `POST /internal/jobs/:id/complete` com artifacts (chaves S3) e texto do assistente.
+4. Worker informa etapas por `POST /internal/jobs/:id/progress` e conclui via `POST /internal/jobs/:id/complete` com artifacts e texto do assistente.
 5. API persiste resposta + imagens em transação, marca `Job{done}`.
 6. Frontend faz poll `GET /chats/:id/jobs/:jobId/status` até terminal, carrega thread atualizada.
 
@@ -51,13 +51,12 @@ content-creator-agent/
 │   │       ├── chat/           # CRUD, PostMessage, file download
 │   │       ├── config/         # Env-based Config
 │   │       ├── cron/           # robfig/cron scheduler
-│   │       ├── db/             # GORM models, migrations (001–009), connection
+│   │       ├── db/             # GORM models, migrations (001–016), connection
 │   │       ├── httperr/        # Internal() → log + 500
-│   │       ├── jobs/           # Job repo, worker client, complete handler, key validation
+│   │       ├── jobs/           # Dispatch, progresso, conclusão e limpeza de jobs
 │   │       ├── middleware/     # JWT, CORS, security headers, rate limit
 │   │       ├── profile/        # UserProfile + references
-│   │       ├── storage/        # S3 interface + impl
-│   │       └── summarizer/     # OpenAI client, summarize service
+│   │       └── storage/        # S3 interface + impl
 │   │   └── integration/        # Integration tests (build tag: integration)
 │   │
 │   ├── worker/                 # Python LangGraph Worker
@@ -91,7 +90,7 @@ content-creator-agent/
 
 ### Go API
 - Go (ver `go.mod`), Echo v4, GORM + pgx/v5, golang-migrate, golang-jwt/v5, bcrypt
-- ulule/limiter (rate limit em memória), robfig/cron, aws-sdk-go-v2, sashabaranov/go-openai
+- ulule/limiter (rate limit em memória), robfig/cron, aws-sdk-go-v2
 
 ### Python Worker
 - Python ≥3.9, FastAPI + Uvicorn, LangGraph ≥0.2, LangChain-OpenAI ≥0.2
@@ -102,7 +101,7 @@ content-creator-agent/
 - Zustand v5, axios, Tailwind CSS v4
 
 ### Infraestrutura
-- PostgreSQL 16, AWS S3, Docker Compose, OpenAI API (defaults **gpt-5.4-mini**; ver `docs/INTEGRATIONS.md`)
+- PostgreSQL 16, AWS S3, Docker Compose, OpenAI API (defaults **gpt-5.4**; ver `docs/INTEGRATIONS.md`)
 
 ---
 
@@ -141,13 +140,14 @@ Erros acumulados em `state["errors"]`, não lançados. Logging com `node=<name> 
 | `chats` | Por usuário, post_type (single/carousel), título |
 | `chat_content` | Mensagens (role: user/assistant) |
 | `chat_content_image` | s3_key, url (presign), slide_number |
-| `chat_content_resume` | Resumos gerados pelo cron |
+| `chat_content_attachment` | Imagens anexadas às mensagens |
+| `refresh_tokens` | Sessões para rotação e revogação |
 | `jobs` | Status (pending/processing/done/failed), error_msg |
 | `user_profiles` | audit_text, brand_text |
 | `user_profile_references` | Chaves S3 de imagens de referência |
 
 PKs: UUID com `gen_random_uuid()`. Enums PostgreSQL nativos.
-Migrações SQL em `apps/api/internal/db/migrations/` (001–009).
+Migrações SQL em `apps/api/internal/db/migrations/` (001–016).
 Modelos GORM em `apps/api/internal/db/models.go`.
 
 ---
@@ -156,12 +156,12 @@ Modelos GORM em `apps/api/internal/db/models.go`.
 
 **Público:** `GET /health`
 
-**Auth (rate limit IP):** `POST /auth/register`, `login`, `refresh`, `recover-password`
+**Auth (rate limit IP):** `POST /auth/register`, `login`, `logout`, `refresh`, `recover-password`
 
 **Protegido (JWT):**
 - `GET /me`
 - `GET|POST /chats`, `GET|DELETE /chats/:id`
-- `GET /chats/:id/files`, `.../files/:fileId`, `.../files/download`
+- `GET /chats/:id/files`, `.../files/:fileId`, `.../files/download`, `.../contents/:contentId/download`
 - `GET /setup/status`
 - `GET|PUT /profile`
 - `POST /profile/references`, `DELETE /profile/references/:id`
@@ -171,17 +171,18 @@ Modelos GORM em `apps/api/internal/db/models.go`.
 - `GET /chats/:id/jobs/:jobId/status`
 - `GET /api/llm/ready`
 
-**Interno (X-Worker-API-Key):** `POST /internal/jobs/:id/complete`
+**Interno (X-Worker-API-Key):** `POST /internal/jobs/:id/complete` e `.../progress`
 
 ---
 
 ## Regras de negócio importantes
 
 - **Setup gate:** perfil precisa de `audit_text` e `brand_text` preenchidos antes de enviar mensagens.
-- **Limite de chats:** máx 5 por usuário; ao criar o 6.º, o mais antigo é removido (com artefatos S3).
-- **Slides:** LLM gera HTML com blocos delimitados, Playwright exporta JPEG 1080×1350 (4:5), qualidade 92.
-- **Sumarização:** cron diário (padrão `0 2 * * *` UTC), só se `OPENAI_API_KEY` estiver definida.
-- **Referências de design:** até 8 imagens (5MB cada) no S3, usadas pelo worker para contextualizar geração.
+- **Limite de chats:** máx 5 por usuário; ao criar o 6.º, o mais antigo é removido e a limpeza S3 é best-effort.
+- **Slides:** LLM gera pacote JSON com HTML por slide, Playwright exporta JPEG 1080×1350 (4:5), qualidade 92.
+- **Jobs:** progresso por etapa e limpeza periódica de jobs sem atualização; padrão de 20 minutos.
+- **Anexos:** até 4 imagens de 5 MB por mensagem; HTMLs anteriores permitem refinar slides.
+- **Referências de design:** por padrão até 8 imagens (5MB cada) no S3, usadas pelo worker para contextualizar geração.
 
 ---
 
@@ -203,16 +204,14 @@ Prioridades resumidas (detalhe completo em `docs/CONCERNS.md`):
 | # | Severidade | Tema |
 |---|-----------|------|
 | 1 | HIGH | Rate limit em memória — quebra em múltiplas réplicas |
-| 2 | HIGH | URLs S3 presign expiram (1h) mas ficam na BD |
-| 3 | HIGH | Jobs podem ficar presos em `processing` eternamente |
-| 4 | MEDIUM | Refresh na BD com rotação/revogação; endurecimento opcional (ver `docs/CONCERNS.md` §4) |
-| 5 | MEDIUM | `go.mod` declara Go 1.25 (não existe) |
-| 6 | MEDIUM | Sem paginação em listagem de chats/mensagens |
-| 7 | MEDIUM | Sumarizador no mesmo processo pode pressionar DB pool |
-| 8 | MEDIUM | `llm.invoke` síncrono bloqueia event loop do worker |
-| 9 | LOW | Validação S3 key só no callback de jobs |
-| 10 | LOW | Sem CI/CD no repositório |
-| 11 | LOW | `dist/` commitado no web |
+| 2 | HIGH | URLs S3 armazenadas expiram; a leitura renova URLs |
+| 3 | HIGH | Jobs interrompidos dependem da limpeza periódica |
+| 4 | HIGH | Refresh na BD com rotação/revogação; endurecimento opcional (ver `docs/CONCERNS.md` §4) |
+| 5 | MEDIUM | Verificar compatibilidade da versão Go declarada com o ambiente |
+| 6 | MEDIUM | Mensagens de chats não são paginadas |
+| 7 | MEDIUM | Avaliar concorrência do worker sob carga |
+| 8 | LOW | Revisar validação de chaves S3 nas integrações |
+| 9 | LOW | Sem configuração de CI/CD versionada |
 
 ---
 
@@ -226,7 +225,7 @@ Prioridades resumidas (detalhe completo em `docs/CONCERNS.md`):
 | `WORKER_URL` | API | Ex: `http://worker:8000` |
 | `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_S3_BUCKET` | API + Worker | S3 |
 | `COOKIE_SECURE` | API | `true` em HTTPS |
-| `OPENAI_API_KEY` | API + Worker | Obrigatório no worker; opcional na API (habilita cron) |
+| `OPENAI_API_KEY` | Worker | Obrigatório para geração |
 
 ---
 

@@ -56,7 +56,7 @@ apps/api/
 │   │   ├── models.go                # All GORM model structs
 │   │   ├── db.go                    # GORM connection factory
 │   │   ├── migrate.go               # golang-migrate runner
-│   │   └── migrations/              # Numbered SQL up/down files (001–009)
+│   │   └── migrations/              # Numbered SQL up/down files (001–016)
 │   ├── httperr/                     # Internal(prefix, err) → 500 helper
 │   ├── jobs/
 │   │   ├── handler.go               # POST /internal/jobs/:id/complete
@@ -66,7 +66,7 @@ apps/api/
 │   │   └── slide_key.go             # S3 key validation (path traversal prevention)
 │   ├── middleware/
 │   │   ├── jwt.go                   # Bearer token validation, UserID context key
-│   │   ├── rate_limit.go            # AuthByIP (20/5min), LLMByUser (10/1min)
+│   │   ├── rate_limit.go            # AuthByIP (20/5min), LLMByUser (20/1min)
 │   │   └── security.go              # Security headers + CORS allowlist
 │   ├── profile/
 │   │   ├── handler.go               # GET/PUT /profile, POST/DELETE /profile/references
@@ -87,7 +87,7 @@ apps/api/
 
 ### `apps/worker` — Python LangGraph Worker
 
-**Purpose:** AI pipeline — prompt optimization, HTML slide generation, Playwright rendering, S3 upload, callback.
+**Purpose:** AI pipeline — planning, HTML slide generation and editing, Playwright rendering, S3 upload, callback.
 
 ```
 apps/worker/
@@ -98,15 +98,14 @@ apps/worker/
 │   ├── state.py             # AgentState TypedDict (incl. design_retry_count)
 │   ├── slide_design_checks.py  # Static HTML/CSS checks (no JS, remote assets, fonts, viewport)
 │   └── nodes/
-│       ├── load_profile.py              # Fetches audit/brand text from Go API
-│       ├── prompt_security_validate.py  # Deterministic safety gate on raw user message
-│       ├── describe_references.py       # Vision model (default gpt-5.4) on design reference images
-│       ├── optimize_prompt.py           # Rewrites user brief → structured brief
-│       ├── validate_brief.py            # Validates optimized brief; retries or fails
-│       ├── generate_slides.py           # Chat model (default gpt-5.4) → HTML slide blocks
-│       ├── parse_validate.py            # Parses delimited output; triggers retry
-│       ├── design_validate.py           # Static design QA gate (uses slide_design_checks); up to 3 retries
-│       ├── render_to_jpeg.py            # Playwright screenshot per slide
+│       ├── prepare_input.py             # Prepara entrada recebida da API
+│       ├── security_validate.py  # Deterministic safety gate on raw user message
+│       ├── intent_detect.py              # Detecta criação ou refinamento
+│       ├── build_generation_plan.py      # Plano de geração e anexos
+│       ├── generate_or_edit_slides.py    # Gera ou edita HTML dos slides
+│       ├── validate_slide_package.py    # Valida pacote de slides
+│       ├── validate_design.py           # Valida HTML e CSS
+│       ├── render_and_contrast.py       # Playwright e correção de contraste
 │       ├── upload_assets.py             # boto3 S3 upload
 │       └── finalize.py                  # Callback to Go API + assemble caption
 ├── prompts/             # System prompt markdown files (loaded at runtime)
@@ -136,17 +135,18 @@ apps/web/src/
 │   ├── composer/        # ComposerBar (message input)
 │   ├── profile/         # ProfileBrandGuide
 │   ├── shell/           # AppShell, SidebarRail, NavItem
-│   ├── slides/          # SlideViewer, DownloadButton
+│   ├── slides/          # SlideViewer, AuthenticatedSlideImage
 │   └── ui/              # AlertDialog, ToastContainer
 ├── lib/
 │   ├── queryClient.ts   # TanStack Query client config
 │   ├── toast.ts         # Toast helper
-│   └── crypto.ts        # Client-side crypto util
+│   └── sanitizeUserInput.ts  # Input sanitization
 ├── pages/
 │   ├── Chat.tsx
 │   ├── History.tsx
 │   ├── Login.tsx
 │   ├── Register.tsx
+│   ├── RecoverPassword.tsx
 │   └── ProfileSettings.tsx
 ├── router/
 │   └── index.tsx        # React Router routes + ProtectedRoute guards
@@ -175,7 +175,7 @@ apps/web/src/
 
 **Database schema:**
 - Models: `apps/api/internal/db/models.go`
-- Migrations: `apps/api/internal/db/migrations/` (001–009)
+- Migrations: `apps/api/internal/db/migrations/` (001–016)
 
 **Infrastructure / configuration:**
 - Docker: `docker-compose.yml`, `docker-compose.prod.yml`
