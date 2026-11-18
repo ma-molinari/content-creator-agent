@@ -54,3 +54,12 @@ def test_partial_upload_includes_uncertain_key_for_reconciliation():
     with pytest.raises(AssetCopyError) as exc:
         asyncio.run(copy_version_assets(document(["a", "b"]), job_id=job_id, bucket="test", authorized_sources={"a": "x", "b": "y"}, client=client))
     assert exc.value.attempted_keys == (f"slides/{job_id}/assets/a.png", f"slides/{job_id}/assets/b.png")
+
+
+def test_dispatch_carries_authorized_sources():
+    from app.job_payload import DispatchPayload, initial_state
+
+    job_id, user_id, chat_id = uuid4(), uuid4(), uuid4()
+    payload = DispatchPayload(job_id=job_id, user_id=user_id, chat_id=chat_id,
+                              authorized_asset_sources={"asset": "users/u/reference.jpg"})
+    assert initial_state(payload)["authorized_asset_sources"] == {"asset": "users/u/reference.jpg"}

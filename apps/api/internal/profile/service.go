@@ -115,6 +115,22 @@ func (s *Service) ListReferenceS3Keys(ctx context.Context, userID uuid.UUID) ([]
 	return s.refRepo.ListS3KeysByUserID(ctx, userID)
 }
 
+// ListReferenceSources returns user-owned reference IDs and S3 keys for worker dispatch.
+func (s *Service) ListReferenceSources(ctx context.Context, userID uuid.UUID) (map[string]string, error) {
+	out := make(map[string]string)
+	if s.refRepo == nil {
+		return out, nil
+	}
+	rows, err := s.refRepo.ListByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		out[row.ID.String()] = row.S3Key
+	}
+	return out, nil
+}
+
 // Sentinel errors for reference uploads and deletes.
 var (
 	ErrProfileRefsNotAvailable = errors.New("profile: design references are not available")

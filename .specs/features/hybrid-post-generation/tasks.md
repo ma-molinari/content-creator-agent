@@ -93,8 +93,8 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 **Contexto:** `s3_image_utils.py`, `nodes/upload_assets.py`, `attachment_analyze.py`, `apps/api/internal/profile/service.go` e `jobs/worker_client.go`; o dispatch atual fornece chaves de referências do perfil, não seus IDs. Estender o contrato para fornecer mapeamento ID→chave autorizado para anexos, referências de perfil e assets herdados da base. Cópias incluem recursos herdados e não dependem do perfil permanecer inalterado.
 **Dependências:** T01. **Requisitos:** HBG-07, HBG-10, HBG-12.
 **Pronto quando:**
-- [ ] Worker copia assets de um mapeamento autorizado e retorna chaves novas; faltam validação do mapeamento pela API, persistência do manifesto e integração ao pipeline.
-- [ ] Testes isolados cobrem mapeamento, cópia, ausência de ID e falha parcial; falta testar ownership na API e persistência/releitura do manifesto.
+- [ ] Worker copia assets de um mapeamento autorizado e retorna chaves novas; API envia referências próprias e anexos do chat. Faltam autorização dos assets herdados pelo manifesto da base, persistência do manifesto e integração ao pipeline.
+- [ ] Testes isolados cobrem cópia, ausência de ID e falha parcial; teste Postgres verifica isolamento das referências do perfil. Falta testar persistência/releitura e ownership de assets herdados.
 **Verificar:** pytest dos serviços de assets e upload. **Commit:** `feat(worker): preservar assets por versão`.
 
 ### T08 — Migração e modelos de versionamento [P] — concluída

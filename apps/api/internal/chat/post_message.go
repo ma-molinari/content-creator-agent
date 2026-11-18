@@ -326,7 +326,26 @@ func (s *Service) PostMessageWithOptions(ctx context.Context, userID, chatID uui
 			HTMLS3Key:   ref.HTMLS3Key,
 		})
 	}
+	var authorizedSources map[string]string
+	if job.PostFormat == db.PostFormatStructuredV1 {
+		authorizedSources = make(map[string]string)
+		if s.profileSvc != nil {
+			refs, err := s.profileSvc.ListReferenceSources(ctx, userID)
+			if err != nil {
+				msg := "Não foi possível obter as referências do perfil."
+				_ = s.jobsRepo.UpdateStatus(ctx, job.ID, db.JobStatusFailed, &msg)
+				return nil, err
+			}
+			for id, key := range refs {
+				authorizedSources[id] = key
+			}
+		}
+		for _, attachment := range knownChatAtts {
+			authorizedSources[attachment.ID.String()] = attachment.S3Key
+		}
+	}
 	payload := jobs.DispatchPayload{
+		AuthorizedAssetSources: authorizedSources,
 		PostFormat:             string(job.PostFormat),
 		GenerationMode:         options.Mode,
 		BaseVersionID:          job.ExpectedVersionID,

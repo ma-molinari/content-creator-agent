@@ -73,6 +73,7 @@ class SlidePackage(TypedDict):
 
 
 class AgentState(TypedDict):
+    authorized_asset_sources: NotRequired[dict[str, str]]
     job_id: str
     user_id: str
     chat_id: str

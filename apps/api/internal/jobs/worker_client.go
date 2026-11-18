@@ -16,25 +16,26 @@ import (
 
 // DispatchPayload is sent to POST {WORKER_URL}/jobs.
 type DispatchPayload struct {
-	PostFormat            string                `json:"post_format,omitempty"`
-	GenerationMode        string                `json:"generation_mode,omitempty"`
-	BaseVersionID         *uuid.UUID            `json:"base_version_id,omitempty"`
-	DocumentS3Key         string                `json:"document_s3_key,omitempty"`
-	JobID                 uuid.UUID             `json:"job_id"`
-	UserID                uuid.UUID             `json:"user_id"`
-	ChatID                uuid.UUID             `json:"chat_id"`
-	MessageID             uuid.UUID             `json:"message_id,omitempty"`
-	ChatPostType          string                `json:"chat_post_type,omitempty"`
-	RawMessage            string                `json:"raw_message"`
-	AuditText             string                `json:"audit_text"`
-	BrandText             string                `json:"brand_text"`
-	ReferenceS3Keys       []string              `json:"reference_s3_keys,omitempty"`
-	UserAttachmentS3Keys  []string              `json:"user_attachment_s3_keys,omitempty"`
-	UserAttachments       []DispatchAttachment  `json:"user_attachments,omitempty"`
-	KnownAttachments      []DispatchAttachment  `json:"known_attachments,omitempty"`
-	ExistingSlideHTMLKeys []string              `json:"existing_slide_html_s3_keys,omitempty"`
-	ExistingSlideHTML     []DispatchSlideSource `json:"existing_slide_html,omitempty"`
-	RequestedSlideCount   *int                  `json:"requested_slide_count,omitempty"`
+	AuthorizedAssetSources map[string]string     `json:"authorized_asset_sources,omitempty"`
+	PostFormat             string                `json:"post_format,omitempty"`
+	GenerationMode         string                `json:"generation_mode,omitempty"`
+	BaseVersionID          *uuid.UUID            `json:"base_version_id,omitempty"`
+	DocumentS3Key          string                `json:"document_s3_key,omitempty"`
+	JobID                  uuid.UUID             `json:"job_id"`
+	UserID                 uuid.UUID             `json:"user_id"`
+	ChatID                 uuid.UUID             `json:"chat_id"`
+	MessageID              uuid.UUID             `json:"message_id,omitempty"`
+	ChatPostType           string                `json:"chat_post_type,omitempty"`
+	RawMessage             string                `json:"raw_message"`
+	AuditText              string                `json:"audit_text"`
+	BrandText              string                `json:"brand_text"`
+	ReferenceS3Keys        []string              `json:"reference_s3_keys,omitempty"`
+	UserAttachmentS3Keys   []string              `json:"user_attachment_s3_keys,omitempty"`
+	UserAttachments        []DispatchAttachment  `json:"user_attachments,omitempty"`
+	KnownAttachments       []DispatchAttachment  `json:"known_attachments,omitempty"`
+	ExistingSlideHTMLKeys  []string              `json:"existing_slide_html_s3_keys,omitempty"`
+	ExistingSlideHTML      []DispatchSlideSource `json:"existing_slide_html,omitempty"`
+	RequestedSlideCount    *int                  `json:"requested_slide_count,omitempty"`
 	// ExpectsSlideRefinement: chat already has a prior assistant JPEG slide artifact;
 	// worker must refine from stored HTML keys or surface a refinement error.
 	ExpectsSlideRefinement bool `json:"expects_slide_refinement,omitempty"`
