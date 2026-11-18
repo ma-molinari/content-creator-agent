@@ -177,14 +177,14 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 - [ ] Interface e API mantêm chats legados, visualização/download e isolamento entre usuários; testes cobrem mudança concorrente. Rejeição de cliente antigo e negociação completa são concluídas em T17.
 **Verificar:** testes web e Go relevantes, build web e fluxo com API simulada. **Commit:** `feat(web): editar a versão atual do post`.
 
-### T16 — Reconciliação segura de objetos órfãos [P]
+### T16 — Reconciliação segura de objetos órfãos [P] — implementação parcial
 
 **Objetivo:** identificar e remover objetos não referenciados após estado terminal seguro, com inventário durável e coordenação com callback/upload.
 **Contexto:** `internal/cron/`, `jobs/stuck.go`, `storage/s3.go` e limpeza do worker; não excluir após timeout de callback sem verificar estado. Definir mecanismo operacional antes de ativar.
 **Dependências:** T08, T10, T11, T12. **Requisitos:** HBG-06, HBG-07, HBG-11, HBG-12.
 **Pronto quando:**
-- [ ] Reconciliação implementa mecanismo operacional documentado para inventário ou descoberta de uploads parciais, inclusive `slide_package.json`, coordena terminação e callback com remoção, usa janela de segurança e verificação de referências e reprocessa falhas sem dados sensíveis.
-- [ ] Testes cobrem job ativo/travado, upload parcial, callback incerto, exclusão repetida e recuperação após falha do processo.
+- [ ] Reconciliação implementa varredura de inventários e jobs falhos com verificação de estado, referências e janela mínima de 24h; agendamento desativado por padrão. Faltam paginação, gestão de retenção dos inventários e validação operacional antes de habilitar.
+- [ ] Teste Postgres cobre jobs ativos/falhos, objetos recentes/referenciados, repetição e falha temporária; faltam testes de callback incerto e recuperação real de processo.
 **Verificar:** testes de integração de jobs/armazenamento com tempo e S3 controlados. **Commit:** `feat(api): reconciliar artefatos órfãos com segurança`.
 
 ### T17 — Capacidade, flag e observabilidade [P]

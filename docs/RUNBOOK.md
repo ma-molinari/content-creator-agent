@@ -13,10 +13,12 @@
 | `OPENAI_API_KEY` | Worker | Obrigatória para geração no worker |
 | `STUCK_JOB_CRON` | API | Opcional; cron UTC para marcar jobs em `processing` há muito tempo como falha (padrão `*/10 * * * *`). Ausente ou vazio usa o padrão. |
 | `STUCK_JOB_PROCESSING_MINUTES` | API | Idade mínima do último heartbeat ou `jobs.updated_at` em `processing` para falhar (padrão `20`). Valores baixos podem falhar jobs legítimos lentos. |
+| `ARTIFACT_RECONCILE_ENABLED` | API | Padrão `false`; manter desativado até validar a operação e os limites de reconciliação. |
+| `ARTIFACT_RECONCILE_CRON`, `ARTIFACT_RECONCILE_GRACE_HOURS` | API | Padrões `0 4 * * *` UTC e 24 horas; limite mínimo de 24 horas. |
 
 **Segurança operacional:** não escrever `WORKER_API_KEY` nem outros segredos em logs ou tickets. Rotacionar `WORKER_API_KEY` após suspeita de fuga. Endpoints `POST /internal/*` devem ficar apenas em rede privada (VPN, mesh interno, security group), não expostos à internet pública. Objetos de slides no S3 usam sempre chaves `slides/{job_id}/…` (UUID do job); o callback do worker só aceita chaves com esse prefixo.
 
-Veja também `apps/api/.env.example` e `apps/worker/.env.example`.
+A reconciliação ainda mantém inventários permanentemente e percorre jobs falhos sem paginação; monitore crescimento e custo e não habilite até validar esses limites. Veja também `apps/api/.env.example` e `apps/worker/.env.example`.
 
 ## Deploy com Docker Compose (produção)
 

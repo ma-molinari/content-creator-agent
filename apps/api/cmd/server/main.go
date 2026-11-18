@@ -86,6 +86,20 @@ func main() {
 		}
 		log.Printf("[jobs] stuck-job cleanup registered expr=%q threshold=%dm (UTC)", cfg.StuckJobCron, cfg.StuckJobProcessingMinutes)
 	}
+	if cfg.ArtifactReconcileEnabled {
+		if err := sched.RegisterSafe(cfg.ArtifactReconcileCron, "artifact-reconcile", func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+			defer cancel()
+			cutoff := time.Now().UTC().Add(-time.Duration(cfg.ArtifactReconcileGraceHours) * time.Hour)
+			if err := jobs.ReconcileArtifacts(ctx, gdb, stor, cutoff); err != nil {
+				log.Printf("[jobs] artifact reconciliation failed")
+				return
+			}
+			log.Printf("[jobs] artifact reconciliation completed")
+		}); err != nil {
+			log.Fatalf("cron artifact reconciliation: %v", err)
+		}
+	}
 	if err := sched.RegisterSafe("0 3 * * *", "token-purge", func() {
 		n, err := repo.DeleteExpiredRefreshTokens(context.Background())
 		if err != nil {
