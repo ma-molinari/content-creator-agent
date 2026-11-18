@@ -47,14 +47,14 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 - [ ] Completar testes de renderização visual, overflow e fontes indisponíveis; validar o catálogo com o responsável. Fontes Google e a incompatibilidade do validador legado com Inter exigem integração específica na T03.
 **Verificar:** testes do renderizador e verificações de design do worker; capturas controladas para amostras. **Commit:** `feat(worker): renderizar documentos com templates controlados`.
 
-### T03 — Captura e validação visual da saída estruturada
+### T03 — Captura e validação visual da saída estruturada — implementação parcial
 
 **Objetivo:** integrar o HTML gerado às verificações de design, carregamento de assets, contraste e exportação JPEG existentes.
 **Contexto:** `render_and_contrast.py`, `validate_design.py`, `slide_asset_wait.py`; não alterar silenciosamente o snapshot canônico na correção de contraste.
 **Dependências:** T02. **Requisitos:** HBG-02, HBG-10, HBG-12.
 **Pronto quando:**
-- [ ] Cada slide produz HTML derivado e JPEG 1080×1350; imagens ausentes, cortes/overflow identificáveis e falhas de renderização seguem caminho explícito de erro.
-- [ ] Testes com navegador e fontes controlados verificam casos representativos e mantêm comportamento legado.
+- [x] Renderização isolada produz HTML derivado e JPEG 1080×1350; imagens ausentes, overflow identificável, fontes indisponíveis e falhas de renderização geram erro.
+- [ ] Conectar a renderização ao grafo na T13 e testar regressão legada completa. Validações isoladas usam mocks e uma verificação manual no Chromium com fonte simulada.
 **Verificar:** testes pytest específicos e Playwright Chromium do worker. **Commit:** `feat(worker): validar e exportar slides estruturados`.
 
 ### T04 — Operações tipadas de edição [P] — concluída no catálogo provisório
