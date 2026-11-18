@@ -87,7 +87,7 @@ func (s *Service) CreateChat(ctx context.Context, userID uuid.UUID, postType str
 	}
 	// S3 cleanup of evicted chat happens outside the transaction (best-effort).
 	if evictedID != nil {
-		keys, err := s.repo.CollectS3KeysForChat(ctx, *evictedID)
+		keys, err := s.repo.CleanupKeys(ctx, *evictedID)
 		if err == nil {
 			_ = s.store.DeleteMany(ctx, keys)
 		}
@@ -142,7 +142,7 @@ func (s *Service) refreshContentImageURLs(ctx context.Context, c *db.Chat) error
 	return nil
 }
 
-// DeleteChat removes S3 objects then the chat row.
+// DeleteChat records cleanup before removing the chat row.
 func (s *Service) DeleteChat(ctx context.Context, userID, chatID uuid.UUID) error {
 	c, err := s.repo.GetByID(ctx, chatID)
 	if ErrRecordNotFound(err) {
@@ -154,16 +154,15 @@ func (s *Service) DeleteChat(ctx context.Context, userID, chatID uuid.UUID) erro
 	if c.UserID != userID {
 		return ErrForbidden
 	}
-	keys, err := s.repo.CollectS3KeysForChat(ctx, chatID)
+	keys, err := s.repo.DeleteOwnedChatWithCleanup(ctx, userID, chatID)
+	if ErrRecordNotFound(err) {
+		return ErrNotFound
+	}
 	if err != nil {
 		return err
 	}
-	if err := s.store.DeleteMany(ctx, keys); err != nil {
-		return err
-	}
-	if err := s.repo.DeleteChat(ctx, chatID); err != nil {
-		return err
-	}
+	// Best effort: the durable task remains available for reconciliation.
+	_ = s.store.DeleteMany(ctx, keys)
 	return nil
 }
 

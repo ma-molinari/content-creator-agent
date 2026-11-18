@@ -171,6 +171,15 @@ func TestChatLimit_fourThenFifthNoEviction(t *testing.T) {
 
 func TestChatLimit_sixthEvictsOldest(t *testing.T) {
 	gdb, u := testDBWithUser(t)
+	for _, ddl := range []string{
+		`CREATE TABLE jobs (id TEXT PRIMARY KEY, chat_id TEXT NOT NULL)`,
+		`CREATE TABLE post_versions (id TEXT PRIMARY KEY, chat_id TEXT NOT NULL, document_s3_key TEXT NOT NULL)`,
+		`CREATE TABLE chat_cleanup_tasks (id TEXT PRIMARY KEY, chat_id TEXT UNIQUE NOT NULL, object_keys TEXT NOT NULL, job_ids TEXT NOT NULL)`,
+	} {
+		if err := gdb.Exec(ddl).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
 	repo := NewRepository(gdb)
 	jobsRepo := jobs.NewRepository(gdb)
 	store := &mockStorage{}

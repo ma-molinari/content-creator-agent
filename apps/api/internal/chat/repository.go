@@ -56,6 +56,9 @@ func (r *Repository) CreateChatEvicting(ctx context.Context, userID uuid.UUID, p
 		if len(ids) >= limit {
 			oldest := ids[0]
 			evictedID = &oldest
+			if _, err := captureChatCleanup(ctx, tx, oldest); err != nil {
+				return err
+			}
 			if err := tx.Unscoped().Delete(&db.Chat{}, "id = ?", oldest).Error; err != nil {
 				return err
 			}

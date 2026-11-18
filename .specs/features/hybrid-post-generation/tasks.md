@@ -127,14 +127,14 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 - [ ] Callback valida prefixos, nomes, existência e quantidade de artefatos e, com locks consistentes, publica ou persiste `failed`/`VERSION_CONFLICT` atomicamente; repetições são idempotentes. O snapshot agora tem leitura limitada, tipo e estrutura básica validados; faltam validação completa do contrato, protocolo de callback e mais casos de concorrência na T14.
 **Verificar:** testes Go e integração Postgres para callbacks concorrentes, primeira criação nula, JSON/multipart, cliente legado e ownership. **Commit:** `feat(api): publicar versões estruturadas com controle de conflito`.
 
-### T11 — Limpeza durável de chats e evicção [P]
+### T11 — Limpeza durável de chats e evicção [P] — implementação parcial
 
 **Objetivo:** registrar inventário de artefatos antes da exclusão em cascata para limpeza idempotente de chats excluídos ou removidos pelo limite.
 **Contexto:** `chat/repository.go` e `chat/service.go`: evicção atual remove o chat antes de coletar chaves; incluir anexos, imagens, HTMLs, snapshots, pacotes e assets. Tarefa durável não deve depender do chat excluído.
 **Dependências:** T08. **Requisitos:** HBG-07, HBG-10, HBG-12.
 **Pronto quando:**
-- [ ] Exclusão/evicção mantêm inventário e agendam limpeza mesmo após cascata; falhas são reprocessáveis sem apagar recursos ativos ou compartilhados.
-- [ ] Testes de integração cobrem sexto chat, falha de S3, repetição e integridade de objetos referenciados.
+- [ ] Exclusão/evicção registram inventário e IDs de jobs antes da cascata e tentam excluir chaves conhecidas; falta consumidor durável e verificação de referências/objetos adicionais na T16.
+- [ ] Teste Postgres cobre sexto chat, cascata e falha S3; faltam repetição e integridade de objetos referenciados na reconciliação.
 **Verificar:** testes de chat e integração Postgres/S3 simulado. **Commit:** `fix(api): preservar inventário de objetos na exclusão de chats`.
 
 ### T12 — Publicação de snapshot e artefatos no worker — implementação parcial
