@@ -57,14 +57,14 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 - [ ] Testes com navegador e fontes controlados verificam casos representativos e mantêm comportamento legado.
 **Verificar:** testes pytest específicos e Playwright Chromium do worker. **Commit:** `feat(worker): validar e exportar slides estruturados`.
 
-### T04 — Operações tipadas de edição [P]
+### T04 — Operações tipadas de edição [P] — concluída no catálogo provisório
 
 **Objetivo:** definir e aplicar atomicamente operações permitidas sobre uma cópia do snapshot.
 **Contexto:** TDD, Fluxo de edição; `refinement_validate.py` demonstra limitações do legado. Começar por texto, fundo, estilo, imagem e layout dentro do catálogo T01.
 **Dependências:** T01. **Requisitos:** HBG-03, HBG-10, HBG-12.
 **Pronto quando:**
-- [ ] Operações validam alvos, propriedades e pré-condições; preservam IDs e número/ordem de slides, sem alterar campos fora do conjunto aplicado.
-- [ ] Sequência inválida não aplica parcialmente; testes incluem operação proibida, alvo ausente, base imutável e mudanças não pretendidas.
+- [x] Operações validam alvos, propriedades e pré-condições; preservam IDs e número/ordem de slides, sem alterar campos fora do conjunto aplicado.
+- [x] Sequência inválida não aplica parcialmente; testes incluem operação proibida, alvo ausente, base imutável e mudanças não pretendidas.
 **Verificar:** pytest específico das operações e do schema. **Commit:** `feat(worker): aplicar edições estruturadas atômicas`.
 
 ### T05 — Planejamento de edição com LLM
