@@ -33,33 +33,60 @@ func (cleanupInventory) TableName() string { return "chat_cleanup_tasks" }
 // ReconcileArtifacts sweeps old deleted-chat inventories and failed-job prefixes.
 // Inventories remain as tombstones so uploads arriving late are removed on a later run.
 func ReconcileArtifacts(ctx context.Context, gdb *gorm.DB, store cleanupStorage, cutoff time.Time) error {
-	var tasks []cleanupInventory
-	if err := gdb.WithContext(ctx).Where("created_at < ?", cutoff).Find(&tasks).Error; err != nil {
-		return err
-	}
-	for _, task := range tasks {
-		var keys []string
-		var ids []uuid.UUID
-		if json.Unmarshal([]byte(task.ObjectKeys), &keys) != nil || json.Unmarshal([]byte(task.JobIDs), &ids) != nil {
-			return errors.New("invalid cleanup inventory")
+	const batchSize = 100
+	var lastTaskTime time.Time
+	var lastTaskID uuid.UUID
+	for {
+		var tasks []cleanupInventory
+		query := gdb.WithContext(ctx).Where("created_at < ?", cutoff)
+		if !lastTaskTime.IsZero() {
+			query = query.Where("created_at > ? OR (created_at = ? AND id > ?)", lastTaskTime, lastTaskTime, lastTaskID)
 		}
-		if err := deleteUnreferenced(ctx, gdb, store, keys); err != nil {
+		if err := query.Order("created_at, id").Limit(batchSize).Find(&tasks).Error; err != nil {
 			return err
 		}
-		for _, id := range ids {
-			if err := reconcileJobPrefix(ctx, gdb, store, id, cutoff); err != nil {
+		for _, task := range tasks {
+			var keys []string
+			var ids []uuid.UUID
+			if json.Unmarshal([]byte(task.ObjectKeys), &keys) != nil || json.Unmarshal([]byte(task.JobIDs), &ids) != nil {
+				return errors.New("invalid cleanup inventory")
+			}
+			if err := deleteUnreferenced(ctx, gdb, store, keys); err != nil {
+				return err
+			}
+			for _, id := range ids {
+				if err := reconcileJobPrefix(ctx, gdb, store, id, cutoff); err != nil {
+					return err
+				}
+			}
+		}
+		if len(tasks) < batchSize {
+			break
+		}
+		last := tasks[len(tasks)-1]
+		lastTaskTime, lastTaskID = last.CreatedAt, last.ID
+	}
+	var lastJobTime time.Time
+	var lastJobID uuid.UUID
+	for {
+		var failed []db.Job
+		query := gdb.WithContext(ctx).Select("id", "updated_at").Where("status = ? AND updated_at < ?", db.JobStatusFailed, cutoff)
+		if !lastJobTime.IsZero() {
+			query = query.Where("updated_at > ? OR (updated_at = ? AND id > ?)", lastJobTime, lastJobTime, lastJobID)
+		}
+		if err := query.Order("updated_at, id").Limit(batchSize).Find(&failed).Error; err != nil {
+			return err
+		}
+		for _, job := range failed {
+			if err := reconcileJobPrefix(ctx, gdb, store, job.ID, cutoff); err != nil {
 				return err
 			}
 		}
-	}
-	var failed []db.Job
-	if err := gdb.WithContext(ctx).Select("id").Where("status = ? AND updated_at < ?", db.JobStatusFailed, cutoff).Find(&failed).Error; err != nil {
-		return err
-	}
-	for _, job := range failed {
-		if err := reconcileJobPrefix(ctx, gdb, store, job.ID, cutoff); err != nil {
-			return err
+		if len(failed) < batchSize {
+			break
 		}
+		last := failed[len(failed)-1]
+		lastJobTime, lastJobID = last.UpdatedAt, last.ID
 	}
 	return nil
 }
