@@ -61,14 +61,16 @@ func main() {
 		log.Fatal("WORKER_URL must be set when WORKER_API_KEY is configured")
 	}
 	var worker jobs.WorkerClient
+	var structuredReady func(context.Context) bool
 	if wURL != "" {
-		worker = jobs.NewHTTPWorkerClient(wURL, wKey)
+		pool, err := jobs.NewStructuredWorkerPool(jobs.NewHTTPWorkerClient(wURL, wKey), cfg.StructuredWorkerURLs, wKey)
+		if err != nil {
+			log.Fatalf("invalid structured worker configuration: %v", err)
+		}
+		worker = pool
+		structuredReady = pool.SupportsStructured
 	}
 	chatSvc := chat.NewService(chatRepo, jobsRepo, stor, profileRepo, profileSvc, worker)
-	var structuredReady func(context.Context) bool
-	if client, ok := worker.(*jobs.HTTPWorkerClient); ok {
-		structuredReady = client.SupportsStructured
-	}
 	chatSvc.ConfigureStructured(cfg.StructuredPostsEnabled, structuredReady)
 	ch := chat.NewHandler(chatSvc)
 

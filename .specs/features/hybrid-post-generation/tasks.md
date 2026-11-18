@@ -123,7 +123,7 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 **Contexto:** `chat/handler.go`, `chat/post_message.go`, `jobs/worker_client.go`, `jobs/handler.go`, `jobs/complete.go`; tratamento atual do callback deve ser ajustado para não converter conflito em falha genérica. Implementar validação nos formatos JSON e multipart.
 **Dependências:** T08, T09. **Requisitos:** HBG-04, HBG-05, HBG-06, HBG-08, HBG-10, HBG-12.
 **Pronto quando:**
-- [ ] `mode`/`baseVersionId` são validados por formato e ownership; job captura ponteiro esperado inclusive nulo; API recusa dispatch estruturado por padrão até que um verificador de capacidade confiável esteja disponível (T17); clientes não compatíveis não sofrem mutação. Verificador integrado e dispatch bem-sucedido testado; falta assegurar disponibilidade de todas as réplicas em ambientes mistos (T17).
+- [ ] `mode`/`baseVersionId` são validados por formato e ownership; job captura ponteiro esperado inclusive nulo; API recusa dispatch estruturado por padrão até que um verificador de capacidade confiável esteja disponível (T17); clientes não compatíveis não sofrem mutação. Verificador integrado e dispatch bem-sucedido testado; lista explícita de réplicas verificadas implementada (T17); o operador deve manter endereços diretos atualizados.
 - [ ] Callback valida prefixos, nomes, existência e quantidade de artefatos e, com locks consistentes, publica ou persiste `failed`/`VERSION_CONFLICT` atomicamente; repetições são idempotentes. Snapshot e manifesto têm leitura limitada e validação do contrato provisório, com exemplos compartilhados entre Go e Python; faltam mais casos de concorrência na T14.
 **Verificar:** testes Go e integração Postgres para callbacks concorrentes, primeira criação nula, JSON/multipart, cliente legado e ownership. **Commit:** `feat(api): publicar versões estruturadas com controle de conflito`.
 
@@ -193,7 +193,7 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 **Contexto:** `apps/api/internal/config/config.go`, `cmd/server/main.go`, `apps/worker/app/main.py`, `job_progress.py`; `/health` atual não negocia capacidade. Métricas de reconciliação são concluídas em T16; não depender de T16 para instrumentação básica.
 **Dependências:** T10, T15. **Requisitos:** HBG-08, HBG-10, HBG-11, HBG-12.
 **Pronto quando:**
-- [ ] Flag desligada por padrão, negociação de cliente e verificação de capacidade implementadas; endpoint estruturado dedicado impede fallback legado em réplicas antigas. Falta assegurar disponibilidade de todos os destinos antes da mutação em ambientes com balanceamento misto.
+- [ ] Flag desligada por padrão, negociação de cliente e verificação de todos os destinos estruturados configurados antes da mutação; dispatch usa os mesmos endereços diretos e endpoint dedicado. A operação exige lista completa e atualizada, sem balanceador.
 - [ ] Callbacks terminais e limpeza emitem eventos de formato, resultado, duração, conflito e quantidade sem conteúdo de posts; faltam contabilizar dispatch/watchdog e validar agregação operacional.
 **Verificar:** testes de configuração, negociação, logs e regressão com flag desligada. **Commit:** `feat: controlar ativação do fluxo híbrido`.
 

@@ -20,7 +20,8 @@ type Config struct {
 	// WorkerURL is the base URL of the Python worker (e.g. http://worker:8000).
 	WorkerURL string
 	// WorkerAPIKey is shared between the Go API and the worker for internal calls.
-	WorkerAPIKey string
+	WorkerAPIKey         string
+	StructuredWorkerURLs []string
 	// StuckJobCron runs stuck-job cleanup (default every 10 minutes UTC). Empty disables the job.
 	StuckJobCron string
 	// StuckJobProcessingMinutes marks processing jobs as failed when UpdatedAt is older than this (default 20).
@@ -45,6 +46,12 @@ func Load() Config {
 			if o != "" {
 				allowed = append(allowed, o)
 			}
+		}
+	}
+	var structuredURLs []string
+	for _, address := range strings.Split(os.Getenv("STRUCTURED_WORKER_URLS"), ",") {
+		if address = strings.TrimSpace(address); address != "" {
+			structuredURLs = append(structuredURLs, address)
 		}
 	}
 	port := os.Getenv("PORT")
@@ -93,6 +100,7 @@ func Load() Config {
 		S3Bucket:                    os.Getenv("AWS_S3_BUCKET"),
 		WorkerURL:                   os.Getenv("WORKER_URL"),
 		WorkerAPIKey:                os.Getenv("WORKER_API_KEY"),
+		StructuredWorkerURLs:        structuredURLs,
 		StuckJobCron:                stuckJobCron,
 		StuckJobProcessingMinutes:   stuckJobMinutes,
 		StructuredPostsEnabled:      strings.EqualFold(strings.TrimSpace(os.Getenv("STRUCTURED_POSTS_ENABLED")), "true"),

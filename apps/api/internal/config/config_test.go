@@ -33,3 +33,8 @@ func TestStructuredPostsDisabledByDefault(t *testing.T) {
 	t.Setenv("STRUCTURED_POSTS_ENABLED", "true")
 	require.True(t, Load().StructuredPostsEnabled)
 }
+
+func TestStructuredWorkerURLs(t *testing.T) {
+	t.Setenv("STRUCTURED_WORKER_URLS", " http://worker-a:8000, ,http://worker-b:8000 ")
+	require.Equal(t, []string{"http://worker-a:8000", "http://worker-b:8000"}, Load().StructuredWorkerURLs)
+}
