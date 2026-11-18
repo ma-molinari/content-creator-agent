@@ -133,8 +133,8 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 **Contexto:** `chat/repository.go` e `chat/service.go`: evicção atual remove o chat antes de coletar chaves; incluir anexos, imagens, HTMLs, snapshots, pacotes e assets. Tarefa durável não deve depender do chat excluído.
 **Dependências:** T08. **Requisitos:** HBG-07, HBG-10, HBG-12.
 **Pronto quando:**
-- [ ] Exclusão/evicção registram inventário e IDs de jobs antes da cascata e tentam excluir chaves conhecidas; falta consumidor durável e verificação de referências/objetos adicionais na T16.
-- [ ] Teste Postgres cobre sexto chat, cascata e falha S3; faltam repetição e integridade de objetos referenciados na reconciliação.
+- [ ] Exclusão/evicção registram inventário e IDs de jobs antes da cascata; consumidor durável verifica referências e prefixos na T16. Falta validação operacional antes de habilitar a reconciliação.
+- [ ] Testes Postgres cobrem sexto chat, cascata, falha S3, repetição e proteção de objetos referenciados; falta ensaio operacional de recuperação de processo.
 **Verificar:** testes de chat e integração Postgres/S3 simulado. **Commit:** `fix(api): preservar inventário de objetos na exclusão de chats`.
 
 ### T12 — Publicação de snapshot e artefatos no worker — implementação parcial
@@ -183,7 +183,7 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 **Contexto:** `internal/cron/`, `jobs/stuck.go`, `storage/s3.go` e limpeza do worker; não excluir após timeout de callback sem verificar estado. Definir mecanismo operacional antes de ativar.
 **Dependências:** T08, T10, T11, T12. **Requisitos:** HBG-06, HBG-07, HBG-11, HBG-12.
 **Pronto quando:**
-- [ ] Reconciliação implementa varredura de inventários e jobs falhos com verificação de estado, referências e janela mínima de 24h; agendamento desativado por padrão. Consultas de inventários e jobs e listagem S3 são paginadas; faltam definir retenção segura dos inventários e validar a operação antes de habilitar.
+- [ ] Reconciliação implementa varredura de inventários e jobs falhos com verificação de estado, referências e janela mínima de 24h; agendamento desativado por padrão. Consultas de inventários e jobs e listagem S3 são paginadas; inventários são retidos indefinidamente até existir limite comprovado de duração do worker; falta validar custo e operação antes de habilitar.
 - [ ] Teste Postgres cobre jobs ativos/falhos, objetos recentes/referenciados, repetição e falha temporária; faltam testes de callback incerto e recuperação real de processo.
 **Verificar:** testes de integração de jobs/armazenamento com tempo e S3 controlados. **Commit:** `feat(api): reconciliar artefatos órfãos com segurança`.
 

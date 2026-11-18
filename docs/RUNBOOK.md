@@ -18,7 +18,7 @@
 
 **Segurança operacional:** não escrever `WORKER_API_KEY` nem outros segredos em logs ou tickets. Rotacionar `WORKER_API_KEY` após suspeita de fuga. Endpoints `POST /internal/*` devem ficar apenas em rede privada (VPN, mesh interno, security group), não expostos à internet pública. Objetos de slides no S3 usam sempre chaves `slides/{job_id}/…` (UUID do job); o callback do worker só aceita chaves com esse prefixo.
 
-A reconciliação ainda mantém inventários permanentemente e percorre jobs falhos sem paginação; monitore crescimento e custo e não habilite até validar esses limites. Veja também `apps/api/.env.example` e `apps/worker/.env.example`.
+A reconciliação mantém inventários permanentemente e percorre inventários, jobs falhos e objetos S3 em páginas; monitore crescimento e custo e não habilite até validar esses limites. A retenção indefinida impede perder o registro de uploads tardios, pois não há prazo máximo garantido de execução do worker. Não remova inventários por idade sem estabelecer e validar antes um limite seguro de duração e encerramento dos workers. Veja também `apps/api/.env.example` e `apps/worker/.env.example`.
 
 ## Deploy com Docker Compose (produção)
 
