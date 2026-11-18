@@ -128,6 +128,20 @@ func (s *S3Service) GetObject(ctx context.Context, key string) ([]byte, error) {
 	return data, nil
 }
 
+// GetObjectLimited reads at most maxBytes plus one byte, preserving the S3 content type.
+func (s *S3Service) GetObjectLimited(ctx context.Context, key string, maxBytes int64) ([]byte, string, error) {
+	out, err := s.client.GetObject(ctx, &s3.GetObjectInput{Bucket: aws.String(s.bucket), Key: aws.String(key)})
+	if err != nil {
+		return nil, "", fmt.Errorf("storage: GetObject for key %q: %w", key, err)
+	}
+	defer out.Body.Close()
+	data, err := io.ReadAll(io.LimitReader(out.Body, maxBytes+1))
+	if err != nil {
+		return nil, "", fmt.Errorf("storage: read body for key %q: %w", key, err)
+	}
+	return data, aws.ToString(out.ContentType), nil
+}
+
 // Delete removes a single object.
 func (s *S3Service) Delete(ctx context.Context, key string) error {
 	_, err := s.client.DeleteObject(ctx, &s3.DeleteObjectInput{

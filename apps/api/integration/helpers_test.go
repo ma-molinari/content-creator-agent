@@ -49,6 +49,10 @@ func (mockStorage) GetSignedURL(_ context.Context, key string, _ time.Duration) 
 
 func (mockStorage) HeadObject(context.Context, string) error { return nil }
 
+func (mockStorage) GetObjectLimited(context.Context, string, int64) ([]byte, string, error) {
+	return []byte(`{"schemaVersion":1,"postType":"single","slides":[{}]}`), "application/json", nil
+}
+
 func (mockStorage) GetObject(_ context.Context, _ string) ([]byte, error) {
 	return []byte{0xff, 0xd8}, nil
 }

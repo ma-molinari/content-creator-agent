@@ -2,6 +2,8 @@ package jobs
 
 import (
 	"context"
+	"encoding/json"
+	"mime"
 	"strings"
 	"time"
 
@@ -11,6 +13,45 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
+
+const maxStructuredDocumentBytes int64 = 2 * 1024 * 1024
+
+type boundedDocumentStore interface {
+	GetObjectLimited(ctx context.Context, key string, maxBytes int64) ([]byte, string, error)
+}
+
+func validateStructuredDocument(ctx context.Context, store storage.StorageService, key string, postType db.PostType, slideCount int) error {
+	bounded, ok := store.(boundedDocumentStore)
+	if !ok {
+		return gorm.ErrInvalidData
+	}
+	data, contentType, err := bounded.GetObjectLimited(ctx, key, maxStructuredDocumentBytes)
+	if err != nil {
+		if storage.IsObjectNotFound(err) {
+			return ErrArtifactObjectNotFound
+		}
+		return err
+	}
+	mediaType, _, err := mime.ParseMediaType(contentType)
+	if err != nil || mediaType != "application/json" || int64(len(data)) > maxStructuredDocumentBytes {
+		return gorm.ErrInvalidData
+	}
+	var document struct {
+		SchemaVersion int               `json:"schemaVersion"`
+		PostType      string            `json:"postType"`
+		Slides        []json.RawMessage `json:"slides"`
+	}
+	if err := json.Unmarshal(data, &document); err != nil || document.SchemaVersion != 1 || document.PostType != string(postType) || len(document.Slides) != slideCount {
+		return gorm.ErrInvalidData
+	}
+	for _, slide := range document.Slides {
+		var item map[string]json.RawMessage
+		if json.Unmarshal(slide, &item) != nil || item == nil {
+			return gorm.ErrInvalidData
+		}
+	}
+	return nil
+}
 
 type StructuredArtifact struct {
 	DocumentS3Key   string `json:"documentS3Key"`
@@ -67,10 +108,7 @@ func CompleteStructuredReply(ctx context.Context, gdb *gorm.DB, jobID uuid.UUID,
 		if e := validateSlideArtifactKey(job.ID, key); e != nil {
 			return e
 		}
-		if e := store.HeadObject(ctx, key); e != nil {
-			if storage.IsObjectNotFound(e) {
-				return ErrArtifactObjectNotFound
-			}
+		if e := validateStructuredDocument(ctx, store, key, chat.PostType, len(artifacts)); e != nil {
 			return e
 		}
 		seen := map[int]bool{}
