@@ -164,7 +164,7 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 **Dependências:** T13. **Requisitos:** HBG-02 a HBG-08, HBG-10, HBG-12.
 **Pronto quando:**
 - [ ] Postgres cobre criação/edição, criação vs edição, duas primeiras criações com base nula e callbacks fora de ordem/repetidos; o worker testa resposta perdida após commit simulado. Falta validar o timeout entre serviços reais.
-- [ ] Cenários de uploads incompletos, troca de propriedade de assets e regressão legada não publicam versão indevida.
+- [ ] Postgres cobre snapshot/manifesto/imagem ausentes, documento inválido e asset de outro job sem publicação; faltam troca de propriedade entre serviços e regressão legada integrada.
 **Verificar:** suíte de integração Go/Postgres e testes de integração do worker; documentar dependências externas indisponíveis. **Commit:** `test: cobrir criação e concorrência de versões`.
 
 ### T15 — API de histórico e interface de modo/base [P] — implementação parcial
