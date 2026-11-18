@@ -1,6 +1,6 @@
 # Geração híbrida — plano de tarefas
 
-**Status:** rascunho para revisão; nenhuma tarefa executada.
+**Status:** em execução; T01 e T02 com implementação provisória e validação visual pendente.
 **Requisitos:** `.specs/features/hybrid-post-generation/spec.md`
 **Design e decisões:** `docs/TDD-MODELO-HIBRIDO.md`
 **Instrução para execução por IA:** leia o TDD e os requisitos pertinentes, inspecione os arquivos e testes atuais antes de editar; não trate nomes de arquivos propostos como existentes. Cada tarefa entrega uma mudança coesa, testes adequados e um commit atômico em português. Não ativar o novo fluxo em produção até T18 e aprovação operacional. Arquivos/contratos compartilhados devem ser combinados antes de trabalho paralelo; `[P]` significa elegibilidade após dependências, não autorização para iniciar agentes.
@@ -37,14 +37,14 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 - [ ] Validar catálogo e limites com o responsável antes de congelar o schema; até então são hipóteses do protótipo.
 **Verificar:** executar testes pytest específicos do novo contrato no ambiente do worker. **Commit:** `feat(worker): definir contrato estruturado de posts`.
 
-### T02 — Renderizador controlado de templates [P]
+### T02 — Renderizador controlado de templates [P] — implementação parcial
 
 **Objetivo:** transformar documentos válidos em HTML/CSS de slides usando templates versionados e escape de conteúdo.
 **Contexto:** T01; `apps/worker/app/nodes/render_and_contrast.py`, `slide_design_checks.py`, `slide_render_html.py` e prompts existentes. Sem scripts do usuário ou recursos arbitrários; versionar renderizador e fontes.
 **Dependências:** T01. **Requisitos:** HBG-01, HBG-02, HBG-10, HBG-12.
 **Pronto quando:**
-- [ ] Templates suportam o catálogo inicial, assets por referência autorizada e saída de 1080×1350; texto é escapado e a renderização é determinística no ambiente fixado.
-- [ ] Testes cobrem templates, conteúdo malicioso e overflow/recursos indisponíveis; distinguir JS interno de contraste do HTML gerado pelo usuário.
+- [x] Templates suportam o catálogo inicial, assets por referência autorizada e saída de 1080×1350; texto é escapado e o HTML é determinístico.
+- [ ] Completar testes de renderização visual, overflow e fontes indisponíveis; validar o catálogo com o responsável. Fontes Google e a incompatibilidade do validador legado com Inter exigem integração específica na T03.
 **Verificar:** testes do renderizador e verificações de design do worker; capturas controladas para amostras. **Commit:** `feat(worker): renderizar documentos com templates controlados`.
 
 ### T03 — Captura e validação visual da saída estruturada
