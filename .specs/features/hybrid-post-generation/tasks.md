@@ -203,7 +203,7 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 **Contexto:** `docs/RUNBOOK.md`, `docs/ARCHITECTURE.md`, `docs/INTEGRATIONS.md`, `AGENTS.md`, TDD e suites de teste; preservar leitores e worker compatíveis ao desligar novas criações.
 **Dependências:** T14, T15, T16, T17. **Requisitos:** HBG-01 a HBG-12.
 **Pronto quando:**
-- [ ] Execução registra evidências de criação/edição, versões legadas, corrida, timeout, limpeza, segurança e rollback; limitações/checagens não executadas ficam explícitas.
+- [ ] Testes locais registram criação/edição, legado, corrida, resposta perdida, limpeza e rollback da flag sem perder edição estruturada; faltam ensaio operacional real e verificação de segurança integrada.
 - [ ] Runbook descreve habilitação, capacidade, métricas, tratamento de órfãos, rollback não destrutivo e critérios de ativação; validação visual com exemplos reais e metas são acordadas com o responsável.
 **Verificar:** suítes relevantes, ensaio de rollback com dados estruturados e revisão do responsável. **Commit:** `docs: registrar operação do fluxo híbrido`.
 

@@ -4,6 +4,7 @@ package integration
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"content-creator-agent/internal/chat"
@@ -48,9 +49,22 @@ func TestStructuredCreationNegotiationAndRollback(t *testing.T) {
 	require.ErrorIs(t, err, chat.ErrClientUpgrade)
 	// Disabling new structured chats must not disable editing/creation inside existing structured chats.
 	svc.ConfigureStructured(false, func(context.Context) bool { return true })
-	_, err = svc.PostMessageWithOptions(ctx, uid, structured.ID, "crie", nil, chat.MessageOptions{Mode: "create", ClientSupported: true})
+	result, err := svc.PostMessageWithOptions(ctx, uid, structured.ID, "crie", nil, chat.MessageOptions{Mode: "create", ClientSupported: true})
 	require.NoError(t, err)
 	require.Equal(t, "structured_v1", worker.payload.PostFormat)
 	require.Equal(t, "create", worker.payload.GenerationMode)
 	require.Nil(t, worker.payload.BaseVersionID)
+	prefix := fmt.Sprintf("slides/%s/", result.JobID)
+	html := prefix + "slide_01.html"
+	_, _, err = jobs.CompleteStructuredReply(ctx, env.DB, result.JobID, "ok", []jobs.ArtifactRef{{S3Key: prefix + "slide_01.jpeg", HtmlS3Key: &html, SlideNumber: 1}}, jobs.StructuredArtifact{DocumentS3Key: prefix + "document.json", SchemaVersion: 1, RendererVersion: "1"}, mockStorage{})
+	require.NoError(t, err)
+	var version db.PostVersion
+	require.NoError(t, env.DB.Where("job_id = ?", result.JobID).First(&version).Error)
+	_, err = svc.PostMessageWithOptions(ctx, uid, structured.ID, "edite", nil, chat.MessageOptions{Mode: "edit", BaseVersionID: version.ID.String(), ClientSupported: true})
+	require.NoError(t, err)
+	require.Equal(t, "edit", worker.payload.GenerationMode)
+	require.Equal(t, version.ID, *worker.payload.BaseVersionID)
+	newer, err := svc.CreateChatWithClient(ctx, uid, "single", true)
+	require.NoError(t, err)
+	require.Equal(t, db.PostFormatLegacy, newer.PostFormat)
 }
