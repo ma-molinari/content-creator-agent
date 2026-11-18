@@ -388,7 +388,7 @@ func (s *Service) PostMessageWithOptions(ctx context.Context, userID, chatID uui
 		ExpectsSlideRefinement: expectsSlideRefinement,
 	}
 	if err := s.worker.DispatchJob(ctx, payload); err != nil {
-		if errors.Is(err, jobs.ErrDispatchOutcomeUnknown) {
+		if job.PostFormat == db.PostFormatStructuredV1 && errors.Is(err, jobs.ErrDispatchOutcomeUnknown) {
 			log.Printf("[jobs] dispatch outcome unknown job_id=%s", job.ID)
 			return &PostMessageResult{JobID: job.ID}, nil
 		}
