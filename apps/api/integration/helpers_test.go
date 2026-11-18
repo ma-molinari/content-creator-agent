@@ -108,6 +108,9 @@ func buildEcho(gdb *gorm.DB, cfg *config.Config, worker jobs.WorkerClient, stor 
 	profileSvc := profile.NewService(profileRepo, refRepo, stor, 8, 5*1024*1024)
 	profileH := profile.NewHandler(profileSvc)
 	chatSvc := chat.NewService(chatRepo, jobsRepo, stor, profileRepo, profileSvc, worker)
+	if capable, ok := worker.(interface{ SupportsStructured(context.Context) bool }); ok {
+		chatSvc.ConfigureStructured(cfg.StructuredPostsEnabled, capable.SupportsStructured)
+	}
 	ch := chat.NewHandler(chatSvc)
 
 	jobsH := jobs.NewHandler(cfg, gdb, stor)

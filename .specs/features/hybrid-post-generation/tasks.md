@@ -174,7 +174,7 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 **Dependências:** T10. **Requisitos:** HBG-04, HBG-08, HBG-09, HBG-12.
 **Pronto quando:**
 - [x] Leitura inclui formato e versionId; frontend envia modo/base em JSON e multipart, apresenta a versão corrente e exige ação para reenviar após conflito.
-- [ ] Testes de API e frontend cobrem versão atual, payload legado e conflito simulado. Rejeição de cliente antigo coberta; faltam validação ponta a ponta e negociação completa na T17.
+- [ ] Testes de API e frontend cobrem versão atual, payload legado e conflito simulado; HTTP com Postgres cobre criação JSON, edição multipart e rejeição de cliente antigo. Falta validação ponta a ponta entre serviços.
 **Verificar:** testes web e Go relevantes, build web e fluxo com API simulada. **Commit:** `feat(web): editar a versão atual do post`.
 
 ### T16 — Reconciliação segura de objetos órfãos [P] — implementação parcial
