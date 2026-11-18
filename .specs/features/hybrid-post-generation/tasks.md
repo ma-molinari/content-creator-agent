@@ -77,14 +77,14 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 - [ ] Testes usam LLM simulada e verificam escopo, erros e ausência de fallback silencioso ao HTML legado.
 **Verificar:** pytest dos novos nós e testes existentes de intenção/refinamento. **Commit:** `feat(worker): planejar edições por operações tipadas`.
 
-### T06 — Geração estruturada com LLM [P]
+### T06 — Geração estruturada com LLM [P] — concluída no catálogo provisório
 
 **Objetivo:** gerar snapshot inicial válido a partir de plano, perfil e referências autorizadas.
 **Contexto:** `generate_or_edit_slides.py`, `build_generation_plan.py`, `profile_overview.py`; não instruir LLM a gerar HTML. Quantidade inferida atualmente tem limite técnico 20, sem presumir que seja regra de produto aprovada.
 **Dependências:** T01. **Requisitos:** HBG-01, HBG-02, HBG-10, HBG-12.
 **Pronto quando:**
-- [ ] Fluxo converte resposta LLM em documento validado e aplica orçamento finito de retentativas com feedback seguro; erro terminal não gera saída parcial.
-- [ ] Testes simulam LLM, single/carrossel, formato inválido e ID de asset não autorizado.
+- [x] Fluxo converte resposta LLM em documento validado e aplica orçamento finito de retentativas com feedback seguro; erro terminal não gera saída parcial.
+- [x] Testes simulam LLM, single/carrossel, formato inválido e ID de asset não autorizado.
 **Verificar:** pytest específico do gerador e contrato. **Commit:** `feat(worker): gerar documentos estruturados com llm`.
 
 ### T07 — Assets imutáveis para cada versão
