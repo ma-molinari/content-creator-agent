@@ -53,11 +53,15 @@
 3. On completion the worker calls back `POST /internal/jobs/:id/complete` (authenticated by shared `X-Worker-API-Key`), which persists the assistant message + slide image records inside a DB transaction and sets `status: done` (or `failed`).
 4. Frontend polls `GET /chats/:id/jobs/:jobId/status` until terminal status.
 
+### Fluxo estruturado experimental
+
+Com `STRUCTURED_POSTS_ENABLED` habilitada e cliente compatível, novos chats podem usar `structured_v1`. A API verifica todos os destinos diretos em `STRUCTURED_WORKER_URLS` e despacha para `/jobs/structured`; o legado continua em `WORKER_URL/jobs`. O worker gera ou edita um documento tipado, copia assets autorizados para o prefixo do job e publica snapshot, manifesto, HTML e JPEG. O callback valida os objetos e avança o ponteiro de versão sob locks de chat/job; concorrência obsoleta falha com `VERSION_CONFLICT`. A flag fica desligada por padrão e não deve ser habilitada antes da aceitação operacional e visual. Consulte `docs/RUNBOOK.md`.
+
 ### LangGraph pipeline (Python Worker)
 
 **Location:** `apps/worker/app/graph.py`, `apps/worker/app/nodes/`
 **Purpose:** structured multi-step AI workflow with conditional retry.
-**Fluxo atual:** `prepare_input` → `security_validate` → `profile_overview` → `intent_detect`. Em edição, `load_existing_slides` recupera os HTMLs anteriores. Em seguida: `attachment_analyze` → `build_generation_plan` → `generate_or_edit_slides` → `validate_slide_package` → `validate_design` → `validate_attachment_usage` → `render_and_contrast` → `upload_assets` → `finalize`. As validações podem solicitar nova geração ou encerrar com falha. O worker tenta informar progresso à API antes de cada etapa; operações longas sem novos eventos podem exceder o limite da limpeza. O HTML e os JPEGs são armazenados no S3; Playwright renderiza em 1080×1350.
+**Fluxo legado:** `prepare_input` → `security_validate` → `profile_overview` → `intent_detect`. Em edição, `load_existing_slides` recupera os HTMLs anteriores. Em seguida: `attachment_analyze` → `build_generation_plan` → `generate_or_edit_slides` → `validate_slide_package` → `validate_design` → `validate_attachment_usage` → `render_and_contrast` → `upload_assets` → `finalize`. As validações podem solicitar nova geração ou encerrar com falha. O worker tenta informar progresso à API antes de cada etapa; operações longas sem novos eventos podem exceder o limite da limpeza. O HTML e os JPEGs são armazenados no S3; Playwright renderiza em 1080×1350.
 
 ### JWT dual-token auth
 

@@ -30,9 +30,13 @@
 
 ---
 
+### Integração estruturada experimental
+
+O fluxo `structured_v1` usa snapshots `document.json`, manifesto `assets.json` e cópias de imagens em `slides/{jobId}/assets/`, com escrita condicional. A API valida ownership e artefatos antes de publicar uma versão; a reconciliação de órfãos possui agendamento desativado por padrão. A flag `STRUCTURED_POSTS_ENABLED` controla novos chats estruturados e `STRUCTURED_WORKER_URLS` lista endereços diretos de workers compatíveis. Veja detalhes e limites em `docs/RUNBOOK.md`.
+
 ## AI / LLM — Slide Generation (Worker)
 
-**Serviço:** OpenAI no worker. `OPENAI_CHAT_MODEL` e `REFERENCE_VISION_MODEL` usam `gpt-5.4` por padrão. O grafo atual analisa referências e anexos, planeja e gera ou edita um pacote JSON com HTML por slide. Os prompts ficam em `apps/worker/prompts/`; a implementação está em `apps/worker/app/nodes/` e `graph.py`.
+**Serviço:** OpenAI no worker. `OPENAI_CHAT_MODEL` e `REFERENCE_VISION_MODEL` usam `gpt-5.4` por padrão. No fluxo legado, o grafo analisa referências e anexos, planeja e gera ou edita um pacote JSON com HTML por slide. No fluxo estruturado experimental, gera um documento tipado ou operações de edição. Os prompts ficam em `apps/worker/prompts/`; a implementação está em `apps/worker/app/nodes/` e `graph.py`.
 
 ---
 

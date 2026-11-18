@@ -34,7 +34,7 @@ React SPA (Vite/TS)  ←— HTTPS/REST + JWT —→  Go API (Echo, :8080)
 2. API cria `ChatContent` + `Job{processing}`, despacha `POST /jobs` ao worker, retorna **202** + `jobId`.
 3. Worker executa grafo LangGraph, renderiza HTML→JPEG via Playwright (1080×1350, 4:5), faz upload S3.
 4. Worker informa etapas por `POST /internal/jobs/:id/progress` e conclui via `POST /internal/jobs/:id/complete` com artifacts e texto do assistente.
-5. API persiste resposta + imagens em transação, marca `Job{done}`.
+5. API persiste resposta + imagens em transação, marca `Job{done}`. No formato estruturado, valida snapshot/manifesto e publica a versão corrente com controle de concorrência.
 6. Frontend faz poll `GET /chats/:id/jobs/:jobId/status` até terminal, carrega thread atualizada.
 
 ---
@@ -51,7 +51,7 @@ content-creator-agent/
 │   │       ├── chat/           # CRUD, PostMessage, file download
 │   │       ├── config/         # Env-based Config
 │   │       ├── cron/           # robfig/cron scheduler
-│   │       ├── db/             # GORM models, migrations (001–016), connection
+│   │       ├── db/             # GORM models, migrations (001–018), connection
 │   │       ├── httperr/        # Internal() → log + 500
 │   │       ├── jobs/           # Dispatch, progresso, conclusão e limpeza de jobs
 │   │       ├── middleware/     # JWT, CORS, security headers, rate limit
@@ -142,12 +142,14 @@ Erros acumulados em `state["errors"]`, não lançados. Logging com `node=<name> 
 | `chat_content_image` | s3_key, url (presign), slide_number |
 | `chat_content_attachment` | Imagens anexadas às mensagens |
 | `refresh_tokens` | Sessões para rotação e revogação |
-| `jobs` | Status (pending/processing/done/failed), error_msg |
+| `jobs` | Status (pending/processing/done/failed), error_msg, formato e base esperada |
+| `post_versions` | Snapshots estruturados imutáveis, origem e linhagem por chat |
+| `chat_cleanup_tasks` | Inventários duráveis para reconciliação de artefatos de chats excluídos |
 | `user_profiles` | audit_text, brand_text |
 | `user_profile_references` | Chaves S3 de imagens de referência |
 
 PKs: UUID com `gen_random_uuid()`. Enums PostgreSQL nativos.
-Migrações SQL em `apps/api/internal/db/migrations/` (001–016).
+Migrações SQL em `apps/api/internal/db/migrations/` (001–018).
 Modelos GORM em `apps/api/internal/db/models.go`.
 
 ---
@@ -179,7 +181,7 @@ Modelos GORM em `apps/api/internal/db/models.go`.
 
 - **Setup gate:** perfil precisa de `audit_text` e `brand_text` preenchidos antes de enviar mensagens.
 - **Limite de chats:** máx 5 por usuário; ao criar o 6.º, o mais antigo é removido e a limpeza S3 é best-effort.
-- **Slides:** LLM gera pacote JSON com HTML por slide, Playwright exporta JPEG 1080×1350 (4:5), qualidade 92.
+- **Slides:** no legado a LLM gera HTML por slide. No fluxo estruturado experimental, a LLM gera documento/edições tipadas e templates controlados geram o HTML. Playwright exporta JPEG 1080×1350 (4:5), qualidade 92. A flag de novos chats estruturados está desativada por padrão; ver `docs/RUNBOOK.md`.
 - **Jobs:** progresso por etapa e limpeza periódica de jobs sem atualização; padrão de 20 minutos.
 - **Anexos:** até 4 imagens de 5 MB por mensagem; HTMLs anteriores permitem refinar slides.
 - **Referências de design:** por padrão até 8 imagens (5MB cada) no S3, usadas pelo worker para contextualizar geração.
