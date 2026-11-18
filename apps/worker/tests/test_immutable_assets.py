@@ -23,7 +23,8 @@ class FakeS3:
         self.uploaded = {}
         self.fail_at = fail_at
     def get_object(self, Bucket, Key): return {"Body": io.BytesIO(self.objects[Key])}
-    def put_object(self, Bucket, Key, Body, ContentType):
+    def put_object(self, Bucket, Key, Body, ContentType, IfNoneMatch):
+        assert IfNoneMatch == "*"
         if self.fail_at is not None and len(self.uploaded) == self.fail_at:
             raise RuntimeError("failed")
         self.uploaded[Key] = (Body, ContentType)
@@ -64,3 +65,17 @@ def test_dispatch_carries_authorized_sources():
     payload = DispatchPayload(job_id=job_id, user_id=user_id, chat_id=chat_id,
                               authorized_asset_sources={"asset": "users/u/reference.jpg"})
     assert initial_state(payload)["authorized_asset_sources"] == {"asset": "users/u/reference.jpg"}
+
+
+def test_immutable_upload_allows_identical_retry_but_rejects_changed_body():
+    from botocore.exceptions import ClientError
+    from app.immutable_assets import _put_immutable
+
+    class Existing:
+        def put_object(self, **kwargs):
+            raise ClientError({"Error": {"Code": "PreconditionFailed", "Message": "exists"}}, "PutObject")
+        def get_object(self, **kwargs):
+            return {"Body": io.BytesIO(b"saved"), "ContentType": "image/png"}
+    _put_immutable(Existing(), "bucket", "key", b"saved", "image/png")
+    with pytest.raises(ValueError, match="different content"):
+        _put_immutable(Existing(), "bucket", "key", b"changed", "image/png")

@@ -137,14 +137,14 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 - [ ] Testes de integração cobrem sexto chat, falha de S3, repetição e integridade de objetos referenciados.
 **Verificar:** testes de chat e integração Postgres/S3 simulado. **Commit:** `fix(api): preservar inventário de objetos na exclusão de chats`.
 
-### T12 — Publicação de snapshot e artefatos no worker
+### T12 — Publicação de snapshot e artefatos no worker — implementação parcial
 
 **Objetivo:** enviar documento, HTML, JPEG e manifesto imutável ao S3 e formar callback estruturado.
 **Contexto:** `nodes/upload_assets.py`, `nodes/finalize.py`, `slide_artifact_cleanup.py`; uploads não são transação com o banco. Manter prefixo `slides/{jobId}/`.
 **Dependências:** T01, T07. **Requisitos:** HBG-06, HBG-07, HBG-10, HBG-12.
 **Pronto quando:**
-- [ ] Snapshot, assets e todos os artefatos obrigatórios são publicados antes do callback; falha parcial não produz sucesso e registra inventário durável antes da remoção ou assegura descoberta por prefixo com janela e coordenação (T16).
-- [ ] Timeout de callback não provoca exclusão imediata nem envio de falha genérica irreversível: repetir o mesmo callback de sucesso idempotente e delegar incerteza à reconciliação; testes simulam resposta perdida após commit e conflito confirmado.
+- [ ] Snapshot, assets e artefatos são enviados com escrita condicional; falta inventário durável ou descoberta segura por prefixo (T16) e integração ao grafo.
+- [ ] Helper envia o mesmo callback em retentativas sem fallback de erro; testes isolados cobrem timeout. Faltam integração e testes de resposta perdida após commit e conflito confirmado (T13/T14).
 **Verificar:** pytest de upload/finalização com S3 e API simulados. **Commit:** `feat(worker): publicar artefatos de versões estruturadas`.
 
 ### T13 — Integrar caminho estruturado ao grafo

@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from typing import Mapping
 from uuid import UUID
 
+from botocore.exceptions import ClientError
+
 from app.post_document import ImageElement, PostDocumentV1
 
 _MAX_BYTES = 5 * 1024 * 1024
@@ -47,6 +49,22 @@ def _read_image(client, bucket: str, key: str) -> bytes:
     return data
 
 
+def _put_immutable(client, bucket: str, key: str, data: bytes, content_type: str) -> None:
+    try:
+        client.put_object(Bucket=bucket, Key=key, Body=data, ContentType=content_type, IfNoneMatch="*")
+    except ClientError as exc:
+        if str(exc.response.get("Error", {}).get("Code")) not in {"PreconditionFailed", "412"}:
+            raise
+        existing = client.get_object(Bucket=bucket, Key=key)
+        body = existing["Body"]
+        try:
+            previous = body.read(len(data) + 1)
+        finally:
+            body.close()
+        if previous != data or existing.get("ContentType") != content_type:
+            raise ValueError("immutable artifact already exists with different content") from exc
+
+
 async def copy_version_assets(
     document: PostDocumentV1, *, job_id: str, bucket: str,
     authorized_sources: Mapping[str, str], client,
@@ -66,13 +84,13 @@ async def copy_version_assets(
             extension, content_type = _extension_and_type(data)
             key = f"slides/{job_uuid}/assets/{asset_id}.{extension}"
             attempted.append(key)
-            await asyncio.to_thread(client.put_object, Bucket=bucket, Key=key, Body=data, ContentType=content_type)
+            await asyncio.to_thread(_put_immutable, client, bucket, key, data, content_type)
             keys[asset_id] = key
             contents[asset_id] = data
         manifest_key = f"slides/{job_uuid}/assets.json"
         attempted.append(manifest_key)
         manifest = json.dumps(keys, ensure_ascii=True, sort_keys=True, separators=(",", ":")).encode("utf-8")
-        await asyncio.to_thread(client.put_object, Bucket=bucket, Key=manifest_key, Body=manifest, ContentType="application/json")
+        await asyncio.to_thread(_put_immutable, client, bucket, manifest_key, manifest, "application/json")
     except Exception as exc:
         # An upload may have succeeded even if its response was lost; defer cleanup to reconciliation.
         raise AssetCopyError(attempted) from exc
