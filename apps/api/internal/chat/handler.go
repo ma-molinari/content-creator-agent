@@ -257,7 +257,9 @@ func mapChatErr(err error) *echo.HTTPError {
 }
 
 type postMessageBody struct {
-	Content string `json:"content"`
+	Content       string `json:"content"`
+	Mode          string `json:"mode"`
+	BaseVersionID string `json:"baseVersionId"`
 }
 
 type postMessageAccepted struct {
@@ -281,7 +283,7 @@ func (h *Handler) PostMessage(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid chat id")
 	}
 	ct := strings.ToLower(strings.TrimSpace(c.Request().Header.Get(echo.HeaderContentType)))
-	var content string
+	var content, mode, baseVersion string
 	var attachments []AttachmentInput
 
 	if strings.HasPrefix(ct, echo.MIMEMultipartForm) {
@@ -292,6 +294,8 @@ func (h *Handler) PostMessage(c echo.Context) error {
 		defer func() { _ = form.RemoveAll() }()
 
 		content = c.FormValue("content")
+		mode = c.FormValue("mode")
+		baseVersion = c.FormValue("baseVersionId")
 		if ferr := validatePostMessageContent(content); ferr != nil {
 			return ferr
 		}
@@ -327,13 +331,15 @@ func (h *Handler) PostMessage(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid JSON body")
 		}
 		content = body.Content
+		mode = body.Mode
+		baseVersion = body.BaseVersionID
 		if ferr := validatePostMessageContent(content); ferr != nil {
 			return ferr
 		}
 	}
 
 	uid := middleware.UserID(c)
-	res, err := h.svc.PostMessage(c.Request().Context(), uid, chatID, content, attachments)
+	res, err := h.svc.PostMessageWithOptions(c.Request().Context(), uid, chatID, content, attachments, MessageOptions{Mode: mode, BaseVersionID: baseVersion})
 	if err != nil {
 		return mapPostErr(err)
 	}
@@ -370,6 +376,14 @@ func (h *Handler) SetupStatus(c echo.Context) error {
 
 func mapPostErr(err error) *echo.HTTPError {
 	switch {
+	case errors.Is(err, ErrModeRequired):
+		return echo.NewHTTPError(http.StatusBadRequest, map[string]string{"code": "MODE_REQUIRED", "message": "Informe se deseja criar ou editar o post."})
+	case errors.Is(err, ErrInvalidStructuredMode):
+		return echo.NewHTTPError(http.StatusBadRequest, map[string]string{"code": "INVALID_MODE", "message": "Modo ou versão de edição inválidos."})
+	case errors.Is(err, ErrVersionConflict):
+		return echo.NewHTTPError(http.StatusConflict, map[string]string{"code": "VERSION_CONFLICT", "message": "A versão do post mudou. Atualize o chat."})
+	case errors.Is(err, ErrStructuredUnavailable):
+		return echo.NewHTTPError(http.StatusServiceUnavailable, map[string]string{"code": "STRUCTURED_UNAVAILABLE", "message": "A geração estruturada está indisponível."})
 	case errors.Is(err, ErrSetupRequired):
 		return echo.NewHTTPError(http.StatusBadRequest, map[string]string{
 			"code":    "SETUP_REQUIRED",

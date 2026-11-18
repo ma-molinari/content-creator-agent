@@ -56,3 +56,51 @@ func (r *Repository) GetCurrentVersion(ctx context.Context, userID, chatID uuid.
 	}
 	return r.GetOwnedVersion(ctx, userID, chatID, *row.CurrentVersionID)
 }
+
+// CreateStructuredMessageAndJob captures the current base under the chat lock.
+func (r *Repository) CreateStructuredMessageAndJob(ctx context.Context, userID uuid.UUID, content *db.ChatContent, job *db.Job, mode string, requestedBase *uuid.UUID, setTitle *string, attachments []db.ChatContentAttachment) (string, error) {
+	var documentKey string
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		row, err := r.LockOwnedChat(ctx, tx, userID, content.ChatID)
+		if err != nil {
+			return err
+		}
+		if row.PostFormat != db.PostFormatStructuredV1 {
+			return ErrInvalidStructuredMode
+		}
+		if mode == "edit" {
+			if requestedBase == nil || row.CurrentVersionID == nil || *requestedBase != *row.CurrentVersionID {
+				return ErrVersionConflict
+			}
+			var base db.PostVersion
+			if err := tx.Where("id = ? AND chat_id = ?", *requestedBase, row.ID).First(&base).Error; err != nil {
+				return err
+			}
+			documentKey = base.DocumentS3Key
+		}
+		job.PostFormat = db.PostFormatStructuredV1
+		job.GenerationMode = &mode
+		job.ExpectedVersionID = row.CurrentVersionID
+		if err := tx.Create(content).Error; err != nil {
+			return err
+		}
+		for i := range attachments {
+			attachments[i].ChatContentID = content.ID
+		}
+		if len(attachments) > 0 {
+			if err := tx.Create(&attachments).Error; err != nil {
+				return err
+			}
+		}
+		if err := tx.Create(job).Error; err != nil {
+			return err
+		}
+		if setTitle != nil && *setTitle != "" {
+			if err := tx.Model(&db.Chat{}).Where("id = ? AND (title IS NULL OR TRIM(COALESCE(title, '')) = '')", row.ID).Update("title", *setTitle).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	return documentKey, err
+}

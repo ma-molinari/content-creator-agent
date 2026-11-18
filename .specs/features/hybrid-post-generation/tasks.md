@@ -117,14 +117,14 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 - [x] Testes Postgres exercitam ponteiro nulo, relações cruzadas e exclusão mútua no lock do chat; a ordem de locks de chat/job será aplicada na T10.
 **Verificar:** testes de repositório e integração Postgres. **Commit:** `feat(api): consultar versões e bases de edição`.
 
-### T10 — Aceite e conclusão transacional de jobs estruturados
+### T10 — Aceite e conclusão transacional de jobs estruturados — implementação parcial
 
 **Objetivo:** estender contratos HTTP e callback para persistir snapshots e publicar versões com controle de concorrência.
 **Contexto:** `chat/handler.go`, `chat/post_message.go`, `jobs/worker_client.go`, `jobs/handler.go`, `jobs/complete.go`; tratamento atual do callback deve ser ajustado para não converter conflito em falha genérica. Implementar validação nos formatos JSON e multipart.
 **Dependências:** T08, T09. **Requisitos:** HBG-04, HBG-05, HBG-06, HBG-08, HBG-10, HBG-12.
 **Pronto quando:**
-- [ ] `mode`/`baseVersionId` são validados por formato e ownership; job captura ponteiro esperado inclusive nulo; API recusa dispatch estruturado por padrão até que um verificador de capacidade confiável esteja disponível (T17); clientes não compatíveis não sofrem mutação. Deve responder `202` ou erro explícito.
-- [ ] Callback valida artefatos e, com locks consistentes, publica ou persiste `failed`/`VERSION_CONFLICT` atomicamente antes de responder; não retornar erro que reverta essa transação nem permitir que o fallback atual sobrescreva o código. Repetições são idempotentes e não publicam duas versões para a mesma base.
+- [ ] `mode`/`baseVersionId` são validados por formato e ownership; job captura ponteiro esperado inclusive nulo; API recusa dispatch estruturado por padrão até que um verificador de capacidade confiável esteja disponível (T17); clientes não compatíveis não sofrem mutação. Parte implementada e testada em modo fechado; falta integrar verificador e testar dispatch bem-sucedido.
+- [ ] Callback valida prefixos, nomes, existência e quantidade de artefatos e, com locks consistentes, publica ou persiste `failed`/`VERSION_CONFLICT` atomicamente; repetições são idempotentes. Falta validar tamanho/tipo do snapshot e cobrir o protocolo de callback e mais casos de concorrência na T14.
 **Verificar:** testes Go e integração Postgres para callbacks concorrentes, primeira criação nula, JSON/multipart, cliente legado e ownership. **Commit:** `feat(api): publicar versões estruturadas com controle de conflito`.
 
 ### T11 — Limpeza durável de chats e evicção [P]

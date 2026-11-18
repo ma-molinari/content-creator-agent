@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -164,13 +165,50 @@ type PostMessageResult struct {
 }
 
 // PostMessage persists the user message, creates a job, and dispatches work to the worker.
+type MessageOptions struct {
+	Mode          string
+	BaseVersionID string
+}
+
 func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, rawBody string, attachments []AttachmentInput) (*PostMessageResult, error) {
+	return s.PostMessageWithOptions(ctx, userID, chatID, rawBody, attachments, MessageOptions{})
+}
+
+func (s *Service) PostMessageWithOptions(ctx context.Context, userID, chatID uuid.UUID, rawBody string, attachments []AttachmentInput, options MessageOptions) (*PostMessageResult, error) {
 	if s.worker == nil {
 		return nil, ErrWorkerNotConfigured
 	}
 	chatRow, err := s.getChatIfOwner(ctx, userID, chatID)
 	if err != nil {
 		return nil, err
+	}
+	var requestedBase *uuid.UUID
+	if chatRow.PostFormat == db.PostFormatStructuredV1 {
+		if options.Mode == "" {
+			return nil, ErrModeRequired
+		}
+		if options.Mode != "create" && options.Mode != "edit" {
+			return nil, ErrInvalidStructuredMode
+		}
+		if (options.Mode == "edit" && options.BaseVersionID == "") || (options.Mode == "create" && options.BaseVersionID != "") {
+			return nil, ErrInvalidStructuredMode
+		}
+		if options.BaseVersionID != "" {
+			id, err := uuid.Parse(options.BaseVersionID)
+			if err != nil {
+				return nil, ErrInvalidStructuredMode
+			}
+			requestedBase = &id
+		}
+		if options.Mode == "edit" && (chatRow.CurrentVersionID == nil || *requestedBase != *chatRow.CurrentVersionID) {
+			return nil, ErrVersionConflict
+		}
+		// Fail closed until worker capability negotiation is supplied by T17.
+		if s.structuredReady == nil || !s.structuredReady(ctx) {
+			return nil, ErrStructuredUnavailable
+		}
+	} else if options.Mode != "" || options.BaseVersionID != "" {
+		return nil, ErrInvalidStructuredMode
 	}
 	body := SanitizeUserInput(rawBody)
 	if body == "" {
@@ -217,7 +255,16 @@ func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, raw
 		attKeys = keys
 		chatAtts = atts
 	}
-	if err := s.repo.CreateUserMessageAndJob(ctx, userMsg, job, setTitle, chatAtts); err != nil {
+	var documentKey string
+	if chatRow.PostFormat == db.PostFormatStructuredV1 {
+		documentKey, err = s.repo.CreateStructuredMessageAndJob(ctx, userID, userMsg, job, options.Mode, requestedBase, setTitle, chatAtts)
+	} else {
+		err = s.repo.CreateUserMessageAndJob(ctx, userMsg, job, setTitle, chatAtts)
+	}
+	if err != nil {
+		if len(attKeys) > 0 && (errors.Is(err, ErrVersionConflict) || errors.Is(err, ErrInvalidStructuredMode)) {
+			_ = s.store.DeleteMany(context.Background(), attKeys)
+		}
 		return nil, err
 	}
 	knownChatAtts, err := s.repo.ListAttachmentsForChat(ctx, chatID)
@@ -280,6 +327,10 @@ func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, raw
 		})
 	}
 	payload := jobs.DispatchPayload{
+		PostFormat:             string(job.PostFormat),
+		GenerationMode:         options.Mode,
+		BaseVersionID:          job.ExpectedVersionID,
+		DocumentS3Key:          documentKey,
 		JobID:                  job.ID,
 		UserID:                 userID,
 		ChatID:                 chatID,

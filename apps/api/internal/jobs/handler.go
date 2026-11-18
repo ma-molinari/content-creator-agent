@@ -20,7 +20,8 @@ const workerAPIKeyHeader = "X-Worker-API-Key"
 
 // CompleteBody is the worker callback payload.
 type CompleteBody struct {
-	AssistantText *string `json:"assistantText"`
+	Structured    *StructuredArtifact `json:"structured,omitempty"`
+	AssistantText *string             `json:"assistantText"`
 	Artifacts     []struct {
 		S3Key       string  `json:"s3Key"`
 		SlideNumber int     `json:"slideNumber"`
@@ -99,6 +100,28 @@ func (h *Handler) Complete(c echo.Context) error {
 			return echo.NewHTTPError(http.StatusBadRequest, "each artifact must include s3Key")
 		}
 		artifacts = append(artifacts, ArtifactRef{S3Key: key, SlideNumber: a.SlideNumber, HtmlS3Key: a.HTMLS3Key})
+	}
+	if body.Structured != nil {
+		alreadyDone, conflict, err := CompleteStructuredReply(ctx, h.gdb, jobID, assistantText, artifacts, *body.Structured, h.store)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return echo.NewHTTPError(http.StatusNotFound, "job not found")
+			}
+			if errors.Is(err, ErrJobCompleteConflict) {
+				return echo.NewHTTPError(http.StatusConflict, "job already failed")
+			}
+			if errors.Is(err, ErrJobNotProcessing) || errors.Is(err, gorm.ErrInvalidData) || errors.Is(err, ErrInvalidSlideS3Key) || errors.Is(err, ErrArtifactObjectNotFound) {
+				return echo.NewHTTPError(http.StatusBadRequest, "invalid structured completion")
+			}
+			return httperr.Internal("[jobs] structured complete", err)
+		}
+		if conflict {
+			return c.JSON(http.StatusConflict, map[string]string{"code": "VERSION_CONFLICT"})
+		}
+		if alreadyDone {
+			log.Printf("[jobs] structured complete job_id=%s status=done (idempotent no-op)", jobID)
+		}
+		return c.NoContent(http.StatusNoContent)
 	}
 	alreadyDone, err := CompleteAssistantReply(ctx, h.gdb, jobID, assistantText, artifacts, h.store, body.WorkerMetadata)
 	if err != nil {

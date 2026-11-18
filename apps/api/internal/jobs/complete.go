@@ -95,6 +95,9 @@ func CompleteAssistantReply(ctx context.Context, gdb *gorm.DB, jobID uuid.UUID, 
 		if e := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&job, "id = ?", jobID).Error; e != nil {
 			return e
 		}
+		if job.PostFormat != db.PostFormatLegacy {
+			return gorm.ErrInvalidData
+		}
 		switch job.Status {
 		case db.JobStatusDone:
 			alreadyDone = true

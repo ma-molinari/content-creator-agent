@@ -16,6 +16,10 @@ import (
 
 // DispatchPayload is sent to POST {WORKER_URL}/jobs.
 type DispatchPayload struct {
+	PostFormat            string                `json:"post_format,omitempty"`
+	GenerationMode        string                `json:"generation_mode,omitempty"`
+	BaseVersionID         *uuid.UUID            `json:"base_version_id,omitempty"`
+	DocumentS3Key         string                `json:"document_s3_key,omitempty"`
 	JobID                 uuid.UUID             `json:"job_id"`
 	UserID                uuid.UUID             `json:"user_id"`
 	ChatID                uuid.UUID             `json:"chat_id"`

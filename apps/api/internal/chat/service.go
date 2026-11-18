@@ -24,6 +24,10 @@ var (
 	ErrBadPostType            = errors.New("chat: invalid post type")
 	ErrWorkerNotConfigured    = errors.New("chat: worker not configured")
 	ErrSetupRequired          = errors.New("chat: profile setup required (audit and brand in app)")
+	ErrModeRequired           = errors.New("chat: mode is required")
+	ErrInvalidStructuredMode  = errors.New("chat: invalid structured mode")
+	ErrVersionConflict        = errors.New("chat: version conflict")
+	ErrStructuredUnavailable  = errors.New("chat: structured worker unavailable")
 	ErrEmptyPrompt            = errors.New("chat: empty prompt after sanitization")
 	ErrWorkerDispatchFailed   = errors.New("chat: worker dispatch failed")
 	ErrAttachmentTooLarge     = errors.New("chat: attachment too large")
@@ -39,12 +43,13 @@ const signedURLExpiry = time.Hour
 
 // Service coordinates chat use cases and storage.
 type Service struct {
-	repo        *Repository
-	jobsRepo    *jobs.Repository
-	store       storage.StorageService
-	profileRepo *profile.Repository
-	profileSvc  *profile.Service
-	worker      jobs.WorkerClient
+	repo            *Repository
+	jobsRepo        *jobs.Repository
+	store           storage.StorageService
+	profileRepo     *profile.Repository
+	profileSvc      *profile.Service
+	worker          jobs.WorkerClient
+	structuredReady func(context.Context) bool
 
 	// latestAssistantHTMLKeys defaults to repo.GetLatestAssistantHTMLKeys; tests may replace it to simulate failures.
 	latestAssistantHTMLKeys func(context.Context, uuid.UUID) ([]string, error)
