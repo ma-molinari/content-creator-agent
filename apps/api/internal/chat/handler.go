@@ -138,8 +138,11 @@ func (h *Handler) CreateChat(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid JSON body")
 	}
 	uid := middleware.UserID(c)
-	chat, err := h.svc.CreateChat(c.Request().Context(), uid, body.PostType)
+	chat, err := h.svc.CreateChatWithClient(c.Request().Context(), uid, body.PostType, supportsStructuredClient(c))
 	if err != nil {
+		if errors.Is(err, ErrStructuredUnavailable) {
+			return echo.NewHTTPError(http.StatusServiceUnavailable, map[string]string{"code": "STRUCTURED_UNAVAILABLE", "message": "A geração estruturada está indisponível."})
+		}
 		if errors.Is(err, ErrBadPostType) {
 			return echo.NewHTTPError(http.StatusBadRequest, "invalid postType")
 		}
@@ -158,6 +161,9 @@ func (h *Handler) GetChat(c echo.Context) error {
 	chat, err := h.svc.GetChat(c.Request().Context(), uid, chatID)
 	if err != nil {
 		return mapChatErr(err)
+	}
+	if chat.PostFormat == db.PostFormatStructuredV1 && !supportsStructuredClient(c) {
+		return echo.NewHTTPError(http.StatusUpgradeRequired, map[string]string{"code": "CLIENT_UPGRADE_REQUIRED", "message": "Atualize a aplicação para acessar este chat."})
 	}
 	return c.JSON(http.StatusOK, chatToJSON(chat))
 }
@@ -345,7 +351,7 @@ func (h *Handler) PostMessage(c echo.Context) error {
 	}
 
 	uid := middleware.UserID(c)
-	res, err := h.svc.PostMessageWithOptions(c.Request().Context(), uid, chatID, content, attachments, MessageOptions{Mode: mode, BaseVersionID: baseVersion})
+	res, err := h.svc.PostMessageWithOptions(c.Request().Context(), uid, chatID, content, attachments, MessageOptions{Mode: mode, BaseVersionID: baseVersion, ClientSupported: supportsStructuredClient(c)})
 	if err != nil {
 		return mapPostErr(err)
 	}
@@ -382,6 +388,8 @@ func (h *Handler) SetupStatus(c echo.Context) error {
 
 func mapPostErr(err error) *echo.HTTPError {
 	switch {
+	case errors.Is(err, ErrClientUpgrade):
+		return echo.NewHTTPError(http.StatusUpgradeRequired, map[string]string{"code": "CLIENT_UPGRADE_REQUIRED", "message": "Atualize a aplicação para acessar este chat."})
 	case errors.Is(err, ErrModeRequired):
 		return echo.NewHTTPError(http.StatusBadRequest, map[string]string{"code": "MODE_REQUIRED", "message": "Informe se deseja criar ou editar o post."})
 	case errors.Is(err, ErrInvalidStructuredMode):
@@ -414,4 +422,8 @@ func mapPostErr(err error) *echo.HTTPError {
 		return mapChatErr(err)
 	}
 	return httperr.Internal("[chat] post message", err)
+}
+
+func supportsStructuredClient(c echo.Context) bool {
+	return c.Request().Header.Get("X-Post-Client-Version") == "1"
 }

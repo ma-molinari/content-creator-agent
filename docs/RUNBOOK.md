@@ -74,3 +74,9 @@ cd apps/api && make migrate-up
 ## CI
 
 Não há workflow de CI versionado neste repositório. Consulte `docs/TESTING.md` para executar os testes localmente e configure os segredos no provedor de CI escolhido quando houver pipeline.
+
+## Geração estruturada (em desenvolvimento)
+
+`STRUCTURED_POSTS_ENABLED` é `false` por padrão. Não habilite a flag em produção antes da validação e aceitação previstas na T18. Quando habilitada, novos chats de clientes compatíveis podem usar o formato estruturado; desabilitar a flag preserva a edição dos chats estruturados existentes.
+
+A API verifica a capacidade no endpoint autenticado `/capabilities` do worker e envia jobs estruturados para `/jobs/structured`. Clientes compatíveis informam `X-Post-Client-Version: 1`. Em um conjunto misto de réplicas, uma verificação bem-sucedida não garante que todas estejam atualizadas: uma réplica antiga rejeitará o endpoint dedicado, mas o job pode já ter sido criado. Atualize todas as réplicas antes de habilitar a flag.

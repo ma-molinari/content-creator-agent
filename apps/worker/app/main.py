@@ -125,25 +125,46 @@ def health():
     return {"status": "ok"}
 
 
+def _require_worker_key(raw_key: Optional[str]) -> None:
+    from app.config import get_settings
+
+    key = (raw_key or "").strip()
+    if not key or key != get_settings().worker_api_key:
+        raise HTTPException(status_code=401, detail="invalid worker API key")
+
+
+@app.get("/capabilities")
+def capabilities(x_worker_api_key: Optional[str] = Header(default=None, alias="X-Worker-API-Key")):
+    _require_worker_key(x_worker_api_key)
+    return {"structuredPost": {"contractVersion": 1}}
+
+
+def _accept_job(payload: DispatchPayload, background_tasks: BackgroundTasks) -> dict[str, object]:
+    state = initial_state(payload)
+    logger.debug("job accepted job_id=%s chat_id=%s user_id=%s", payload.job_id, payload.chat_id, payload.user_id)
+    background_tasks.add_task(_run_job_safe, state)
+    return {"accepted": True, "job_id": str(payload.job_id)}
+
+
 @app.post("/jobs", status_code=202)
 async def post_jobs(
     payload: DispatchPayload,
     background_tasks: BackgroundTasks,
     x_worker_api_key: Optional[str] = Header(default=None, alias="X-Worker-API-Key"),
 ):
-    from app.config import get_settings
+    _require_worker_key(x_worker_api_key)
+    if payload.post_format != "legacy_html":
+        raise HTTPException(status_code=400, detail="invalid job format")
+    return _accept_job(payload, background_tasks)
 
-    settings = get_settings()
-    key = (x_worker_api_key or "").strip()
-    if not key or key != settings.worker_api_key:
-        raise HTTPException(status_code=401, detail="invalid worker API key")
 
-    state = initial_state(payload)
-    logger.debug(
-        "job accepted job_id=%s chat_id=%s user_id=%s",
-        payload.job_id,
-        payload.chat_id,
-        payload.user_id,
-    )
-    background_tasks.add_task(_run_job_safe, state)
-    return {"accepted": True, "job_id": str(payload.job_id)}
+@app.post("/jobs/structured", status_code=202)
+async def post_structured_jobs(
+    payload: DispatchPayload,
+    background_tasks: BackgroundTasks,
+    x_worker_api_key: Optional[str] = Header(default=None, alias="X-Worker-API-Key"),
+):
+    _require_worker_key(x_worker_api_key)
+    if payload.post_format != "structured_v1":
+        raise HTTPException(status_code=400, detail="invalid job format")
+    return _accept_job(payload, background_tasks)

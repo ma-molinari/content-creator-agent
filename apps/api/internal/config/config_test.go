@@ -26,3 +26,10 @@ func TestArtifactReconciliationDefaultsAndBounds(t *testing.T) {
 	require.True(t, cfg.ArtifactReconcileEnabled)
 	require.Equal(t, 48, cfg.ArtifactReconcileGraceHours)
 }
+
+func TestStructuredPostsDisabledByDefault(t *testing.T) {
+	t.Setenv("STRUCTURED_POSTS_ENABLED", "")
+	require.False(t, Load().StructuredPostsEnabled)
+	t.Setenv("STRUCTURED_POSTS_ENABLED", "true")
+	require.True(t, Load().StructuredPostsEnabled)
+}

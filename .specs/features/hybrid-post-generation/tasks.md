@@ -187,13 +187,13 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 - [ ] Teste Postgres cobre jobs ativos/falhos, objetos recentes/referenciados, repetição e falha temporária; faltam testes de callback incerto e recuperação real de processo.
 **Verificar:** testes de integração de jobs/armazenamento com tempo e S3 controlados. **Commit:** `feat(api): reconciliar artefatos órfãos com segurança`.
 
-### T17 — Capacidade, flag e observabilidade [P]
+### T17 — Capacidade, flag e observabilidade [P] — implementação parcial
 
 **Objetivo:** controlar habilitação do formato e detectar incompatibilidade de clientes/replicas, registrando métricas e erros operacionais.
 **Contexto:** `apps/api/internal/config/config.go`, `cmd/server/main.go`, `apps/worker/app/main.py`, `job_progress.py`; `/health` atual não negocia capacidade. Métricas de reconciliação são concluídas em T16; não depender de T16 para instrumentação básica.
 **Dependências:** T10, T15. **Requisitos:** HBG-08, HBG-10, HBG-11, HBG-12.
 **Pronto quando:**
-- [ ] Implementa o verificador de capacidade chamado por T10 e o mecanismo para cliente: flag desligada por padrão, seleção persiste por chat/job, worker e cliente incompatíveis são bloqueados antes de mutação/dispatch; múltiplos destinos elegíveis são considerados. Sem verificação válida, falha fechada.
+- [ ] Flag desligada por padrão, negociação de cliente e verificação de capacidade implementadas; endpoint estruturado dedicado impede fallback legado em réplicas antigas. Falta assegurar disponibilidade de todos os destinos antes da mutação em ambientes com balanceamento misto.
 - [ ] Métricas de formato, falhas, duração, conflitos e limpeza usam IDs/códigos sem conteúdo sensível; configuração e comportamento são testados.
 **Verificar:** testes de configuração, negociação, logs e regressão com flag desligada. **Commit:** `feat: controlar ativação do fluxo híbrido`.
 

@@ -18,6 +18,7 @@ export const apiSession = axios.create({
 })
 
 api.interceptors.request.use((config) => {
+  config.headers['X-Post-Client-Version'] = '1'
   const token = useAuthStore.getState().accessToken
   if (token) {
     config.headers.Authorization = `Bearer ${token}`

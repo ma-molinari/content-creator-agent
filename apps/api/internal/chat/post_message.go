@@ -166,8 +166,9 @@ type PostMessageResult struct {
 
 // PostMessage persists the user message, creates a job, and dispatches work to the worker.
 type MessageOptions struct {
-	Mode          string
-	BaseVersionID string
+	Mode            string
+	BaseVersionID   string
+	ClientSupported bool
 }
 
 func (s *Service) PostMessage(ctx context.Context, userID, chatID uuid.UUID, rawBody string, attachments []AttachmentInput) (*PostMessageResult, error) {
@@ -184,6 +185,9 @@ func (s *Service) PostMessageWithOptions(ctx context.Context, userID, chatID uui
 	}
 	var requestedBase *uuid.UUID
 	if chatRow.PostFormat == db.PostFormatStructuredV1 {
+		if !options.ClientSupported {
+			return nil, ErrClientUpgrade
+		}
 		if options.Mode == "" {
 			return nil, ErrModeRequired
 		}

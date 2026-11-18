@@ -24,6 +24,7 @@ var (
 	ErrBadPostType            = errors.New("chat: invalid post type")
 	ErrWorkerNotConfigured    = errors.New("chat: worker not configured")
 	ErrSetupRequired          = errors.New("chat: profile setup required (audit and brand in app)")
+	ErrClientUpgrade          = errors.New("chat: client upgrade required")
 	ErrModeRequired           = errors.New("chat: mode is required")
 	ErrInvalidStructuredMode  = errors.New("chat: invalid structured mode")
 	ErrVersionConflict        = errors.New("chat: version conflict")
@@ -43,13 +44,14 @@ const signedURLExpiry = time.Hour
 
 // Service coordinates chat use cases and storage.
 type Service struct {
-	repo            *Repository
-	jobsRepo        *jobs.Repository
-	store           storage.StorageService
-	profileRepo     *profile.Repository
-	profileSvc      *profile.Service
-	worker          jobs.WorkerClient
-	structuredReady func(context.Context) bool
+	repo              *Repository
+	jobsRepo          *jobs.Repository
+	store             storage.StorageService
+	profileRepo       *profile.Repository
+	profileSvc        *profile.Service
+	worker            jobs.WorkerClient
+	structuredReady   func(context.Context) bool
+	structuredEnabled bool
 
 	// latestAssistantHTMLKeys defaults to repo.GetLatestAssistantHTMLKeys; tests may replace it to simulate failures.
 	latestAssistantHTMLKeys func(context.Context, uuid.UUID) ([]string, error)
@@ -76,12 +78,28 @@ func (s *Service) ListChats(ctx context.Context, userID uuid.UUID) ([]db.Chat, e
 
 // CreateChat creates a chat, evicting the oldest when the user already has 5.
 // The count-check and insert run in a single transaction to prevent TOCTOU races.
+func (s *Service) ConfigureStructured(enabled bool, ready func(context.Context) bool) {
+	s.structuredEnabled = enabled
+	s.structuredReady = ready
+}
+
 func (s *Service) CreateChat(ctx context.Context, userID uuid.UUID, postType string) (*db.Chat, error) {
+	return s.CreateChatWithClient(ctx, userID, postType, false)
+}
+
+func (s *Service) CreateChatWithClient(ctx context.Context, userID uuid.UUID, postType string, supported bool) (*db.Chat, error) {
+	format := db.PostFormatLegacy
+	if s.structuredEnabled && supported {
+		if s.structuredReady == nil || !s.structuredReady(ctx) {
+			return nil, ErrStructuredUnavailable
+		}
+		format = db.PostFormatStructuredV1
+	}
 	pt, err := parsePostType(postType)
 	if err != nil {
 		return nil, err
 	}
-	created, evictedID, err := s.repo.CreateChatEvicting(ctx, userID, pt, listChatsLimit)
+	created, evictedID, err := s.repo.CreateChatEvictingWithFormat(ctx, userID, pt, format, listChatsLimit)
 	if err != nil {
 		return nil, err
 	}

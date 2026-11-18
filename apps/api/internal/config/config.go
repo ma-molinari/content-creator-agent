@@ -26,6 +26,7 @@ type Config struct {
 	// StuckJobProcessingMinutes marks processing jobs as failed when UpdatedAt is older than this (default 20).
 	StuckJobProcessingMinutes   int
 	ArtifactReconcileEnabled    bool
+	StructuredPostsEnabled      bool
 	ArtifactReconcileCron       string
 	ArtifactReconcileGraceHours int
 	// ProfileRefMaxCount caps optional design reference uploads per user (default 8).
@@ -94,6 +95,7 @@ func Load() Config {
 		WorkerAPIKey:                os.Getenv("WORKER_API_KEY"),
 		StuckJobCron:                stuckJobCron,
 		StuckJobProcessingMinutes:   stuckJobMinutes,
+		StructuredPostsEnabled:      strings.EqualFold(strings.TrimSpace(os.Getenv("STRUCTURED_POSTS_ENABLED")), "true"),
 		ArtifactReconcileEnabled:    strings.EqualFold(strings.TrimSpace(os.Getenv("ARTIFACT_RECONCILE_ENABLED")), "true"),
 		ArtifactReconcileCron:       artifactCron,
 		ArtifactReconcileGraceHours: artifactGraceHours,

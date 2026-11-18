@@ -39,6 +39,10 @@ func (r *Repository) ListByUser(ctx context.Context, userID uuid.UUID, limit int
 // It returns the new chat and, when an eviction occurred, the evicted chat ID
 // so the caller can clean up S3 artefacts outside the transaction.
 func (r *Repository) CreateChatEvicting(ctx context.Context, userID uuid.UUID, postType db.PostType, limit int) (*db.Chat, *uuid.UUID, error) {
+	return r.CreateChatEvictingWithFormat(ctx, userID, postType, db.PostFormatLegacy, limit)
+}
+
+func (r *Repository) CreateChatEvictingWithFormat(ctx context.Context, userID uuid.UUID, postType db.PostType, format db.PostFormat, limit int) (*db.Chat, *uuid.UUID, error) {
 	var created db.Chat
 	var evictedID *uuid.UUID
 
@@ -63,7 +67,7 @@ func (r *Repository) CreateChatEvicting(ctx context.Context, userID uuid.UUID, p
 				return err
 			}
 		}
-		created = db.Chat{ID: uuid.New(), UserID: userID, PostType: postType}
+		created = db.Chat{ID: uuid.New(), UserID: userID, PostType: postType, PostFormat: format}
 		return tx.Create(&created).Error
 	})
 	if err != nil {

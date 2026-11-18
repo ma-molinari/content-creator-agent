@@ -91,7 +91,11 @@ func (c *HTTPWorkerClient) DispatchJob(ctx context.Context, payload DispatchPayl
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/jobs", bytes.NewReader(body))
+	path := "/jobs"
+	if payload.PostFormat == "structured_v1" {
+		path = "/jobs/structured"
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
@@ -116,4 +120,30 @@ func (c *HTTPWorkerClient) DispatchJob(ctx context.Context, payload DispatchPayl
 		return fmt.Errorf("jobs: worker returned %s", resp.Status)
 	}
 	return nil
+}
+
+// SupportsStructured reports capability only when a worker explicitly advertises contract V1.
+func (c *HTTPWorkerClient) SupportsStructured(ctx context.Context) bool {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/capabilities", nil)
+	if err != nil {
+		return false
+	}
+	req.Header.Set("X-Worker-API-Key", c.apiKey)
+	response, err := c.httpClient.Do(req)
+	if err != nil {
+		return false
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		return false
+	}
+	var body struct {
+		StructuredPost struct {
+			ContractVersion int `json:"contractVersion"`
+		} `json:"structuredPost"`
+	}
+	if err := json.NewDecoder(io.LimitReader(response.Body, 4096)).Decode(&body); err != nil {
+		return false
+	}
+	return body.StructuredPost.ContractVersion == 1
 }

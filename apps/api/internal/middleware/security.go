@@ -43,7 +43,7 @@ func CORS(allowedOrigins []string) echo.MiddlewareFunc {
 					c.Response().Header().Set("Access-Control-Allow-Origin", origin)
 					c.Response().Header().Set("Access-Control-Allow-Credentials", "true")
 					c.Response().Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-					c.Response().Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Origin")
+					c.Response().Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Origin, X-Post-Client-Version")
 					c.Response().Header().Set("Access-Control-Max-Age", "86400")
 					if c.Request().Method == http.MethodOptions {
 						return c.NoContent(http.StatusNoContent)

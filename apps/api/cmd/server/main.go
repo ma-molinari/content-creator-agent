@@ -65,6 +65,11 @@ func main() {
 		worker = jobs.NewHTTPWorkerClient(wURL, wKey)
 	}
 	chatSvc := chat.NewService(chatRepo, jobsRepo, stor, profileRepo, profileSvc, worker)
+	var structuredReady func(context.Context) bool
+	if client, ok := worker.(*jobs.HTTPWorkerClient); ok {
+		structuredReady = client.SupportsStructured
+	}
+	chatSvc.ConfigureStructured(cfg.StructuredPostsEnabled, structuredReady)
 	ch := chat.NewHandler(chatSvc)
 
 	jobsH := jobs.NewHandler(&cfg, gdb, stor)
