@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"reflect"
 	"regexp"
 	"strings"
 	"unicode/utf8"
@@ -16,7 +17,58 @@ var structuredID = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`)
 var structuredColor = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 var structuredUnsafeText = regexp.MustCompile(`(?i)<\s*/?\s*[a-zA-Z!][^>]*>|(?:https?://|www\.)`)
 
+// JSON field names are case-sensitive in the worker's Pydantic contract.
+func exactStructuredFields(data []byte, typ reflect.Type) error {
+	for typ.Kind() == reflect.Pointer {
+		typ = typ.Elem()
+	}
+	if typ == reflect.TypeOf(json.RawMessage{}) {
+		return nil
+	}
+	switch typ.Kind() {
+	case reflect.Struct:
+		var object map[string]json.RawMessage
+		if err := json.Unmarshal(data, &object); err != nil {
+			return err
+		}
+		fields := make(map[string]reflect.Type, typ.NumField())
+		for i := 0; i < typ.NumField(); i++ {
+			field := typ.Field(i)
+			name := strings.Split(field.Tag.Get("json"), ",")[0]
+			if name != "" && name != "-" {
+				fields[name] = field.Type
+			}
+		}
+		for name, value := range object {
+			fieldType, ok := fields[name]
+			if !ok {
+				return gorm.ErrInvalidData
+			}
+			if err := exactStructuredFields(value, fieldType); err != nil {
+				return err
+			}
+		}
+	case reflect.Slice:
+		var values []json.RawMessage
+		if err := json.Unmarshal(data, &values); err != nil {
+			return err
+		}
+		for _, value := range values {
+			if err := exactStructuredFields(value, typ.Elem()); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func decodeStructured(data []byte, dst interface{}) error {
+	if !utf8.Valid(data) {
+		return gorm.ErrInvalidData
+	}
+	if err := exactStructuredFields(data, reflect.TypeOf(dst)); err != nil {
+		return err
+	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(dst); err != nil {

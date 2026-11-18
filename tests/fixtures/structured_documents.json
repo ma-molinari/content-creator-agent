@@ -1,0 +1,464 @@
+[
+  {
+    "name": "texto básico",
+    "valid": true,
+    "document": {
+      "schemaVersion": 1,
+      "postType": "single",
+      "slides": [
+        {
+          "id": "s1",
+          "layout": "hero",
+          "background": {
+            "type": "solid",
+            "color": "#000000"
+          },
+          "elements": [
+            {
+              "id": "t1",
+              "type": "text",
+              "role": "heading",
+              "content": "Olá",
+              "style": {
+                "color": "#ffffff",
+                "size": "large"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "imagem válida",
+    "valid": true,
+    "document": {
+      "schemaVersion": 1,
+      "postType": "single",
+      "slides": [
+        {
+          "id": "s1",
+          "layout": "hero",
+          "background": {
+            "type": "solid",
+            "color": "#000000"
+          },
+          "elements": [
+            {
+              "id": "t1",
+              "type": "text",
+              "role": "heading",
+              "content": "Olá",
+              "style": {
+                "color": "#ffffff",
+                "size": "large"
+              }
+            },
+            {
+              "id": "i1",
+              "type": "image",
+              "assetId": "asset_1",
+              "fit": "cover"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "fonte explícita",
+    "valid": true,
+    "document": {
+      "schemaVersion": 1,
+      "postType": "single",
+      "slides": [
+        {
+          "id": "s1",
+          "layout": "hero",
+          "background": {
+            "type": "solid",
+            "color": "#000000"
+          },
+          "elements": [
+            {
+              "id": "t1",
+              "type": "text",
+              "role": "heading",
+              "content": "Olá",
+              "style": {
+                "color": "#ffffff",
+                "size": "large",
+                "font": "inter",
+                "weight": "bold",
+                "alignment": "center"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "propriedade desconhecida",
+    "valid": false,
+    "document": {
+      "schemaVersion": 1,
+      "postType": "single",
+      "slides": [
+        {
+          "id": "s1",
+          "layout": "hero",
+          "background": {
+            "type": "solid",
+            "color": "#000000"
+          },
+          "elements": [
+            {
+              "id": "t1",
+              "type": "text",
+              "role": "heading",
+              "content": "Olá",
+              "style": {
+                "color": "#ffffff",
+                "size": "large"
+              }
+            }
+          ],
+          "extra": true
+        }
+      ]
+    }
+  },
+  {
+    "name": "nome com caixa incorreta",
+    "valid": false,
+    "document": {
+      "postType": "single",
+      "slides": [
+        {
+          "id": "s1",
+          "layout": "hero",
+          "background": {
+            "type": "solid",
+            "color": "#000000"
+          },
+          "elements": [
+            {
+              "id": "t1",
+              "type": "text",
+              "role": "heading",
+              "content": "Olá",
+              "style": {
+                "color": "#ffffff",
+                "size": "large"
+              }
+            }
+          ]
+        }
+      ],
+      "SchemaVersion": 1
+    }
+  },
+  {
+    "name": "fonte nula",
+    "valid": false,
+    "document": {
+      "schemaVersion": 1,
+      "postType": "single",
+      "slides": [
+        {
+          "id": "s1",
+          "layout": "hero",
+          "background": {
+            "type": "solid",
+            "color": "#000000"
+          },
+          "elements": [
+            {
+              "id": "t1",
+              "type": "text",
+              "role": "heading",
+              "content": "Olá",
+              "style": {
+                "color": "#ffffff",
+                "size": "large",
+                "font": null
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "layout inválido",
+    "valid": false,
+    "document": {
+      "schemaVersion": 1,
+      "postType": "single",
+      "slides": [
+        {
+          "id": "s1",
+          "layout": "unknown",
+          "background": {
+            "type": "solid",
+            "color": "#000000"
+          },
+          "elements": [
+            {
+              "id": "t1",
+              "type": "text",
+              "role": "heading",
+              "content": "Olá",
+              "style": {
+                "color": "#ffffff",
+                "size": "large"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "texto com HTML",
+    "valid": false,
+    "document": {
+      "schemaVersion": 1,
+      "postType": "single",
+      "slides": [
+        {
+          "id": "s1",
+          "layout": "hero",
+          "background": {
+            "type": "solid",
+            "color": "#000000"
+          },
+          "elements": [
+            {
+              "id": "t1",
+              "type": "text",
+              "role": "heading",
+              "content": "<b>Olá</b>",
+              "style": {
+                "color": "#ffffff",
+                "size": "large"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "texto com URL",
+    "valid": false,
+    "document": {
+      "schemaVersion": 1,
+      "postType": "single",
+      "slides": [
+        {
+          "id": "s1",
+          "layout": "hero",
+          "background": {
+            "type": "solid",
+            "color": "#000000"
+          },
+          "elements": [
+            {
+              "id": "t1",
+              "type": "text",
+              "role": "heading",
+              "content": "www.example.com",
+              "style": {
+                "color": "#ffffff",
+                "size": "large"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "texto em branco",
+    "valid": false,
+    "document": {
+      "schemaVersion": 1,
+      "postType": "single",
+      "slides": [
+        {
+          "id": "s1",
+          "layout": "hero",
+          "background": {
+            "type": "solid",
+            "color": "#000000"
+          },
+          "elements": [
+            {
+              "id": "t1",
+              "type": "text",
+              "role": "heading",
+              "content": "  ",
+              "style": {
+                "color": "#ffffff",
+                "size": "large"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "imagem sem ajuste",
+    "valid": false,
+    "document": {
+      "schemaVersion": 1,
+      "postType": "single",
+      "slides": [
+        {
+          "id": "s1",
+          "layout": "hero",
+          "background": {
+            "type": "solid",
+            "color": "#000000"
+          },
+          "elements": [
+            {
+              "id": "t1",
+              "type": "text",
+              "role": "heading",
+              "content": "Olá",
+              "style": {
+                "color": "#ffffff",
+                "size": "large"
+              }
+            },
+            {
+              "id": "i1",
+              "type": "image",
+              "assetId": "asset_1"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "elementos duplicados",
+    "valid": false,
+    "document": {
+      "schemaVersion": 1,
+      "postType": "single",
+      "slides": [
+        {
+          "id": "s1",
+          "layout": "hero",
+          "background": {
+            "type": "solid",
+            "color": "#000000"
+          },
+          "elements": [
+            {
+              "id": "t1",
+              "type": "text",
+              "role": "heading",
+              "content": "Olá",
+              "style": {
+                "color": "#ffffff",
+                "size": "large"
+              }
+            },
+            {
+              "id": "t1",
+              "type": "image",
+              "assetId": "asset_1",
+              "fit": "cover"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "single com dois slides",
+    "valid": false,
+    "document": {
+      "schemaVersion": 1,
+      "postType": "single",
+      "slides": [
+        {
+          "id": "s1",
+          "layout": "hero",
+          "background": {
+            "type": "solid",
+            "color": "#000000"
+          },
+          "elements": [
+            {
+              "id": "t1",
+              "type": "text",
+              "role": "heading",
+              "content": "Olá",
+              "style": {
+                "color": "#ffffff",
+                "size": "large"
+              }
+            }
+          ]
+        },
+        {
+          "id": "s1",
+          "layout": "hero",
+          "background": {
+            "type": "solid",
+            "color": "#000000"
+          },
+          "elements": [
+            {
+              "id": "t1",
+              "type": "text",
+              "role": "heading",
+              "content": "Olá",
+              "style": {
+                "color": "#ffffff",
+                "size": "large"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "name": "versão booleana",
+    "valid": false,
+    "document": {
+      "schemaVersion": true,
+      "postType": "single",
+      "slides": [
+        {
+          "id": "s1",
+          "layout": "hero",
+          "background": {
+            "type": "solid",
+            "color": "#000000"
+          },
+          "elements": [
+            {
+              "id": "t1",
+              "type": "text",
+              "role": "heading",
+              "content": "Olá",
+              "style": {
+                "color": "#ffffff",
+                "size": "large"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  }
+]
