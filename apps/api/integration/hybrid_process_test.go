@@ -7,12 +7,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -187,10 +189,39 @@ func TestHybridRealWorkerHTTP(t *testing.T) {
 	api := httptest.NewServer(buildEcho(env.DB, cfg, worker, store))
 	t.Cleanup(api.Close)
 	env.APIURL = api.URL
+	var callbacks atomic.Int32
+	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		req, err := http.NewRequestWithContext(r.Context(), r.Method, api.URL+r.URL.RequestURI(), r.Body)
+		if err != nil {
+			http.Error(w, "request failed", http.StatusBadGateway)
+			return
+		}
+		req.Header = r.Header.Clone()
+		response, err := http.DefaultClient.Do(req)
+		if err != nil {
+			http.Error(w, "forward failed", http.StatusBadGateway)
+			return
+		}
+		defer response.Body.Close()
+		if callbacks.Add(1) == 1 {
+			if hijacker, ok := w.(http.Hijacker); ok {
+				conn, _, err := hijacker.Hijack()
+				if err == nil {
+					_ = conn.Close()
+					return
+				}
+			}
+			http.Error(w, "cannot simulate lost response", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(response.StatusCode)
+		_, _ = io.Copy(w, response.Body)
+	}))
+	t.Cleanup(proxy.Close)
 	_, port, err := net.SplitHostPort(workerAddress)
 	require.NoError(t, err)
 	cmd := exec.Command(python, script)
-	cmd.Env = append(os.Environ(), "HYBRID_E2E_STORE="+root, "HYBRID_E2E_API="+api.URL, "HYBRID_E2E_KEY="+IntegrationWorkerAPIKey, "HYBRID_E2E_PORT="+port)
+	cmd.Env = append(os.Environ(), "HYBRID_E2E_STORE="+root, "HYBRID_E2E_API="+proxy.URL, "HYBRID_E2E_KEY="+IntegrationWorkerAPIKey, "HYBRID_E2E_PORT="+port)
 	var output bytes.Buffer
 	cmd.Stdout = &output
 	cmd.Stderr = &output
@@ -260,4 +291,8 @@ func TestHybridRealWorkerHTTP(t *testing.T) {
 	after, err := store.GetObject(context.Background(), second.DocumentS3Key)
 	require.NoError(t, err)
 	require.Contains(t, string(after), "Editado")
+	require.Eventually(t, func() bool { return callbacks.Load() >= 3 }, 5*time.Second, 100*time.Millisecond)
+	var versionCount int64
+	require.NoError(t, env.DB.Model(&db.PostVersion{}).Where("chat_id = ?", ch.ID).Count(&versionCount).Error)
+	require.EqualValues(t, 2, versionCount)
 }

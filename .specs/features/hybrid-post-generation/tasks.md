@@ -163,7 +163,7 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 **Contexto:** `apps/api/integration/`, `apps/worker/tests/`, `tests/e2e/`; usar Postgres real onde locking importa e serviços externos simulados sempre que possível.
 **Dependências:** T13. **Requisitos:** HBG-02 a HBG-08, HBG-10, HBG-12.
 **Pronto quando:**
-- [ ] Postgres cobre criação/edição, criação vs edição, duas primeiras criações com base nula e callbacks fora de ordem/repetidos; o worker testa resposta perdida após commit simulado. Postgres também cobre callback concluído antes de erro de dispatch e dispatch de resultado desconhecido; falta validar timeout entre serviços reais.
+- [ ] Postgres cobre criação/edição, criação vs edição, duas primeiras criações com base nula e callbacks fora de ordem/repetidos; o worker testa resposta perdida após commit simulado. Postgres cobre callback concluído antes de erro de dispatch e dispatch de resultado desconhecido; ensaio entre processos derruba a conexão após o commit e confirma retentativa idempotente. Falta ensaio com infraestrutura real.
 - [ ] Postgres cobre snapshot/manifesto/imagem ausentes, documento inválido e asset de outro job sem publicação; faltam troca de propriedade entre serviços e regressão legada integrada.
 **Verificar:** suíte de integração Go/Postgres e testes de integração do worker; documentar dependências externas indisponíveis. **Commit:** `test: cobrir criação e concorrência de versões`.
 
