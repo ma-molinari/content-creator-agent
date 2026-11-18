@@ -16,7 +16,7 @@ import (
 )
 
 type cleanupStorage interface {
-	ListObjects(context.Context, string) ([]storage.ObjectInfo, error)
+	WalkObjectPages(context.Context, string, func([]storage.ObjectInfo) error) error
 	DeleteMany(context.Context, []string) error
 }
 
@@ -109,17 +109,15 @@ func reconcileJobPrefix(ctx context.Context, gdb *gorm.DB, store cleanupStorage,
 			return nil
 		}
 		prefix := fmt.Sprintf("slides/%s/", id)
-		objects, err := store.ListObjects(ctx, prefix)
-		if err != nil {
-			return err
-		}
-		keys := make([]string, 0, len(objects))
-		for _, obj := range objects {
-			if strings.HasPrefix(obj.Key, prefix) && obj.LastModified != nil && obj.LastModified.Before(cutoff) {
-				keys = append(keys, obj.Key)
+		return store.WalkObjectPages(ctx, prefix, func(objects []storage.ObjectInfo) error {
+			keys := make([]string, 0, len(objects))
+			for _, obj := range objects {
+				if strings.HasPrefix(obj.Key, prefix) && obj.LastModified != nil && obj.LastModified.Before(cutoff) {
+					keys = append(keys, obj.Key)
+				}
 			}
-		}
-		return deleteUnreferenced(ctx, tx, store, keys)
+			return deleteUnreferenced(ctx, tx, store, keys)
+		})
 	})
 }
 

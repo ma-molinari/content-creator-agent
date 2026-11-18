@@ -14,20 +14,23 @@ type ObjectInfo struct {
 	LastModified *time.Time
 }
 
-// ListObjects returns every object under a prefix; missing timestamps must not be treated as old.
-func (s *S3Service) ListObjects(ctx context.Context, prefix string) ([]ObjectInfo, error) {
+// WalkObjectPages visits bounded pages; missing timestamps must not be treated as old.
+func (s *S3Service) WalkObjectPages(ctx context.Context, prefix string, visit func([]ObjectInfo) error) error {
 	paginator := s3.NewListObjectsV2Paginator(s.client, &s3.ListObjectsV2Input{Bucket: aws.String(s.bucket), Prefix: aws.String(prefix)})
-	var out []ObjectInfo
 	for paginator.HasMorePages() {
 		page, err := paginator.NextPage(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("storage: list objects: %w", err)
+			return fmt.Errorf("storage: list objects: %w", err)
 		}
+		objects := make([]ObjectInfo, 0, len(page.Contents))
 		for _, obj := range page.Contents {
 			if obj.Key != nil {
-				out = append(out, ObjectInfo{Key: *obj.Key, LastModified: obj.LastModified})
+				objects = append(objects, ObjectInfo{Key: *obj.Key, LastModified: obj.LastModified})
 			}
 		}
+		if err := visit(objects); err != nil {
+			return err
+		}
 	}
-	return out, nil
+	return nil
 }

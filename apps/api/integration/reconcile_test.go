@@ -18,15 +18,36 @@ import (
 )
 
 type reconcileStore struct {
-	objects  map[string][]storage.ObjectInfo
-	deleted  []string
-	failNext bool
+	objects      map[string][]storage.ObjectInfo
+	deleted      []string
+	failNext     bool
+	pageSize     int
+	deleteCalls  int
+	failOnDelete int
 }
 
-func (s *reconcileStore) ListObjects(_ context.Context, prefix string) ([]storage.ObjectInfo, error) {
-	return s.objects[prefix], nil
+func (s *reconcileStore) WalkObjectPages(_ context.Context, prefix string, visit func([]storage.ObjectInfo) error) error {
+	objects := s.objects[prefix]
+	pageSize := s.pageSize
+	if pageSize == 0 {
+		pageSize = 1000
+	}
+	for start := 0; start < len(objects); start += pageSize {
+		end := start + pageSize
+		if end > len(objects) {
+			end = len(objects)
+		}
+		if err := visit(objects[start:end]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 func (s *reconcileStore) DeleteMany(_ context.Context, keys []string) error {
+	s.deleteCalls++
+	if s.failOnDelete == s.deleteCalls {
+		return errors.New("temporary page failure")
+	}
 	if s.failNext {
 		s.failNext = false
 		return errors.New("temporary failure")
@@ -116,4 +137,25 @@ func TestReconcilePaginatesFailedJobsWithEqualTimestamps(t *testing.T) {
 	}
 	require.NoError(t, jobs.ReconcileArtifacts(context.Background(), env.DB, store, cutoff))
 	require.ElementsMatch(t, expected, store.deleted)
+}
+
+func TestReconcileRetriesAfterObjectPageFailure(t *testing.T) {
+	env := newTestEnv(t, nil)
+	userID, chatID, jobID := uuid.New(), uuid.New(), uuid.New()
+	require.NoError(t, env.DB.Create(&db.User{ID: userID, Email: uuid.NewString() + "@test.invalid", PasswordHash: "hash", SecurityKeyHash: "hash"}).Error)
+	t.Cleanup(func() { env.DB.Delete(&db.User{}, "id = ?", userID) })
+	require.NoError(t, env.DB.Create(&db.Chat{ID: chatID, UserID: userID, PostType: db.PostTypeSingle}).Error)
+	old := time.Now().UTC().Add(-48 * time.Hour)
+	cutoff := time.Now().UTC().Add(-24 * time.Hour)
+	require.NoError(t, env.DB.Create(&db.Job{ID: jobID, ChatID: chatID, UserID: userID, Status: db.JobStatusFailed, UpdatedAt: old}).Error)
+	prefix := fmt.Sprintf("slides/%s/", jobID)
+	keys := []string{prefix + "one", prefix + "two", prefix + "three"}
+	store := &reconcileStore{pageSize: 1, failOnDelete: 2, objects: map[string][]storage.ObjectInfo{prefix: {
+		{Key: keys[0], LastModified: &old}, {Key: keys[1], LastModified: &old}, {Key: keys[2], LastModified: &old},
+	}}}
+	require.Error(t, jobs.ReconcileArtifacts(context.Background(), env.DB, store, cutoff))
+	require.Equal(t, keys[:1], store.deleted)
+	store.deleted = nil
+	require.NoError(t, jobs.ReconcileArtifacts(context.Background(), env.DB, store, cutoff))
+	require.ElementsMatch(t, keys, store.deleted)
 }
