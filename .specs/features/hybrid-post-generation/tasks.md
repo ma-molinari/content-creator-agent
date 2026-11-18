@@ -107,14 +107,14 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 - [x] Testes de migração com Postgres validam dados legados, constraints e exclusão; down migration não é usada em rollback com dados estruturados.
 **Verificar:** testes de migração/modelos com Postgres e testes Go pertinentes. **Commit:** `feat(api): adicionar persistência de versões de posts`.
 
-### T09 — Repositório de versões e seleção da base
+### T09 — Repositório de versões e seleção da base — concluída
 
 **Objetivo:** disponibilizar operações de leitura e bloqueio de versão corrente/linhagem com ownership e formato.
 **Contexto:** `apps/api/internal/chat/repository.go`, `jobs/repository.go`, `db/models.go`; evitar ordenação temporal como fonte da versão corrente.
 **Dependências:** T08. **Requisitos:** HBG-04, HBG-05, HBG-10, HBG-12.
 **Pronto quando:**
-- [ ] Leituras retornam versão corrente e histórico associados ao chat; seleção de base inválida ou de outro usuário/chat é rejeitada.
-- [ ] Testes Postgres exercitam ponteiro nulo, relações cruzadas e locks/ordem definida para publicação concorrente.
+- [x] Leituras retornam versão corrente e histórico associados ao chat; seleção de base inválida ou de outro usuário/chat é rejeitada.
+- [x] Testes Postgres exercitam ponteiro nulo, relações cruzadas e exclusão mútua no lock do chat; a ordem de locks de chat/job será aplicada na T10.
 **Verificar:** testes de repositório e integração Postgres. **Commit:** `feat(api): consultar versões e bases de edição`.
 
 ### T10 — Aceite e conclusão transacional de jobs estruturados
