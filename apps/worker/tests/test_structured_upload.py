@@ -9,7 +9,7 @@ import pytest
 
 from app.immutable_assets import CopiedAssets
 from app.post_document import PostDocumentV1
-from app.structured_upload import StructuredUploadError, send_structured_completion, upload_structured_post
+from app.structured_upload import StructuredCallbackUnknown, StructuredUploadError, send_structured_completion, upload_structured_post
 
 
 class FakeS3:
@@ -62,7 +62,7 @@ def test_timeout_never_sends_failure_callback(monkeypatch):
     upload = asyncio.run(upload_structured_post(make_document(), slides, images, CopiedAssets({}, {}), job_id=job_id, bucket="test", client=client))
     send = AsyncMock(side_effect=httpx.ReadTimeout("timeout"))
     monkeypatch.setattr("app.structured_upload.post_complete_callback", send)
-    with pytest.raises(httpx.ReadTimeout):
+    with pytest.raises(StructuredCallbackUnknown):
         asyncio.run(send_structured_completion("http://api/internal/jobs/x/complete", api_key="key", assistant_text="ok", upload=upload))
     assert send.await_count == 1
     assert send.await_args.kwargs["json_body"]["error"] is None

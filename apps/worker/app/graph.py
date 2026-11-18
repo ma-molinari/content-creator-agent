@@ -17,6 +17,7 @@ from app.nodes.prepare_input import prepare_input
 from app.nodes.profile_overview import profile_overview
 from app.nodes.render_and_contrast import render_and_contrast
 from app.nodes.security_validate import route_after_security, security_validate
+from app.nodes.structured_pipeline import structured_pipeline
 from app.nodes.upload_assets import upload_assets
 from app.nodes.validate_attachment_usage import (
     route_after_attachment_usage,
@@ -67,6 +68,7 @@ def build_graph():
         _with_progress("security_validate", security_validate),
     )
     builder.add_node("profile_overview", _with_progress("profile_overview", profile_overview))
+    builder.add_node("structured_pipeline", structured_pipeline)
     builder.add_node("intent_detect", _with_progress("intent_detect", intent_detect))
     builder.add_node(
         "load_existing_slides",
@@ -104,7 +106,12 @@ def build_graph():
         route_after_security,
         {"ok": "profile_overview", "rejected": "finalize"},
     )
-    builder.add_edge("profile_overview", "intent_detect")
+    builder.add_conditional_edges(
+        "profile_overview",
+        lambda state: "structured" if state.get("post_format") == "structured_v1" else "legacy",
+        {"structured": "structured_pipeline", "legacy": "intent_detect"},
+    )
+    builder.add_edge("structured_pipeline", END)
     builder.add_conditional_edges(
         "intent_detect",
         route_after_intent,

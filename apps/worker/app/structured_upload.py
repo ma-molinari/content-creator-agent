@@ -14,6 +14,14 @@ from app.post_renderer import RENDERER_VERSION
 from app.state import RenderedSlide, SlideItem
 
 
+class StructuredCallbackUnknown(Exception):
+    """The callback may have committed; do not send a failure callback."""
+
+
+class StructuredCompletionRejected(Exception):
+    """The API explicitly rejected a structured completion."""
+
+
 class StructuredUploadError(Exception):
     def __init__(self, attempted_keys: list[str]):
         super().__init__("Não foi possível salvar os arquivos do post.")
@@ -78,5 +86,12 @@ async def send_structured_completion(
     }
     # The shared client retries the same payload on transport errors and 5xx.
     # Never send a failure callback or delete artifacts solely because the response is unknown.
-    response = await post_complete_callback(url, json_body=payload, headers={"X-Worker-API-Key": api_key}, timeout=15.0)
+    try:
+        response = await post_complete_callback(url, json_body=payload, headers={"X-Worker-API-Key": api_key}, timeout=15.0)
+    except Exception as exc:
+        raise StructuredCallbackUnknown("O resultado do callback é desconhecido.") from exc
+    if response.status_code >= 500:
+        raise StructuredCallbackUnknown("O resultado do callback é desconhecido.")
+    if response.status_code >= 400 and response.status_code != 409:
+        raise StructuredCompletionRejected("O resultado estruturado foi rejeitado.")
     return response.status_code

@@ -32,6 +32,7 @@ class StructuredEditingError(Exception):
 
 async def plan_structured_edit(
     *, request: str, document: PostDocumentV1, authorized_assets: AbstractSet[str],
+    asset_requirements: list[dict[str, object]] | None = None,
 ) -> PostDocumentV1:
     settings = get_settings()
     llm = ChatOpenAI(api_key=settings.openai_api_key, model=settings.openai_chat_model,
@@ -40,6 +41,7 @@ async def plan_structured_edit(
         "request": request,
         "document": document.model_dump(mode="json", by_alias=True),
         "authorizedAssetIds": sorted(authorized_assets),
+        "assetRequirements": asset_requirements or [],
         "schema": EditPlan.model_json_schema(by_alias=True),
     }
     for attempt in range(_MAX_ATTEMPTS):

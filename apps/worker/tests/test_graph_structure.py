@@ -56,7 +56,8 @@ def test_graph_isr_ordering() -> None:
     edges, conditionals = _collect_edges(tree)
 
     assert ("prepare_input", "security_validate") in edges
-    assert ("profile_overview", "intent_detect") in edges
+    profile = next(m for loc, m in conditionals if loc == "profile_overview")
+    assert profile == {"structured": "structured_pipeline", "legacy": "intent_detect"}
     assert ("attachment_analyze", "build_generation_plan") in edges
     assert ("build_generation_plan", "generate_or_edit_slides") in edges
     assert ("generate_or_edit_slides", "validate_slide_package") in edges

@@ -6,6 +6,7 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 from uuid import UUID
+from typing import Optional
 
 from dotenv import load_dotenv
 
@@ -16,6 +17,8 @@ from fastapi import BackgroundTasks, FastAPI, Header, HTTPException
 from app.graph import graph
 from app.job_payload import DispatchPayload, initial_state
 from app.state import AgentState
+from app.structured_upload import StructuredCallbackUnknown
+from app.structured_editing import StructuredEditingError
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +32,7 @@ def _user_safe_error_message(exc: BaseException) -> str:
     return raw
 
 
-async def report_job_failure(job_id: UUID, message: str, timeout: float = 15.0) -> None:
+async def report_job_failure(job_id: UUID, message: str, timeout: float = 15.0, *, error_code: str = "worker_exception") -> None:
     """POST failure to Go API. Logs on HTTP/transport failure; does not raise."""
     from app.api_client import post_complete_callback
     from app.config import get_settings
@@ -41,7 +44,7 @@ async def report_job_failure(job_id: UUID, message: str, timeout: float = 15.0) 
         "Content-Type": "application/json",
         "X-Worker-API-Key": settings.worker_api_key,
     }
-    body = {"error": message, "errorCode": "worker_exception"}
+    body = {"error": message, "errorCode": error_code}
     try:
         r = await post_complete_callback(url, json_body=body, headers=headers, timeout=timeout)
         if r.status_code >= 400:
@@ -57,6 +60,8 @@ async def _run_job(state: AgentState) -> None:
     try:
         await graph.ainvoke(state)
         logger.debug("graph_done job_id=%s", jid)
+    except StructuredCallbackUnknown:
+        logger.warning("structured callback outcome unknown job_id=%s", state.get("job_id"))
     except Exception as exc:
         logger.exception("job failed: job_id=%s", state.get("job_id"))
         jid = state.get("job_id")
@@ -67,8 +72,12 @@ async def _run_job(state: AgentState) -> None:
         except (ValueError, TypeError):
             logger.error("job failed: invalid job_id=%r, cannot report failure", jid)
             return
-        msg = _user_safe_error_message(exc)
-        await report_job_failure(job_uuid, msg)
+        if isinstance(exc, StructuredEditingError):
+            await report_job_failure(job_uuid, "Não foi possível aplicar a edição. Reformule o pedido.", error_code="EDIT_UNSUPPORTED")
+        elif state.get("post_format") == "structured_v1":
+            await report_job_failure(job_uuid, "Não foi possível gerar o post estruturado. Tente novamente.")
+        else:
+            await report_job_failure(job_uuid, _user_safe_error_message(exc))
 
 
 async def _run_job_safe(state: AgentState) -> None:
@@ -120,7 +129,7 @@ def health():
 async def post_jobs(
     payload: DispatchPayload,
     background_tasks: BackgroundTasks,
-    x_worker_api_key: str | None = Header(default=None, alias="X-Worker-API-Key"),
+    x_worker_api_key: Optional[str] = Header(default=None, alias="X-Worker-API-Key"),
 ):
     from app.config import get_settings
 

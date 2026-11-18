@@ -25,7 +25,7 @@ class StructuredGenerationError(Exception):
 
 async def generate_structured_post(
     *, request: str, profile_text: str, post_type: str, authorized_assets: AbstractSet[str],
-    requested_slide_count: int | None = None,
+    requested_slide_count: int | None = None, asset_requirements: list[dict[str, object]] | None = None,
 ) -> PostDocumentV1:
     settings = get_settings()
     llm = ChatOpenAI(api_key=settings.openai_api_key, model=settings.openai_chat_model,
@@ -36,6 +36,7 @@ async def generate_structured_post(
         "postType": post_type,
         "requestedSlideCount": requested_slide_count,
         "authorizedAssetIds": sorted(authorized_assets),
+        "assetRequirements": asset_requirements or [],
         "schema": PostDocumentV1.model_json_schema(by_alias=True),
     }
     for attempt in range(_MAX_ATTEMPTS):

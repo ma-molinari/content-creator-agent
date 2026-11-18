@@ -67,13 +67,13 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 - [x] Sequência inválida não aplica parcialmente; testes incluem operação proibida, alvo ausente, base imutável e mudanças não pretendidas.
 **Verificar:** pytest específico das operações e do schema. **Commit:** `feat(worker): aplicar edições estruturadas atômicas`.
 
-### T05 — Planejamento de edição com LLM — implementação parcial
+### T05 — Planejamento de edição com LLM — integração inicial
 
 **Objetivo:** gerar operações estruturadas a partir do pedido e da base autorizada, com retentativas limitadas e falha explícita.
 **Contexto:** `generate_or_edit_slides.py`, `intent_detect.py`, `finalize_messages.py`; nova rota estruturada usa modo explícito, sem regex como autoridade. Preservar fluxo legado.
 **Dependências:** T04. **Requisitos:** HBG-03, HBG-08, HBG-12.
 **Pronto quando:**
-- [ ] Respostas são validadas e falhas geram exceção segura de reformulação; falta conectar ao status `failed` do job e validar integração na T13.
+- [ ] Respostas são validadas e falhas geram exceção segura de reformulação; status `failed`/`EDIT_UNSUPPORTED` está conectado; falta teste ponta a ponta na T14.
 - [x] Testes isolados usam LLM simulada e verificam operações, erros e preservação da base; regressão de roteamento legado depende da T13.
 **Verificar:** pytest dos novos nós e testes existentes de intenção/refinamento. **Commit:** `feat(worker): planejar edições por operações tipadas`.
 
@@ -147,14 +147,14 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 - [ ] Helper envia o mesmo callback em retentativas sem fallback de erro; testes isolados cobrem timeout. Faltam integração e testes de resposta perdida após commit e conflito confirmado (T13/T14).
 **Verificar:** pytest de upload/finalização com S3 e API simulados. **Commit:** `feat(worker): publicar artefatos de versões estruturadas`.
 
-### T13 — Integrar caminho estruturado ao grafo
+### T13 — Integrar caminho estruturado ao grafo — implementação parcial
 
 **Objetivo:** conectar criação e edição estruturadas à validação, renderização, upload e progresso sem alterar o caminho legado.
 **Contexto:** `graph.py`, `job_payload.py`, `state.py`, `main.py`; dispatch é HTTP com `BackgroundTasks`, não fila durável.
 **Dependências:** T03, T05, T06, T10, T12. **Requisitos:** HBG-02, HBG-03, HBG-06, HBG-08, HBG-12.
 **Pronto quando:**
-- [ ] O grafo roteia por formato/modo explícitos, preserva status e erros e rejeita versões de contrato incompatíveis; legado permanece funcional.
-- [ ] Testes de integração do worker com LLM e S3 simulados cobrem criação, edição, erro e fallback proibido.
+- [ ] Grafo roteia por formato/modo explícitos e testes isolados cobrem status/erros; falta integração ponta a ponta com API, manifesto e reconciliação antes da ativação.
+- [ ] Testes isolados com dependências simuladas cobrem criação, edição, erro, contrato e callback incerto; falta teste integrado com S3 simulado persistente e API.
 **Verificar:** pytest do grafo e testes legados relevantes. **Commit:** `feat(worker): integrar geração híbrida ao grafo`.
 
 ### T14 — Cenários integrados de criação e concorrência

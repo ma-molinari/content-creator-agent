@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
+from typing_extensions import Self
 
 from app.slide_count_inference import infer_requested_slide_count
 from app.state import AgentState
 
 
 class DispatchPayload(BaseModel):
+    post_format: Literal["legacy_html", "structured_v1"] = "legacy_html"
+    generation_mode: Optional[Literal["create", "edit"]] = None
+    base_version_id: Optional[UUID] = None
+    document_s3_key: str = ""
     job_id: UUID
     user_id: UUID
     chat_id: UUID
@@ -33,12 +38,26 @@ class DispatchPayload(BaseModel):
     requested_slide_count: Optional[int] = None
 
 
+    @model_validator(mode="after")
+    def validate_mode(self) -> Self:
+        if self.post_format == "structured_v1":
+            if self.generation_mode not in {"create", "edit"}:
+                raise ValueError("structured mode is required")
+            if self.generation_mode == "edit" and (self.base_version_id is None or not self.document_s3_key):
+                raise ValueError("structured edit requires a base document")
+        return self
+
+
 def initial_state(payload: DispatchPayload) -> AgentState:
     n: Optional[int] = payload.requested_slide_count
     if n is None:
         n = infer_requested_slide_count(payload.raw_message)
     return {
         "job_id": str(payload.job_id),
+        "post_format": payload.post_format,
+        "generation_mode": payload.generation_mode,
+        "base_version_id": str(payload.base_version_id) if payload.base_version_id else "",
+        "document_s3_key": payload.document_s3_key,
         "user_id": str(payload.user_id),
         "chat_id": str(payload.chat_id),
         "message_id": str(payload.message_id) if payload.message_id else "",
