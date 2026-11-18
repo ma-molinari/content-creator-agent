@@ -2,7 +2,6 @@ package jobs
 
 import (
 	"context"
-	"encoding/json"
 	"mime"
 	"strings"
 	"time"
@@ -36,35 +35,7 @@ func validateStructuredDocument(ctx context.Context, store storage.StorageServic
 	if err != nil || mediaType != "application/json" || int64(len(data)) > maxStructuredDocumentBytes {
 		return nil, gorm.ErrInvalidData
 	}
-	var document struct {
-		SchemaVersion int               `json:"schemaVersion"`
-		PostType      string            `json:"postType"`
-		Slides        []json.RawMessage `json:"slides"`
-	}
-	if err := json.Unmarshal(data, &document); err != nil || document.SchemaVersion != 1 || document.PostType != string(postType) || len(document.Slides) != slideCount {
-		return nil, gorm.ErrInvalidData
-	}
-	used := make(map[string]struct{})
-	for _, slide := range document.Slides {
-		var item struct {
-			Elements []struct {
-				Type    string `json:"type"`
-				AssetID string `json:"assetId"`
-			} `json:"elements"`
-		}
-		if string(slide) == "null" || json.Unmarshal(slide, &item) != nil {
-			return nil, gorm.ErrInvalidData
-		}
-		for _, element := range item.Elements {
-			if element.Type == "image" {
-				if element.AssetID == "" {
-					return nil, gorm.ErrInvalidData
-				}
-				used[element.AssetID] = struct{}{}
-			}
-		}
-	}
-	return used, nil
+	return validateDocumentV1(data, postType, slideCount)
 }
 
 type StructuredArtifact struct {

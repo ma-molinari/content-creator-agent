@@ -54,7 +54,7 @@ func (mockStorage) GetObjectLimited(_ context.Context, key string, _ int64) ([]b
 	if strings.HasSuffix(key, "/assets.json") {
 		return []byte(`{}`), "application/json", nil
 	}
-	return []byte(`{"schemaVersion":1,"postType":"single","slides":[{}]}`), "application/json", nil
+	return []byte(`{"schemaVersion":1,"postType":"single","slides":[{"id":"s1","layout":"hero","background":{"type":"solid","color":"#000000"},"elements":[{"id":"t1","type":"text","role":"heading","content":"Olá","style":{"color":"#ffffff","size":"large"}}]}]}`), "application/json", nil
 }
 
 func (mockStorage) GetObject(_ context.Context, _ string) ([]byte, error) {
