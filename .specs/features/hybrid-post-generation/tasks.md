@@ -87,14 +87,14 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 - [x] Testes simulam LLM, single/carrossel, formato inválido e ID de asset não autorizado.
 **Verificar:** pytest específico do gerador e contrato. **Commit:** `feat(worker): gerar documentos estruturados com llm`.
 
-### T07 — Assets imutáveis para cada versão
+### T07 — Assets imutáveis para cada versão — implementação parcial
 
 **Objetivo:** resolver IDs autorizados e copiar assets utilizados para o prefixo do job, com manifesto de referências duráveis.
 **Contexto:** `s3_image_utils.py`, `nodes/upload_assets.py`, `attachment_analyze.py`, `apps/api/internal/profile/service.go` e `jobs/worker_client.go`; o dispatch atual fornece chaves de referências do perfil, não seus IDs. Estender o contrato para fornecer mapeamento ID→chave autorizado para anexos, referências de perfil e assets herdados da base. Cópias incluem recursos herdados e não dependem do perfil permanecer inalterado.
 **Dependências:** T01. **Requisitos:** HBG-07, HBG-10, HBG-12.
 **Pronto quando:**
-- [ ] API valida propriedade e origem do mapeamento ID→chave; worker copia cada asset usado, inclusive herdados, e snapshot/manifesto referenciam apenas cópias autorizadas no novo prefixo, sem URLs temporárias; remoção posterior do original não quebra renderização.
-- [ ] Testes com S3 simulado cobrem referência do perfil, anexo atual e asset herdado, negação de recurso de outro usuário e falha parcial de upload.
+- [ ] Worker copia assets de um mapeamento autorizado e retorna chaves novas; faltam validação do mapeamento pela API, persistência do manifesto e integração ao pipeline.
+- [ ] Testes isolados cobrem mapeamento, cópia, ausência de ID e falha parcial; falta testar ownership na API e persistência/releitura do manifesto.
 **Verificar:** pytest dos serviços de assets e upload. **Commit:** `feat(worker): preservar assets por versão`.
 
 ### T08 — Migração e modelos de versionamento [P] — concluída
