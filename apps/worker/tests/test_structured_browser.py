@@ -37,7 +37,7 @@ def test_chromium_loads_image_and_rejects_overflow(monkeypatch):
 
     monkeypatch.setattr("app.structured_render._allow_font_route", local_font_only)
     png = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/aXcAAAAASUVORK5CYII=")
-    slides, images = asyncio.run(render_structured_post(make_document("Título"), {"asset1": png}))
+    slides, images = asyncio.run(render_structured_post(make_document("Ideias que merecem ser compartilhadas"), {"asset1": png}))
     assert images[0]["jpeg_bytes"].startswith(b"\xff\xd8\xff")
     assert 'src="attachment://asset1"' in slides[0]["html"]
     with pytest.raises(ValueError, match="exceeds canvas"):

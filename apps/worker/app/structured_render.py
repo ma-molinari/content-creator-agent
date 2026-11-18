@@ -87,9 +87,15 @@ async def render_structured_post(
                         const bounds = main.getBoundingClientRect();
                         return [...main.querySelectorAll('.element')].some(el => {
                             const box = el.getBoundingClientRect();
+                            const style = getComputedStyle(el);
+                            const clipsX = style.overflowX !== 'visible';
+                            const clipsY = style.overflowY !== 'visible';
                             return box.left < bounds.left || box.top < bounds.top ||
                                 box.right > bounds.right || box.bottom > bounds.bottom ||
-                                el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1;
+                                (el.scrollWidth > el.clientWidth + 1 &&
+                                    (clipsX || box.left + el.scrollWidth > bounds.right + 1)) ||
+                                (el.scrollHeight > el.clientHeight + 1 &&
+                                    (clipsY || box.top + el.scrollHeight > bounds.bottom + 1));
                         });
                     }""")
                     if clipped:
