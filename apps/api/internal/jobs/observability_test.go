@@ -31,5 +31,7 @@ func TestJobOutcomeLogsSafeFields(t *testing.T) {
 	require.NotContains(t, output.String(), "SECRET")
 	code := "VERSION_CONFLICT"
 	require.Equal(t, code, metricErrorCode(&code))
+	lowercaseCode := "prompt_rejected"
+	require.Equal(t, lowercaseCode, metricErrorCode(&lowercaseCode))
 	require.Equal(t, "UNSPECIFIED", metricErrorCode(nil))
 }

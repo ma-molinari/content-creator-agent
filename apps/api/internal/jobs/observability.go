@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
-var safeMetricCode = regexp.MustCompile(`^[A-Z0-9_]{1,64}$`)
+var safeMetricCode = regexp.MustCompile(`^[A-Za-z0-9_]{1,64}$`)
 
 func metricErrorCode(value *string) string {
 	if value != nil && safeMetricCode.MatchString(*value) {
