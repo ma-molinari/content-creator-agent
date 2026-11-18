@@ -9,7 +9,7 @@ import pytest
 
 from app.immutable_assets import CopiedAssets
 from app.post_document import PostDocumentV1
-from app.structured_upload import StructuredCallbackUnknown, StructuredUploadError, send_structured_completion, upload_structured_post
+from app.structured_upload import StructuredCallbackUnknown, StructuredUpload, StructuredUploadError, send_structured_completion, upload_structured_post
 
 
 class FakeS3:
@@ -67,3 +67,30 @@ def test_timeout_never_sends_failure_callback(monkeypatch):
     assert send.await_count == 1
     assert send.await_args.kwargs["json_body"]["error"] is None
     assert len(client.uploaded) == 3
+
+
+def test_lost_response_after_commit_retries_identical_callback(monkeypatch):
+    payloads = []
+    committed = []
+
+    class APIClient:
+        def __init__(self, **_kwargs): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *_args): pass
+        async def post(self, _url, *, json, headers):
+            payloads.append(json)
+            assert headers["X-Worker-API-Key"] == "key"
+            if not committed:
+                committed.append(json)
+                raise httpx.ReadTimeout("response lost after commit")
+            assert json == committed[0]
+            return httpx.Response(204)
+
+    monkeypatch.setattr("app.api_client.httpx.AsyncClient", APIClient)
+    monkeypatch.setattr("app.api_client.asyncio.sleep", AsyncMock())
+    upload = StructuredUpload("slides/example/document.json", [{"s3Key": "slides/example/slide_01.jpeg", "slideNumber": 1}])
+    status = asyncio.run(send_structured_completion("http://api/complete", api_key="key", assistant_text="ok", upload=upload))
+    assert status == 204
+    assert len(payloads) == 2
+    assert all(item["error"] is None for item in payloads)
+    assert len(committed) == 1

@@ -79,4 +79,19 @@ func TestStructuredCreateEditAndOutOfOrderCallbacks(t *testing.T) {
 	require.NoError(t, env.DB.First(&failed, "id = ?", oldEdit.JobID).Error)
 	require.Equal(t, db.JobStatusFailed, failed.Status)
 	require.Equal(t, "VERSION_CONFLICT", *failed.ErrorCode)
+
+	// A new creation and an edit compete against the same current version.
+	newCreate, err := svc.PostMessageWithOptions(ctx, uid, ch.ID, "novo post", nil, chat.MessageOptions{Mode: "create", ClientSupported: true})
+	require.NoError(t, err)
+	competingEdit, err := svc.PostMessageWithOptions(ctx, uid, ch.ID, "editar atual", nil, chat.MessageOptions{Mode: "edit", BaseVersionID: latest.ID.String(), ClientSupported: true})
+	require.NoError(t, err)
+	_, conflict, err = complete(newCreate.JobID)
+	require.NoError(t, err)
+	require.False(t, conflict)
+	_, conflict, err = complete(competingEdit.JobID)
+	require.NoError(t, err)
+	require.True(t, conflict)
+	var newRoot db.PostVersion
+	require.NoError(t, env.DB.Where("job_id = ?", newCreate.JobID).First(&newRoot).Error)
+	require.Nil(t, newRoot.ParentVersionID)
 }

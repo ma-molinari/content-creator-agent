@@ -54,7 +54,7 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 **Dependências:** T02. **Requisitos:** HBG-02, HBG-10, HBG-12.
 **Pronto quando:**
 - [x] Renderização isolada produz HTML derivado e JPEG 1080×1350; imagens ausentes, overflow identificável, fontes indisponíveis e falhas de renderização geram erro.
-- [ ] Conectar a renderização ao grafo na T13 e testar regressão legada completa. Validações isoladas usam mocks e uma verificação manual no Chromium com fonte simulada.
+- [ ] Renderização conectada ao grafo; teste automatizado em Chromium cobre imagem, overflow e fonte indisponível usando fonte local simulada. Faltam validação visual das fontes reais e regressão integrada completa.
 **Verificar:** testes pytest específicos e Playwright Chromium do worker. **Commit:** `feat(worker): validar e exportar slides estruturados`.
 
 ### T04 — Operações tipadas de edição [P] — concluída no catálogo provisório
@@ -93,8 +93,8 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 **Contexto:** `s3_image_utils.py`, `nodes/upload_assets.py`, `attachment_analyze.py`, `apps/api/internal/profile/service.go` e `jobs/worker_client.go`; o dispatch atual fornece chaves de referências do perfil, não seus IDs. Estender o contrato para fornecer mapeamento ID→chave autorizado para anexos, referências de perfil e assets herdados da base. Cópias incluem recursos herdados e não dependem do perfil permanecer inalterado.
 **Dependências:** T01. **Requisitos:** HBG-07, HBG-10, HBG-12.
 **Pronto quando:**
-- [ ] Worker copia assets e grava `assets.json`; API envia referências próprias e anexos do chat e valida chaves herdadas restritas ao job da versão autorizada. Falta integrar o manifesto ao grafo e à reconciliação.
-- [ ] Testes isolados cobrem cópia, manifesto, chaves de outro job e falha parcial; teste Postgres verifica isolamento das referências do perfil. Faltam testes integrados de persistência/releitura e ownership dos assets herdados.
+- [ ] Worker copia assets e grava `assets.json`; API envia referências próprias e anexos do chat e valida chaves herdadas restritas ao job da versão autorizada. Manifesto integrado ao grafo; falta validação ponta a ponta com reconciliação.
+- [ ] Testes isolados cobrem cópia, manifesto, chaves de outro job e falha parcial; teste Postgres verifica isolamento das referências do perfil. Persistência/releitura cobertas em S3 simulado; falta teste entre serviços de ownership dos assets herdados.
 **Verificar:** pytest dos serviços de assets e upload. **Commit:** `feat(worker): preservar assets por versão`.
 
 ### T08 — Migração e modelos de versionamento [P] — concluída
@@ -143,7 +143,7 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 **Contexto:** `nodes/upload_assets.py`, `nodes/finalize.py`, `slide_artifact_cleanup.py`; uploads não são transação com o banco. Manter prefixo `slides/{jobId}/`.
 **Dependências:** T01, T07. **Requisitos:** HBG-06, HBG-07, HBG-10, HBG-12.
 **Pronto quando:**
-- [ ] Snapshot, assets e artefatos são enviados com escrita condicional; falta inventário durável ou descoberta segura por prefixo (T16) e integração ao grafo.
+- [ ] Snapshot, assets e artefatos usam escrita condicional, integração ao grafo e descoberta por prefixo; falta validação operacional da reconciliação (T16).
 - [ ] Helper envia o mesmo callback em retentativas sem fallback de erro; testes isolados cobrem timeout. Faltam integração e testes de resposta perdida após commit e conflito confirmado (T13/T14).
 **Verificar:** pytest de upload/finalização com S3 e API simulados. **Commit:** `feat(worker): publicar artefatos de versões estruturadas`.
 
@@ -163,7 +163,7 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 **Contexto:** `apps/api/integration/`, `apps/worker/tests/`, `tests/e2e/`; usar Postgres real onde locking importa e serviços externos simulados sempre que possível.
 **Dependências:** T13. **Requisitos:** HBG-02 a HBG-08, HBG-10, HBG-12.
 **Pronto quando:**
-- [ ] Postgres cobre criação/edição, duas primeiras criações com base nula e callbacks de edições fora de ordem/repetidos; faltam criar vs editar, timeout após commit e preservação semântica integrada ao worker.
+- [ ] Postgres cobre criação/edição, criação vs edição, duas primeiras criações com base nula e callbacks fora de ordem/repetidos; o worker testa resposta perdida após commit simulado. Falta validar o timeout entre serviços reais.
 - [ ] Cenários de uploads incompletos, troca de propriedade de assets e regressão legada não publicam versão indevida.
 **Verificar:** suíte de integração Go/Postgres e testes de integração do worker; documentar dependências externas indisponíveis. **Commit:** `test: cobrir criação e concorrência de versões`.
 
