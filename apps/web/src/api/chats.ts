@@ -217,6 +217,7 @@ export type ChatContent = {
   id: string
   chatId: string
   role: 'user' | 'assistant'
+  versionId?: string
   content: string
   createdAt: string
   updatedAt: string
@@ -228,6 +229,8 @@ export type Chat = {
   id: string
   userId: string
   postType: 'single' | 'carousel'
+  postFormat?: 'legacy_html' | 'structured_v1'
+  currentVersionId?: string | null
   title: string | null
   createdAt: string
   updatedAt: string
@@ -252,20 +255,27 @@ export type JobStatusView = {
   errorCode?: string | null
 }
 
+export type GenerationOptions = { mode: 'create' | 'edit'; baseVersionId?: string }
+
 export async function postChatMessage(
   chatId: string,
   content: string,
   attachments?: File[],
+  generation?: GenerationOptions,
 ): Promise<{ jobId: string }> {
   if (!attachments || attachments.length === 0) {
     const { data } = await api.post<{ jobId: string }>(
       `/chats/${chatId}/messages`,
-      { content },
+      { content, ...generation },
     )
     return data
   }
   const form = new FormData()
   form.append('content', content)
+  if (generation) {
+    form.append('mode', generation.mode)
+    if (generation.baseVersionId) form.append('baseVersionId', generation.baseVersionId)
+  }
   for (const file of attachments) {
     form.append('attachments', file, file.name)
   }

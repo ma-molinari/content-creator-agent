@@ -67,7 +67,10 @@ export function ChatThread({
             key={msg.id}
             message={msg}
             isLatestVersion={
-              (msg.images?.length ?? 0) === 0 || msg.id === lastAssistantWithImagesId
+              (msg.images?.length ?? 0) === 0 ||
+              (chat?.postFormat === 'structured_v1'
+                ? msg.versionId === chat.currentVersionId
+                : msg.id === lastAssistantWithImagesId)
             }
           />
         ),

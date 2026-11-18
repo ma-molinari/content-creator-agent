@@ -26,16 +26,19 @@ func NewHandler(svc *Service) *Handler {
 }
 
 type chatJSON struct {
-	ID        uuid.UUID         `json:"id"`
-	UserID    uuid.UUID         `json:"userId"`
-	PostType  string            `json:"postType"`
-	Title     *string           `json:"title,omitempty"`
-	CreatedAt time.Time         `json:"createdAt"`
-	UpdatedAt time.Time         `json:"updatedAt"`
-	Contents  []chatContentJSON `json:"contents,omitempty"`
+	ID               uuid.UUID         `json:"id"`
+	UserID           uuid.UUID         `json:"userId"`
+	PostType         string            `json:"postType"`
+	PostFormat       string            `json:"postFormat"`
+	CurrentVersionID *uuid.UUID        `json:"currentVersionId"`
+	Title            *string           `json:"title,omitempty"`
+	CreatedAt        time.Time         `json:"createdAt"`
+	UpdatedAt        time.Time         `json:"updatedAt"`
+	Contents         []chatContentJSON `json:"contents,omitempty"`
 }
 
 type chatContentJSON struct {
+	VersionID   *uuid.UUID              `json:"versionId,omitempty"`
 	ID          uuid.UUID               `json:"id"`
 	ChatID      uuid.UUID               `json:"chatId"`
 	Role        string                  `json:"role"`
@@ -65,16 +68,19 @@ type chatContentImgJSON struct {
 
 func chatToJSON(c *db.Chat) chatJSON {
 	out := chatJSON{
-		ID:        c.ID,
-		UserID:    c.UserID,
-		PostType:  string(c.PostType),
-		Title:     c.Title,
-		CreatedAt: c.CreatedAt,
-		UpdatedAt: c.UpdatedAt,
+		ID:               c.ID,
+		UserID:           c.UserID,
+		PostType:         string(c.PostType),
+		PostFormat:       string(c.PostFormat),
+		CurrentVersionID: c.CurrentVersionID,
+		Title:            c.Title,
+		CreatedAt:        c.CreatedAt,
+		UpdatedAt:        c.UpdatedAt,
 	}
 	for _, row := range c.Contents {
 		item := chatContentJSON{
 			ID:          row.ID,
+			VersionID:   row.VersionID,
 			ChatID:      row.ChatID,
 			Role:        string(row.Role),
 			Content:     row.Content,

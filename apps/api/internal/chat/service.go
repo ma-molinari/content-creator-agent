@@ -119,6 +119,22 @@ func (s *Service) GetChat(ctx context.Context, userID, chatID uuid.UUID) (*db.Ch
 	if err := s.refreshContentImageURLs(ctx, c); err != nil {
 		return nil, err
 	}
+	if c.PostFormat == db.PostFormatStructuredV1 {
+		versions, err := s.repo.ListVersions(ctx, userID, chatID)
+		if err != nil {
+			return nil, err
+		}
+		byContent := make(map[uuid.UUID]uuid.UUID, len(versions))
+		for _, version := range versions {
+			byContent[version.AssistantContentID] = version.ID
+		}
+		for i := range c.Contents {
+			if id, ok := byContent[c.Contents[i].ID]; ok {
+				versionID := id
+				c.Contents[i].VersionID = &versionID
+			}
+		}
+	}
 	return c, nil
 }
 

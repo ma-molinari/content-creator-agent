@@ -62,6 +62,7 @@ type Chat struct {
 func (Chat) TableName() string { return "chats" }
 
 type ChatContent struct {
+	VersionID   *uuid.UUID      `gorm:"-"`
 	ID          uuid.UUID       `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
 	ChatID      uuid.UUID       `gorm:"type:uuid;not null;index"`
 	Chat        Chat            `gorm:"constraint:OnDelete:CASCADE"`

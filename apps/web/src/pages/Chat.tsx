@@ -4,7 +4,7 @@ import { type QueryClient, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 
 import { api } from '@/api/client'
-import type { Chat as ChatType, JobStatus } from '@/api/chats'
+import type { Chat as ChatType, GenerationOptions, JobStatus } from '@/api/chats'
 import {
   fetchChatFilesZip,
   postChatMessage,
@@ -28,6 +28,7 @@ type ActiveJob = {
   chatId: string
   jobId: string
   pendingText: string
+  generation?: GenerationOptions
   pendingAttachments: { id: string; url: string; mimeType: string; file?: File }[]
 }
 
@@ -44,6 +45,8 @@ function normalizeActiveJob(
 
 type LastJobFailure = {
   error: string
+  errorCode?: string | null
+  generation?: GenerationOptions
   pendingText: string
   pendingAttachments: ActiveJob['pendingAttachments']
 }
@@ -79,10 +82,9 @@ const UNKNOWN_JOB_ERROR = 'Erro desconhecido'
 
 function messageFromApiError(err: unknown, fallback: string): string {
   if (isAxiosError(err)) {
-    const data = err.response?.data as { message?: string } | undefined
-    if (typeof data?.message === 'string' && data.message.length > 0) {
-      return data.message
-    }
+    const data = err.response?.data as { message?: string | { message?: string } } | undefined
+    const message = typeof data?.message === 'string' ? data.message : data?.message?.message
+    if (message) return message
   }
   return fallback
 }
@@ -114,6 +116,7 @@ export default function Chat() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [isDownloadingZip, setIsDownloadingZip] = useState(false)
   const [draftPostType, setDraftPostType] = useState<'single' | 'carousel'>('carousel')
+  const [generationMode, setGenerationMode] = useState<'create' | 'edit'>('edit')
 
   const setup = useSetupStatus()
   const chat = useChat(id)
@@ -140,6 +143,7 @@ export default function Chat() {
   useLayoutEffect(() => {
     const prev = prevChatIdRef.current
     if (prev !== undefined && prev !== id) {
+      setGenerationMode('edit')
       setActiveJob((current) => {
         if (current?.chatId === prev) {
           current.pendingAttachments?.forEach((a) => URL.revokeObjectURL(a.url))
@@ -205,13 +209,18 @@ export default function Chat() {
       const jobSnapshot = activeJob
       setLastJobFailure({
         error: err,
+        errorCode: jobStatus.data?.errorCode,
+        generation: activeJob.generation,
         pendingText: activeJob.pendingText,
         pendingAttachments: activeJob.pendingAttachments,
       })
+      if (jobStatus.data?.errorCode === 'VERSION_CONFLICT') {
+        void qc.invalidateQueries({ queryKey: ['chats', activeJob.chatId] })
+      }
       toast.error('Não foi possível gerar o post.')
       clearActiveJobSoon(jobSnapshot, hydrateId)
     }
-  }, [currentStatus, activeJob, qc, jobStatus.data?.error])
+  }, [currentStatus, activeJob, qc, jobStatus.data?.error, jobStatus.data?.errorCode])
 
   const showJobLoading =
     !!activeJob &&
@@ -233,10 +242,12 @@ export default function Chat() {
     async (
       text: string,
       files: File[],
-      options?: { postType?: 'single' | 'carousel' },
+      options?: { postType?: 'single' | 'carousel'; generation?: GenerationOptions },
     ) => {
       const postTypeForNew = options?.postType ?? 'carousel'
       let chatId = id
+      let postFormat = chat.data?.postFormat
+      let currentVersionId = chat.data?.currentVersionId
 
       if (!chatId) {
         try {
@@ -244,6 +255,8 @@ export default function Chat() {
             postType: postTypeForNew,
           })
           chatId = newChat.id
+          postFormat = newChat.postFormat
+          currentVersionId = newChat.currentVersionId
           void qc.invalidateQueries({ queryKey: ['chats'] })
         } catch (err) {
           toast.error(messageFromApiError(err, 'Não foi possível criar o chat.'))
@@ -260,12 +273,21 @@ export default function Chat() {
         file: f,
       }))
 
+      const generation: GenerationOptions | undefined = options?.generation ??
+        (postFormat === 'structured_v1'
+          ? (currentVersionId && generationMode === 'edit'
+            ? { mode: 'edit', baseVersionId: currentVersionId }
+            : { mode: 'create' })
+          : undefined)
       let jobId: string
       try {
-        const data = await postChatMessage(chatId, text, files)
+        const data = await postChatMessage(chatId, text, files, generation)
         jobId = data.jobId
       } catch (err) {
         pendingAttachments.forEach((a) => URL.revokeObjectURL(a.url))
+        if (isAxiosError(err) && err.response?.status === 409) {
+          void qc.invalidateQueries({ queryKey: ['chats', chatId] })
+        }
         toast.error(
           messageFromApiError(
             err,
@@ -277,7 +299,7 @@ export default function Chat() {
 
       void qc.invalidateQueries({ queryKey: ['chats', chatId] })
 
-      const pending: ActiveJob = { chatId, jobId, pendingText: text, pendingAttachments }
+      const pending: ActiveJob = { chatId, jobId, pendingText: text, pendingAttachments, generation }
       if (!id) {
         qc.setQueryData(activeJobHydrateKey(chatId), pending)
         navigate(`/chat/${chatId}`, {
@@ -288,7 +310,7 @@ export default function Chat() {
         setActiveJob(pending)
       }
     },
-    [id, navigate, qc],
+    [id, navigate, qc, chat.data?.postFormat, chat.data?.currentVersionId, generationMode],
   )
 
   const handleChipClick = useCallback(
@@ -300,20 +322,24 @@ export default function Chat() {
   )
 
   const handleRetry = useCallback(() => {
-    const text = activeJob?.pendingText ?? lastJobFailure?.pendingText
-    const attachments = activeJob?.pendingAttachments ?? lastJobFailure?.pendingAttachments ?? []
-    const files = attachments
-      .map((a) => a.file)
-      .filter((file): file is File => file instanceof File)
-    if (activeJob) {
-      activeJob.pendingAttachments?.forEach((a) => URL.revokeObjectURL(a.url))
+    const failure = lastJobFailure
+    if (!failure || !id) return
+    const files = failure.pendingAttachments.map((a) => a.file).filter((file): file is File => file instanceof File)
+    const retry = async () => {
+      let generation = failure.generation
+      if (failure.errorCode === 'VERSION_CONFLICT' && generation?.mode === 'edit') {
+        const latest = await qc.fetchQuery({
+          queryKey: ['chats', id],
+          queryFn: () => api.get<ChatType>(`/chats/${id}`).then((response) => response.data),
+          staleTime: 0,
+        })
+        if (!latest.currentVersionId) throw new Error('A versão atual não está disponível.')
+        generation = { mode: 'edit', baseVersionId: latest.currentVersionId }
+      }
+      await handleSend(failure.pendingText, files, { generation })
     }
-    setLastJobFailure(null)
-    setActiveJob(null)
-    if (text) {
-      void handleSend(text, files).catch(() => undefined)
-    }
-  }, [activeJob, lastJobFailure, handleSend])
+    void retry().catch((err: unknown) => toast.error(messageFromApiError(err, 'Não foi possível reenviar a mensagem.')))
+  }, [id, lastJobFailure, handleSend, qc])
 
   async function handleDelete() {
     if (!id) return
@@ -446,6 +472,13 @@ export default function Chat() {
                 />
               </div>
             </div>
+          )}
+          {id && chat.data?.postFormat === 'structured_v1' && chat.data.currentVersionId && (
+            <fieldset className="mx-auto mb-2 flex max-w-3xl gap-4 px-4 text-sm text-[var(--color-text-secondary)]" disabled={showJobLoading}>
+              <legend className="sr-only">Ação no post</legend>
+              <label><input type="radio" name="generation-mode" checked={generationMode === 'edit'} onChange={() => setGenerationMode('edit')} /> Editar versão atual</label>
+              <label><input type="radio" name="generation-mode" checked={generationMode === 'create'} onChange={() => setGenerationMode('create')} /> Criar novo post</label>
+            </fieldset>
           )}
           <ComposerBar
             onSend={(text, files, options) => handleSend(text, files, options)}

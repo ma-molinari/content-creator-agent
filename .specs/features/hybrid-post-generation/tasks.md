@@ -167,14 +167,14 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 - [ ] Cenários de uploads incompletos, troca de propriedade de assets e regressão legada não publicam versão indevida.
 **Verificar:** suíte de integração Go/Postgres e testes de integração do worker; documentar dependências externas indisponíveis. **Commit:** `test: cobrir criação e concorrência de versões`.
 
-### T15 — API de histórico e interface de modo/base [P]
+### T15 — API de histórico e interface de modo/base [P] — implementação parcial
 
 **Objetivo:** expor versão/formato no chat e permitir que o usuário envie criação ou edição da versão atual.
 **Contexto:** `apps/api/internal/chat/handler.go`, `apps/web/src/api/chats.ts`, `pages/Chat.tsx`, `components/chat/` e `composer/`; preservar histórico e ZIP por resposta.
 **Dependências:** T10. **Requisitos:** HBG-04, HBG-08, HBG-09, HBG-12.
 **Pronto quando:**
-- [ ] Leitura inclui formato e versionId; frontend envia modo/base em JSON e multipart, apresenta a versão corrente e trata `409`, falha assíncrona e pedido de reformulação sem reenviar automaticamente.
-- [ ] Interface e API mantêm chats legados, visualização/download e isolamento entre usuários; testes cobrem mudança concorrente. Rejeição de cliente antigo e negociação completa são concluídas em T17.
+- [x] Leitura inclui formato e versionId; frontend envia modo/base em JSON e multipart, apresenta a versão corrente e exige ação para reenviar após conflito.
+- [ ] Testes de API e frontend cobrem versão atual, payload legado e conflito simulado. Faltam validação ponta a ponta, rejeição de cliente antigo e negociação completa na T17.
 **Verificar:** testes web e Go relevantes, build web e fluxo com API simulada. **Commit:** `feat(web): editar a versão atual do post`.
 
 ### T16 — Reconciliação segura de objetos órfãos [P] — implementação parcial

@@ -135,3 +135,28 @@ func TestStructuredMessageFailsClosedBeforeMutation(t *testing.T) {
 	require.Zero(t, messages)
 	require.Zero(t, jobCount)
 }
+
+func TestStructuredChatExposesVersionMetadataToOwner(t *testing.T) {
+	env := newTestEnv(t, nil)
+	token, userID := registerAndLogin(t, env)
+	chatID := createChat(t, env, token)
+	require.NoError(t, env.DB.Model(&db.Chat{}).Where("id = ?", chatID).Update("post_format", db.PostFormatStructuredV1).Error)
+	jobID, contentID, versionID := uuid.New(), uuid.New(), uuid.New()
+	require.NoError(t, env.DB.Create(&db.Job{ID: jobID, ChatID: chatID, UserID: userID, Status: db.JobStatusDone, PostFormat: db.PostFormatStructuredV1}).Error)
+	require.NoError(t, env.DB.Create(&db.ChatContent{ID: contentID, ChatID: chatID, Role: db.ChatContentRoleAssistant, Content: "ok"}).Error)
+	require.NoError(t, env.DB.Create(&db.PostVersion{ID: versionID, ChatID: chatID, JobID: jobID, AssistantContentID: contentID, DocumentS3Key: "slides/test/document.json", SchemaVersion: 1, RendererVersion: "1"}).Error)
+	require.NoError(t, env.DB.Model(&db.Chat{}).Where("id = ?", chatID).Update("current_version_id", versionID).Error)
+	req, err := http.NewRequest(http.MethodGet, env.APIURL+"/chats/"+chatID.String(), nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+token)
+	res, err := env.HTTPClient.Do(req)
+	require.NoError(t, err)
+	defer res.Body.Close()
+	body, err := io.ReadAll(res.Body)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, res.StatusCode, string(body))
+	require.Contains(t, string(body), `"postFormat":"structured_v1"`)
+	require.Contains(t, string(body), `"currentVersionId":"`+versionID.String()+`"`)
+	require.Contains(t, string(body), `"versionId":"`+versionID.String()+`"`)
+	require.NotContains(t, string(body), "documentS3Key")
+}
