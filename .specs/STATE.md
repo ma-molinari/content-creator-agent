@@ -2,10 +2,10 @@
 
 ## Planejamento: geração híbrida — 2026-11-18
 
-- **Status:** especificação e tarefas em rascunho para revisão; implementação não iniciada.
+- **Status:** T01 implementada em caráter provisório; validação visual do catálogo com o responsável pendente. As demais tarefas não foram iniciadas.
 - **Requisitos:** `.specs/features/hybrid-post-generation/spec.md`; **tarefas:** `.specs/features/hybrid-post-generation/tasks.md`; **design:** `docs/TDD-MODELO-HIBRIDO.md`.
 - **Decisões do usuário:** templates flexíveis, edição linear da versão corrente com rejeição de conflitos; responsável é o usuário, sem ticket.
-- **Pendências:** definir catálogo e limites iniciais, mecanismo de capacidades, reconciliação operacional e metas de rollout. Preservar o histórico abaixo como registro de outras features; seu conteúdo descreve estados históricos e pode estar desatualizado em relação ao código.
+- **Pendências:** validar catálogo e limites provisórios (`.specs/features/hybrid-post-generation/catalogo-v1.md`), mecanismo de capacidades, reconciliação operacional e metas de rollout. Preservar o histórico abaixo como registro de outras features; seu conteúdo descreve estados históricos e pode estar desatualizado em relação ao código.
 
 ## Última atualização
 

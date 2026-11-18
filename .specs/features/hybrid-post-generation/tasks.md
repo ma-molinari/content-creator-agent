@@ -26,14 +26,15 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 
 ## Tarefas
 
-### T01 — Contrato do documento e catálogo inicial
+### T01 — Contrato do documento e catálogo inicial — implementação parcial
 
 **Objetivo:** definir schema versionado e catálogo inicial de layouts, elementos, estilos e limites para snapshots estruturados.
 **Contexto:** `apps/worker/app/state.py`, `slide_count_inference.py`, `config.py`; TDD, seção Contrato lógico. Novos módulos sob `apps/worker/app/`; schema deve diferenciar o pacote JSON atual que carrega HTML.
 **Dependências:** nenhuma. **Requisitos:** HBG-01, HBG-02, HBG-10, HBG-12.
 **Pronto quando:**
-- [ ] Documento valida tipos, IDs estáveis/únicos, single, limites de carrossel, layouts/estilos conhecidos e rejeita campos extras, URLs e HTML/CSS livre; escolhas do catálogo e limites ficam documentadas como propostas verificáveis.
-- [ ] Referências de imagem usam IDs, sem URL assinada; testes cobrem documentos válidos, inválidos e versão desconhecida. Valide o catálogo e limites com o responsável antes de congelar o schema; até então são hipóteses do protótipo.
+- [x] Documento valida tipos, IDs estáveis/únicos, single, limites de carrossel, layouts/estilos conhecidos e rejeita campos extras, URLs e HTML/CSS livre; escolhas do catálogo e limites ficam documentadas como propostas verificáveis.
+- [x] Referências de imagem usam IDs, sem URL assinada; testes cobrem documentos válidos, inválidos e versão desconhecida.
+- [ ] Validar catálogo e limites com o responsável antes de congelar o schema; até então são hipóteses do protótipo.
 **Verificar:** executar testes pytest específicos do novo contrato no ambiente do worker. **Commit:** `feat(worker): definir contrato estruturado de posts`.
 
 ### T02 — Renderizador controlado de templates [P]
