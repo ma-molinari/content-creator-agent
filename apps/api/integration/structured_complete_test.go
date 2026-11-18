@@ -91,6 +91,14 @@ func TestStructuredMessageFailsClosedBeforeMutation(t *testing.T) {
 	token, userID := registerAndLogin(t, env)
 	chatID := createChat(t, env, token)
 	require.NoError(t, env.DB.Model(&db.Chat{}).Where("id = ? AND user_id = ?", chatID, userID).Update("post_format", db.PostFormatStructuredV1).Error)
+	legacyReq, err := http.NewRequest(http.MethodPost, env.APIURL+"/chats/"+chatID.String()+"/messages", strings.NewReader(`{"content":"crie","mode":"create"}`))
+	require.NoError(t, err)
+	legacyReq.Header.Set("Authorization", "Bearer "+token)
+	legacyReq.Header.Set("Content-Type", "application/json")
+	legacyRes, err := env.HTTPClient.Do(legacyReq)
+	require.NoError(t, err)
+	legacyRes.Body.Close()
+	require.Equal(t, http.StatusUpgradeRequired, legacyRes.StatusCode)
 	cases := []struct {
 		body     string
 		expected int

@@ -163,7 +163,7 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 **Contexto:** `apps/api/integration/`, `apps/worker/tests/`, `tests/e2e/`; usar Postgres real onde locking importa e serviços externos simulados sempre que possível.
 **Dependências:** T13. **Requisitos:** HBG-02 a HBG-08, HBG-10, HBG-12.
 **Pronto quando:**
-- [ ] Cobertura inclui criar/editar, criar vs editar, duas primeiras criações com base nula, callbacks fora de ordem/repetidos, timeout após commit e preservação semântica.
+- [ ] Postgres cobre criação/edição, duas primeiras criações com base nula e callbacks de edições fora de ordem/repetidos; faltam criar vs editar, timeout após commit e preservação semântica integrada ao worker.
 - [ ] Cenários de uploads incompletos, troca de propriedade de assets e regressão legada não publicam versão indevida.
 **Verificar:** suíte de integração Go/Postgres e testes de integração do worker; documentar dependências externas indisponíveis. **Commit:** `test: cobrir criação e concorrência de versões`.
 
@@ -174,7 +174,7 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 **Dependências:** T10. **Requisitos:** HBG-04, HBG-08, HBG-09, HBG-12.
 **Pronto quando:**
 - [x] Leitura inclui formato e versionId; frontend envia modo/base em JSON e multipart, apresenta a versão corrente e exige ação para reenviar após conflito.
-- [ ] Testes de API e frontend cobrem versão atual, payload legado e conflito simulado. Faltam validação ponta a ponta, rejeição de cliente antigo e negociação completa na T17.
+- [ ] Testes de API e frontend cobrem versão atual, payload legado e conflito simulado. Rejeição de cliente antigo coberta; faltam validação ponta a ponta e negociação completa na T17.
 **Verificar:** testes web e Go relevantes, build web e fluxo com API simulada. **Commit:** `feat(web): editar a versão atual do post`.
 
 ### T16 — Reconciliação segura de objetos órfãos [P] — implementação parcial
