@@ -42,6 +42,8 @@ func testCompleteSchemaDB(t *testing.T) *gorm.DB {
 			id TEXT PRIMARY KEY,
 			user_id TEXT NOT NULL,
 			post_type TEXT NOT NULL,
+            post_format TEXT NOT NULL DEFAULT 'legacy_html',
+            current_version_id TEXT,
 			title TEXT,
 			created_at DATETIME,
 			updated_at DATETIME
@@ -71,6 +73,9 @@ func testCompleteSchemaDB(t *testing.T) *gorm.DB {
 			chat_id TEXT NOT NULL,
 			user_id TEXT NOT NULL,
 			status TEXT NOT NULL,
+            post_format TEXT NOT NULL DEFAULT 'legacy_html',
+            generation_mode TEXT,
+            expected_version_id TEXT,
 			error_msg TEXT,
 			stage TEXT NOT NULL DEFAULT 'queued',
 			progress INTEGER NOT NULL DEFAULT 0,

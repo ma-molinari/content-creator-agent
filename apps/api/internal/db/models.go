@@ -39,15 +39,24 @@ type User struct {
 
 func (User) TableName() string { return "users" }
 
+type PostFormat string
+
+const (
+	PostFormatLegacy       PostFormat = "legacy_html"
+	PostFormatStructuredV1 PostFormat = "structured_v1"
+)
+
 type Chat struct {
-	ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	UserID    uuid.UUID `gorm:"type:uuid;not null;index"`
-	User      User      `gorm:"constraint:OnDelete:CASCADE"`
-	PostType  PostType  `gorm:"type:post_type_enum;not null"`
-	Title     *string   `gorm:"size:255"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	Contents  []ChatContent `gorm:"foreignKey:ChatID"`
+	ID               uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	UserID           uuid.UUID  `gorm:"type:uuid;not null;index"`
+	User             User       `gorm:"constraint:OnDelete:CASCADE"`
+	PostType         PostType   `gorm:"type:post_type_enum;not null"`
+	PostFormat       PostFormat `gorm:"column:post_format;size:32;not null;default:legacy_html"`
+	CurrentVersionID *uuid.UUID `gorm:"column:current_version_id;type:uuid"`
+	Title            *string    `gorm:"size:255"`
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+	Contents         []ChatContent `gorm:"foreignKey:ChatID"`
 }
 
 func (Chat) TableName() string { return "chats" }
@@ -106,21 +115,38 @@ const (
 
 // Job tracks async worker runs for a chat message.
 type Job struct {
-	ID             uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	ChatID         uuid.UUID `gorm:"type:uuid;not null;index"`
-	UserID         uuid.UUID `gorm:"type:uuid;not null;index"`
-	Status         JobStatus `gorm:"type:job_status_enum;not null;default:pending"`
-	ErrorMsg       *string   `gorm:"type:text"`
-	Stage          string    `gorm:"size:64;not null;default:queued"`
-	Progress       int       `gorm:"not null;default:0"`
-	HeartbeatAt    *time.Time
-	ErrorCode      *string `gorm:"size:64"`
-	WorkerMetadata *string `gorm:"column:worker_metadata;type:jsonb;<-:update"`
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	ID                uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	ChatID            uuid.UUID  `gorm:"type:uuid;not null;index"`
+	UserID            uuid.UUID  `gorm:"type:uuid;not null;index"`
+	Status            JobStatus  `gorm:"type:job_status_enum;not null;default:pending"`
+	PostFormat        PostFormat `gorm:"column:post_format;size:32;not null;default:legacy_html"`
+	GenerationMode    *string    `gorm:"column:generation_mode;size:16"`
+	ExpectedVersionID *uuid.UUID `gorm:"column:expected_version_id;type:uuid"`
+	ErrorMsg          *string    `gorm:"type:text"`
+	Stage             string     `gorm:"size:64;not null;default:queued"`
+	Progress          int        `gorm:"not null;default:0"`
+	HeartbeatAt       *time.Time
+	ErrorCode         *string `gorm:"size:64"`
+	WorkerMetadata    *string `gorm:"column:worker_metadata;type:jsonb;<-:update"`
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 func (Job) TableName() string { return "jobs" }
+
+type PostVersion struct {
+	ID                 uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	ChatID             uuid.UUID  `gorm:"type:uuid;not null;index"`
+	JobID              uuid.UUID  `gorm:"type:uuid;not null;uniqueIndex"`
+	AssistantContentID uuid.UUID  `gorm:"type:uuid;not null;uniqueIndex"`
+	ParentVersionID    *uuid.UUID `gorm:"type:uuid"`
+	DocumentS3Key      string     `gorm:"column:document_s3_key;size:512;not null"`
+	SchemaVersion      int        `gorm:"not null"`
+	RendererVersion    string     `gorm:"size:64;not null"`
+	CreatedAt          time.Time
+}
+
+func (PostVersion) TableName() string { return "post_versions" }
 
 type UserProfile struct {
 	ID        uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`

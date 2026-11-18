@@ -97,14 +97,14 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 - [ ] Testes com S3 simulado cobrem referência do perfil, anexo atual e asset herdado, negação de recurso de outro usuário e falha parcial de upload.
 **Verificar:** pytest dos serviços de assets e upload. **Commit:** `feat(worker): preservar assets por versão`.
 
-### T08 — Migração e modelos de versionamento [P]
+### T08 — Migração e modelos de versionamento [P] — concluída
 
 **Objetivo:** adicionar formato imutável do chat, ponteiro corrente, metadados de job e tabela de versões sem migrar conteúdo legado.
 **Contexto:** `apps/api/internal/db/models.go`, migrations atuais até 016; verificar sequência novamente na execução. Usar referências consistentes por chat e tratar ciclo de FKs/exclusão.
 **Dependências:** nenhuma. **Requisitos:** HBG-04, HBG-05, HBG-06, HBG-08, HBG-12.
 **Pronto quando:**
-- [ ] Migração aditiva e modelos preservam dados existentes como `legacy_html`; novas versões impõem unicidade por job/mensagem e linhagem do mesmo chat.
-- [ ] Testes de migração com Postgres validam dados legados, constraints e exclusão; down migration não é usada em rollback com dados estruturados.
+- [x] Migração aditiva e modelos preservam dados existentes como `legacy_html`; novas versões impõem unicidade por job/mensagem e linhagem do mesmo chat.
+- [x] Testes de migração com Postgres validam dados legados, constraints e exclusão; down migration não é usada em rollback com dados estruturados.
 **Verificar:** testes de migração/modelos com Postgres e testes Go pertinentes. **Commit:** `feat(api): adicionar persistência de versões de posts`.
 
 ### T09 — Repositório de versões e seleção da base

@@ -1,0 +1,10 @@
+ALTER TABLE jobs DROP CONSTRAINT jobs_expected_version_fk;
+ALTER TABLE chats DROP CONSTRAINT chats_current_version_fk;
+DROP TABLE post_versions;
+ALTER TABLE chat_content DROP CONSTRAINT chat_content_id_chat_unique;
+ALTER TABLE jobs DROP CONSTRAINT jobs_id_chat_unique;
+ALTER TABLE jobs DROP COLUMN expected_version_id;
+ALTER TABLE jobs DROP COLUMN generation_mode;
+ALTER TABLE jobs DROP COLUMN post_format;
+ALTER TABLE chats DROP COLUMN current_version_id;
+ALTER TABLE chats DROP COLUMN post_format;
