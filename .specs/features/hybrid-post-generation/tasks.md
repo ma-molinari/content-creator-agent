@@ -153,7 +153,7 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 **Contexto:** `graph.py`, `job_payload.py`, `state.py`, `main.py`; dispatch é HTTP com `BackgroundTasks`, não fila durável.
 **Dependências:** T03, T05, T06, T10, T12. **Requisitos:** HBG-02, HBG-03, HBG-06, HBG-08, HBG-12.
 **Pronto quando:**
-- [ ] Grafo roteia por formato/modo explícitos; teste com S3 simulado cobre snapshots, manifesto e imagem herdada em criação/edição. Falta integração ponta a ponta entre serviços e reconciliação antes da ativação.
+- [ ] Grafo compilado roteia por formato/modo explícitos; testes com S3 simulado cobrem snapshots, manifesto e imagem herdada em criação/edição e verificam o roteamento legado. Falta integração ponta a ponta entre serviços e reconciliação antes da ativação.
 - [ ] Testes cobrem criação, edição, erro, contrato e callback incerto; S3 simulado persistente valida releitura e imutabilidade, enquanto integração com API e renderização real permanece pendente.
 **Verificar:** pytest do grafo e testes legados relevantes. **Commit:** `feat(worker): integrar geração híbrida ao grafo`.
 

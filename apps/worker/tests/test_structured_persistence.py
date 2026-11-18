@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock
 from uuid import uuid4
 
 from app.job_payload import DispatchPayload, initial_state
-from app.nodes.structured_pipeline import structured_pipeline
+from app.graph import build_graph
 from app.post_document import PostDocumentV1
 from app.post_operations import apply_operations
 
@@ -47,6 +47,7 @@ def test_create_then_edit_preserves_snapshot_and_inherited_asset(monkeypatch):
     monkeypatch.setattr("app.nodes.structured_pipeline.get_settings", lambda: settings)
     monkeypatch.setattr("app.nodes.structured_pipeline.boto3.client", lambda *a, **kw: s3)
     monkeypatch.setattr("app.nodes.structured_pipeline.report_job_progress", AsyncMock())
+    monkeypatch.setattr("app.graph.report_job_progress", AsyncMock())
     monkeypatch.setattr("app.nodes.structured_pipeline.attachment_analyze", AsyncMock(return_value={}))
     monkeypatch.setattr("app.nodes.structured_pipeline.generate_structured_post", AsyncMock(return_value=doc))
 
@@ -59,14 +60,15 @@ def test_create_then_edit_preserves_snapshot_and_inherited_asset(monkeypatch):
     monkeypatch.setattr("app.structured_upload.post_complete_callback", callback)
     user, chat, create_job, edit_job = uuid4(), uuid4(), uuid4(), uuid4()
     create = DispatchPayload(job_id=create_job, user_id=user, chat_id=chat, post_format="structured_v1", generation_mode="create", chat_post_type="single", authorized_asset_sources={"asset1": source})
-    asyncio.run(structured_pipeline(initial_state(create)))
+    graph = build_graph()
+    asyncio.run(graph.ainvoke(initial_state(create)))
     first_prefix = f"slides/{create_job}/"
     first_document = s3.objects[first_prefix + "document.json"][0]
     manifest = json.loads(s3.objects[first_prefix + "assets.json"][0])
     assert s3.objects[manifest["asset1"]][0] == image
     del s3.objects[source]
     edit_payload = DispatchPayload(job_id=edit_job, user_id=user, chat_id=chat, post_format="structured_v1", generation_mode="edit", base_version_id=uuid4(), document_s3_key=first_prefix + "document.json", chat_post_type="single", authorized_asset_sources=manifest)
-    asyncio.run(structured_pipeline(initial_state(edit_payload)))
+    asyncio.run(graph.ainvoke(initial_state(edit_payload)))
     second_prefix = f"slides/{edit_job}/"
     second_document = s3.objects[second_prefix + "document.json"][0]
     second_manifest = json.loads(s3.objects[second_prefix + "assets.json"][0])

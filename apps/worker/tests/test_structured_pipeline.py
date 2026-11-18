@@ -90,3 +90,20 @@ def test_unsupported_edit_reports_safe_error_code(monkeypatch):
     asyncio.run(_run_job({"job_id": str(uuid4()), "post_format": "structured_v1"}))
     assert failure.await_args.kwargs["error_code"] == "EDIT_UNSUPPORTED"
     assert "private" not in failure.await_args.args[1]
+
+
+def test_runtime_graph_preserves_legacy_route(monkeypatch):
+    from app.graph import build_graph
+
+    structured = AsyncMock(return_value={})
+    legacy_intent = AsyncMock(return_value={"refinement_context_unavailable": True})
+    finalize = AsyncMock(return_value={})
+    monkeypatch.setattr("app.graph.report_job_progress", AsyncMock())
+    monkeypatch.setattr("app.graph.structured_pipeline", structured)
+    monkeypatch.setattr("app.graph.intent_detect", legacy_intent)
+    monkeypatch.setattr("app.graph.finalize", finalize)
+    payload = DispatchPayload(job_id=uuid4(), user_id=uuid4(), chat_id=uuid4(), post_format="legacy_html", chat_post_type="single", raw_message="crie um post")
+    asyncio.run(build_graph().ainvoke(initial_state(payload)))
+    assert legacy_intent.await_count == 1
+    assert finalize.await_count == 1
+    assert structured.await_count == 0
