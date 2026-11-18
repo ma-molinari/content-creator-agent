@@ -27,7 +27,7 @@ func TestListChats_EmptyForNewUser(t *testing.T) {
 	require.Len(t, list, 0)
 }
 
-func TestGetChat_Returns404IfNotOwner(t *testing.T) {
+func TestGetChat_Returns403IfNotOwner(t *testing.T) {
 	env := newTestEnv(t, noopWorker)
 	tokenA, _ := registerAndLogin(t, env)
 	chatID := createChat(t, env, tokenA)
@@ -39,7 +39,7 @@ func TestGetChat_Returns404IfNotOwner(t *testing.T) {
 	res, err := env.HTTPClient.Do(req)
 	require.NoError(t, err)
 	defer res.Body.Close()
-	require.Equal(t, http.StatusNotFound, res.StatusCode)
+	require.Equal(t, http.StatusForbidden, res.StatusCode)
 }
 
 func TestDeleteChat_RemovesFromDB(t *testing.T) {
