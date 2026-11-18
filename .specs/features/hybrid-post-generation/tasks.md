@@ -67,14 +67,14 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 - [x] Sequência inválida não aplica parcialmente; testes incluem operação proibida, alvo ausente, base imutável e mudanças não pretendidas.
 **Verificar:** pytest específico das operações e do schema. **Commit:** `feat(worker): aplicar edições estruturadas atômicas`.
 
-### T05 — Planejamento de edição com LLM
+### T05 — Planejamento de edição com LLM — implementação parcial
 
 **Objetivo:** gerar operações estruturadas a partir do pedido e da base autorizada, com retentativas limitadas e falha explícita.
 **Contexto:** `generate_or_edit_slides.py`, `intent_detect.py`, `finalize_messages.py`; nova rota estruturada usa modo explícito, sem regex como autoridade. Preservar fluxo legado.
 **Dependências:** T04. **Requisitos:** HBG-03, HBG-08, HBG-12.
 **Pronto quando:**
-- [ ] Respostas da LLM são validadas pelo contrato; pedido ambíguo/não representável ou operações inválidas esgotadas resulta em `failed` com mensagem segura de reformulação.
-- [ ] Testes usam LLM simulada e verificam escopo, erros e ausência de fallback silencioso ao HTML legado.
+- [ ] Respostas são validadas e falhas geram exceção segura de reformulação; falta conectar ao status `failed` do job e validar integração na T13.
+- [x] Testes isolados usam LLM simulada e verificam operações, erros e preservação da base; regressão de roteamento legado depende da T13.
 **Verificar:** pytest dos novos nós e testes existentes de intenção/refinamento. **Commit:** `feat(worker): planejar edições por operações tipadas`.
 
 ### T06 — Geração estruturada com LLM [P] — concluída no catálogo provisório

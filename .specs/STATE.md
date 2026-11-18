@@ -2,7 +2,7 @@
 
 ## Planejamento: geração híbrida — 2026-11-18
 
-- **Status:** T01 e T02 implementadas em caráter provisório; validação visual do catálogo e testes de overflow/fontes pendentes. T04 e T06 implementadas sobre o catálogo provisório; T08 e T09 concluídas e validadas em PostgreSQL temporário.
+- **Status:** T01 e T02 implementadas em caráter provisório; validação visual do catálogo e testes de overflow/fontes pendentes. T04 e T06 implementadas sobre o catálogo provisório; T05 implementada parcialmente, aguardando integração ao status de job na T13; T08 e T09 concluídas e validadas em PostgreSQL temporário.
 - **Requisitos:** `.specs/features/hybrid-post-generation/spec.md`; **tarefas:** `.specs/features/hybrid-post-generation/tasks.md`; **design:** `docs/TDD-MODELO-HIBRIDO.md`.
 - **Decisões do usuário:** templates flexíveis, edição linear da versão corrente com rejeição de conflitos; responsável é o usuário, sem ticket.
 - **Pendências:** validar catálogo e limites provisórios (`.specs/features/hybrid-post-generation/catalogo-v1.md`), mecanismo de capacidades, reconciliação operacional e metas de rollout. Preservar o histórico abaixo como registro de outras features; seu conteúdo descreve estados históricos e pode estar desatualizado em relação ao código.
