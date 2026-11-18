@@ -134,7 +134,7 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 **Dependências:** T08. **Requisitos:** HBG-07, HBG-10, HBG-12.
 **Pronto quando:**
 - [ ] Exclusão/evicção registram inventário e IDs de jobs antes da cascata; consumidor durável verifica referências e prefixos na T16. Falta validação operacional antes de habilitar a reconciliação.
-- [ ] Testes Postgres cobrem sexto chat, cascata, falha S3, repetição e proteção de objetos referenciados; falta ensaio operacional de recuperação de processo.
+- [ ] Testes Postgres cobrem sexto chat, cascata, falha S3, repetição, proteção de referências e retomada por nova instância simulada; falta ensaio operacional de reinício real.
 **Verificar:** testes de chat e integração Postgres/S3 simulado. **Commit:** `fix(api): preservar inventário de objetos na exclusão de chats`.
 
 ### T12 — Publicação de snapshot e artefatos no worker — implementação parcial
