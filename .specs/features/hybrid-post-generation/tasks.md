@@ -1,0 +1,224 @@
+# Geração híbrida — plano de tarefas
+
+**Status:** rascunho para revisão; nenhuma tarefa executada.
+**Requisitos:** `.specs/features/hybrid-post-generation/spec.md`
+**Design e decisões:** `docs/TDD-MODELO-HIBRIDO.md`
+**Instrução para execução por IA:** leia o TDD e os requisitos pertinentes, inspecione os arquivos e testes atuais antes de editar; não trate nomes de arquivos propostos como existentes. Cada tarefa entrega uma mudança coesa, testes adequados e um commit atômico em português. Não ativar o novo fluxo em produção até T18 e aprovação operacional. Arquivos/contratos compartilhados devem ser combinados antes de trabalho paralelo; `[P]` significa elegibilidade após dependências, não autorização para iniciar agentes.
+
+## Dependências e integração
+
+```text
+T01 → T02 → T03 ───────────────────────────────────────┐
+  ├→ T04 → T05 ────────────────────────────────────────┤
+  ├→ T06 ──────────────────────────────────────────────┤
+  └→ T07 → T12 ────────────────────────────────────────┤
+T08 → T09 → T10 ───────────────────────────────────────┤
+  └→ T11                                               │
+T03 + T05 + T06 + T10 + T12 → T13 → T14               │
+T10 → T15 → T17                                        │
+T08 + T10 + T11 + T12 → T16                            │
+T14 + T15 + T16 + T17 → T18                            ┘
+```
+
+T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T07 podem avançar em paralelo; T09 e T11 podem avançar após T08. T10 depende apenas de T08 e T09; T13 integra os caminhos depois de T03, T05, T06, T10 e T12. T15 e T16 podem avançar após suas dependências. Coordene alterações em arquivos compartilhados: `[P]` indica elegibilidade técnica, não autorização para delegação. O diagrama expressa precedência, não estimativa de duração; um dos caminhos mais longos em número de tarefas é T01 → T02 → T03 → T13 → T14 → T18.
+
+**Questões que precisam ser resolvidas durante o plano:** catálogo e limites V1 (T01), contratos de capacidade de clientes/workers (T10/T17), operação da reconciliação (T16) e métricas/limiares de rollout (T18). O TDD já determina que pedidos não representáveis falham com mensagem de reformulação; não implementar diálogo interativo nesta V1. Não inventar metas de negócio; registrar decisões e validação com o responsável quando necessárias.
+
+## Tarefas
+
+### T01 — Contrato do documento e catálogo inicial
+
+**Objetivo:** definir schema versionado e catálogo inicial de layouts, elementos, estilos e limites para snapshots estruturados.
+**Contexto:** `apps/worker/app/state.py`, `slide_count_inference.py`, `config.py`; TDD, seção Contrato lógico. Novos módulos sob `apps/worker/app/`; schema deve diferenciar o pacote JSON atual que carrega HTML.
+**Dependências:** nenhuma. **Requisitos:** HBG-01, HBG-02, HBG-10, HBG-12.
+**Pronto quando:**
+- [ ] Documento valida tipos, IDs estáveis/únicos, single, limites de carrossel, layouts/estilos conhecidos e rejeita campos extras, URLs e HTML/CSS livre; escolhas do catálogo e limites ficam documentadas como propostas verificáveis.
+- [ ] Referências de imagem usam IDs, sem URL assinada; testes cobrem documentos válidos, inválidos e versão desconhecida. Valide o catálogo e limites com o responsável antes de congelar o schema; até então são hipóteses do protótipo.
+**Verificar:** executar testes pytest específicos do novo contrato no ambiente do worker. **Commit:** `feat(worker): definir contrato estruturado de posts`.
+
+### T02 — Renderizador controlado de templates [P]
+
+**Objetivo:** transformar documentos válidos em HTML/CSS de slides usando templates versionados e escape de conteúdo.
+**Contexto:** T01; `apps/worker/app/nodes/render_and_contrast.py`, `slide_design_checks.py`, `slide_render_html.py` e prompts existentes. Sem scripts do usuário ou recursos arbitrários; versionar renderizador e fontes.
+**Dependências:** T01. **Requisitos:** HBG-01, HBG-02, HBG-10, HBG-12.
+**Pronto quando:**
+- [ ] Templates suportam o catálogo inicial, assets por referência autorizada e saída de 1080×1350; texto é escapado e a renderização é determinística no ambiente fixado.
+- [ ] Testes cobrem templates, conteúdo malicioso e overflow/recursos indisponíveis; distinguir JS interno de contraste do HTML gerado pelo usuário.
+**Verificar:** testes do renderizador e verificações de design do worker; capturas controladas para amostras. **Commit:** `feat(worker): renderizar documentos com templates controlados`.
+
+### T03 — Captura e validação visual da saída estruturada
+
+**Objetivo:** integrar o HTML gerado às verificações de design, carregamento de assets, contraste e exportação JPEG existentes.
+**Contexto:** `render_and_contrast.py`, `validate_design.py`, `slide_asset_wait.py`; não alterar silenciosamente o snapshot canônico na correção de contraste.
+**Dependências:** T02. **Requisitos:** HBG-02, HBG-10, HBG-12.
+**Pronto quando:**
+- [ ] Cada slide produz HTML derivado e JPEG 1080×1350; imagens ausentes, cortes/overflow identificáveis e falhas de renderização seguem caminho explícito de erro.
+- [ ] Testes com navegador e fontes controlados verificam casos representativos e mantêm comportamento legado.
+**Verificar:** testes pytest específicos e Playwright Chromium do worker. **Commit:** `feat(worker): validar e exportar slides estruturados`.
+
+### T04 — Operações tipadas de edição [P]
+
+**Objetivo:** definir e aplicar atomicamente operações permitidas sobre uma cópia do snapshot.
+**Contexto:** TDD, Fluxo de edição; `refinement_validate.py` demonstra limitações do legado. Começar por texto, fundo, estilo, imagem e layout dentro do catálogo T01.
+**Dependências:** T01. **Requisitos:** HBG-03, HBG-10, HBG-12.
+**Pronto quando:**
+- [ ] Operações validam alvos, propriedades e pré-condições; preservam IDs e número/ordem de slides, sem alterar campos fora do conjunto aplicado.
+- [ ] Sequência inválida não aplica parcialmente; testes incluem operação proibida, alvo ausente, base imutável e mudanças não pretendidas.
+**Verificar:** pytest específico das operações e do schema. **Commit:** `feat(worker): aplicar edições estruturadas atômicas`.
+
+### T05 — Planejamento de edição com LLM
+
+**Objetivo:** gerar operações estruturadas a partir do pedido e da base autorizada, com retentativas limitadas e falha explícita.
+**Contexto:** `generate_or_edit_slides.py`, `intent_detect.py`, `finalize_messages.py`; nova rota estruturada usa modo explícito, sem regex como autoridade. Preservar fluxo legado.
+**Dependências:** T04. **Requisitos:** HBG-03, HBG-08, HBG-12.
+**Pronto quando:**
+- [ ] Respostas da LLM são validadas pelo contrato; pedido ambíguo/não representável ou operações inválidas esgotadas resulta em `failed` com mensagem segura de reformulação.
+- [ ] Testes usam LLM simulada e verificam escopo, erros e ausência de fallback silencioso ao HTML legado.
+**Verificar:** pytest dos novos nós e testes existentes de intenção/refinamento. **Commit:** `feat(worker): planejar edições por operações tipadas`.
+
+### T06 — Geração estruturada com LLM [P]
+
+**Objetivo:** gerar snapshot inicial válido a partir de plano, perfil e referências autorizadas.
+**Contexto:** `generate_or_edit_slides.py`, `build_generation_plan.py`, `profile_overview.py`; não instruir LLM a gerar HTML. Quantidade inferida atualmente tem limite técnico 20, sem presumir que seja regra de produto aprovada.
+**Dependências:** T01. **Requisitos:** HBG-01, HBG-02, HBG-10, HBG-12.
+**Pronto quando:**
+- [ ] Fluxo converte resposta LLM em documento validado e aplica orçamento finito de retentativas com feedback seguro; erro terminal não gera saída parcial.
+- [ ] Testes simulam LLM, single/carrossel, formato inválido e ID de asset não autorizado.
+**Verificar:** pytest específico do gerador e contrato. **Commit:** `feat(worker): gerar documentos estruturados com llm`.
+
+### T07 — Assets imutáveis para cada versão
+
+**Objetivo:** resolver IDs autorizados e copiar assets utilizados para o prefixo do job, com manifesto de referências duráveis.
+**Contexto:** `s3_image_utils.py`, `nodes/upload_assets.py`, `attachment_analyze.py`, `apps/api/internal/profile/service.go` e `jobs/worker_client.go`; o dispatch atual fornece chaves de referências do perfil, não seus IDs. Estender o contrato para fornecer mapeamento ID→chave autorizado para anexos, referências de perfil e assets herdados da base. Cópias incluem recursos herdados e não dependem do perfil permanecer inalterado.
+**Dependências:** T01. **Requisitos:** HBG-07, HBG-10, HBG-12.
+**Pronto quando:**
+- [ ] API valida propriedade e origem do mapeamento ID→chave; worker copia cada asset usado, inclusive herdados, e snapshot/manifesto referenciam apenas cópias autorizadas no novo prefixo, sem URLs temporárias; remoção posterior do original não quebra renderização.
+- [ ] Testes com S3 simulado cobrem referência do perfil, anexo atual e asset herdado, negação de recurso de outro usuário e falha parcial de upload.
+**Verificar:** pytest dos serviços de assets e upload. **Commit:** `feat(worker): preservar assets por versão`.
+
+### T08 — Migração e modelos de versionamento [P]
+
+**Objetivo:** adicionar formato imutável do chat, ponteiro corrente, metadados de job e tabela de versões sem migrar conteúdo legado.
+**Contexto:** `apps/api/internal/db/models.go`, migrations atuais até 016; verificar sequência novamente na execução. Usar referências consistentes por chat e tratar ciclo de FKs/exclusão.
+**Dependências:** nenhuma. **Requisitos:** HBG-04, HBG-05, HBG-06, HBG-08, HBG-12.
+**Pronto quando:**
+- [ ] Migração aditiva e modelos preservam dados existentes como `legacy_html`; novas versões impõem unicidade por job/mensagem e linhagem do mesmo chat.
+- [ ] Testes de migração com Postgres validam dados legados, constraints e exclusão; down migration não é usada em rollback com dados estruturados.
+**Verificar:** testes de migração/modelos com Postgres e testes Go pertinentes. **Commit:** `feat(api): adicionar persistência de versões de posts`.
+
+### T09 — Repositório de versões e seleção da base
+
+**Objetivo:** disponibilizar operações de leitura e bloqueio de versão corrente/linhagem com ownership e formato.
+**Contexto:** `apps/api/internal/chat/repository.go`, `jobs/repository.go`, `db/models.go`; evitar ordenação temporal como fonte da versão corrente.
+**Dependências:** T08. **Requisitos:** HBG-04, HBG-05, HBG-10, HBG-12.
+**Pronto quando:**
+- [ ] Leituras retornam versão corrente e histórico associados ao chat; seleção de base inválida ou de outro usuário/chat é rejeitada.
+- [ ] Testes Postgres exercitam ponteiro nulo, relações cruzadas e locks/ordem definida para publicação concorrente.
+**Verificar:** testes de repositório e integração Postgres. **Commit:** `feat(api): consultar versões e bases de edição`.
+
+### T10 — Aceite e conclusão transacional de jobs estruturados
+
+**Objetivo:** estender contratos HTTP e callback para persistir snapshots e publicar versões com controle de concorrência.
+**Contexto:** `chat/handler.go`, `chat/post_message.go`, `jobs/worker_client.go`, `jobs/handler.go`, `jobs/complete.go`; tratamento atual do callback deve ser ajustado para não converter conflito em falha genérica. Implementar validação nos formatos JSON e multipart.
+**Dependências:** T08, T09. **Requisitos:** HBG-04, HBG-05, HBG-06, HBG-08, HBG-10, HBG-12.
+**Pronto quando:**
+- [ ] `mode`/`baseVersionId` são validados por formato e ownership; job captura ponteiro esperado inclusive nulo; API recusa dispatch estruturado por padrão até que um verificador de capacidade confiável esteja disponível (T17); clientes não compatíveis não sofrem mutação. Deve responder `202` ou erro explícito.
+- [ ] Callback valida artefatos e, com locks consistentes, publica ou persiste `failed`/`VERSION_CONFLICT` atomicamente antes de responder; não retornar erro que reverta essa transação nem permitir que o fallback atual sobrescreva o código. Repetições são idempotentes e não publicam duas versões para a mesma base.
+**Verificar:** testes Go e integração Postgres para callbacks concorrentes, primeira criação nula, JSON/multipart, cliente legado e ownership. **Commit:** `feat(api): publicar versões estruturadas com controle de conflito`.
+
+### T11 — Limpeza durável de chats e evicção [P]
+
+**Objetivo:** registrar inventário de artefatos antes da exclusão em cascata para limpeza idempotente de chats excluídos ou removidos pelo limite.
+**Contexto:** `chat/repository.go` e `chat/service.go`: evicção atual remove o chat antes de coletar chaves; incluir anexos, imagens, HTMLs, snapshots, pacotes e assets. Tarefa durável não deve depender do chat excluído.
+**Dependências:** T08. **Requisitos:** HBG-07, HBG-10, HBG-12.
+**Pronto quando:**
+- [ ] Exclusão/evicção mantêm inventário e agendam limpeza mesmo após cascata; falhas são reprocessáveis sem apagar recursos ativos ou compartilhados.
+- [ ] Testes de integração cobrem sexto chat, falha de S3, repetição e integridade de objetos referenciados.
+**Verificar:** testes de chat e integração Postgres/S3 simulado. **Commit:** `fix(api): preservar inventário de objetos na exclusão de chats`.
+
+### T12 — Publicação de snapshot e artefatos no worker
+
+**Objetivo:** enviar documento, HTML, JPEG e manifesto imutável ao S3 e formar callback estruturado.
+**Contexto:** `nodes/upload_assets.py`, `nodes/finalize.py`, `slide_artifact_cleanup.py`; uploads não são transação com o banco. Manter prefixo `slides/{jobId}/`.
+**Dependências:** T01, T07. **Requisitos:** HBG-06, HBG-07, HBG-10, HBG-12.
+**Pronto quando:**
+- [ ] Snapshot, assets e todos os artefatos obrigatórios são publicados antes do callback; falha parcial não produz sucesso e registra inventário durável antes da remoção ou assegura descoberta por prefixo com janela e coordenação (T16).
+- [ ] Timeout de callback não provoca exclusão imediata nem envio de falha genérica irreversível: repetir o mesmo callback de sucesso idempotente e delegar incerteza à reconciliação; testes simulam resposta perdida após commit e conflito confirmado.
+**Verificar:** pytest de upload/finalização com S3 e API simulados. **Commit:** `feat(worker): publicar artefatos de versões estruturadas`.
+
+### T13 — Integrar caminho estruturado ao grafo
+
+**Objetivo:** conectar criação e edição estruturadas à validação, renderização, upload e progresso sem alterar o caminho legado.
+**Contexto:** `graph.py`, `job_payload.py`, `state.py`, `main.py`; dispatch é HTTP com `BackgroundTasks`, não fila durável.
+**Dependências:** T03, T05, T06, T10, T12. **Requisitos:** HBG-02, HBG-03, HBG-06, HBG-08, HBG-12.
+**Pronto quando:**
+- [ ] O grafo roteia por formato/modo explícitos, preserva status e erros e rejeita versões de contrato incompatíveis; legado permanece funcional.
+- [ ] Testes de integração do worker com LLM e S3 simulados cobrem criação, edição, erro e fallback proibido.
+**Verificar:** pytest do grafo e testes legados relevantes. **Commit:** `feat(worker): integrar geração híbrida ao grafo`.
+
+### T14 — Cenários integrados de criação e concorrência
+
+**Objetivo:** provar os contratos de ponta a ponta entre API, worker e persistência sob sucesso e falha.
+**Contexto:** `apps/api/integration/`, `apps/worker/tests/`, `tests/e2e/`; usar Postgres real onde locking importa e serviços externos simulados sempre que possível.
+**Dependências:** T13. **Requisitos:** HBG-02 a HBG-08, HBG-10, HBG-12.
+**Pronto quando:**
+- [ ] Cobertura inclui criar/editar, criar vs editar, duas primeiras criações com base nula, callbacks fora de ordem/repetidos, timeout após commit e preservação semântica.
+- [ ] Cenários de uploads incompletos, troca de propriedade de assets e regressão legada não publicam versão indevida.
+**Verificar:** suíte de integração Go/Postgres e testes de integração do worker; documentar dependências externas indisponíveis. **Commit:** `test: cobrir criação e concorrência de versões`.
+
+### T15 — API de histórico e interface de modo/base [P]
+
+**Objetivo:** expor versão/formato no chat e permitir que o usuário envie criação ou edição da versão atual.
+**Contexto:** `apps/api/internal/chat/handler.go`, `apps/web/src/api/chats.ts`, `pages/Chat.tsx`, `components/chat/` e `composer/`; preservar histórico e ZIP por resposta.
+**Dependências:** T10. **Requisitos:** HBG-04, HBG-08, HBG-09, HBG-12.
+**Pronto quando:**
+- [ ] Leitura inclui formato e versionId; frontend envia modo/base em JSON e multipart, apresenta a versão corrente e trata `409`, falha assíncrona e pedido de reformulação sem reenviar automaticamente.
+- [ ] Interface e API mantêm chats legados, visualização/download e isolamento entre usuários; testes cobrem mudança concorrente. Rejeição de cliente antigo e negociação completa são concluídas em T17.
+**Verificar:** testes web e Go relevantes, build web e fluxo com API simulada. **Commit:** `feat(web): editar a versão atual do post`.
+
+### T16 — Reconciliação segura de objetos órfãos [P]
+
+**Objetivo:** identificar e remover objetos não referenciados após estado terminal seguro, com inventário durável e coordenação com callback/upload.
+**Contexto:** `internal/cron/`, `jobs/stuck.go`, `storage/s3.go` e limpeza do worker; não excluir após timeout de callback sem verificar estado. Definir mecanismo operacional antes de ativar.
+**Dependências:** T08, T10, T11, T12. **Requisitos:** HBG-06, HBG-07, HBG-11, HBG-12.
+**Pronto quando:**
+- [ ] Reconciliação implementa mecanismo operacional documentado para inventário ou descoberta de uploads parciais, inclusive `slide_package.json`, coordena terminação e callback com remoção, usa janela de segurança e verificação de referências e reprocessa falhas sem dados sensíveis.
+- [ ] Testes cobrem job ativo/travado, upload parcial, callback incerto, exclusão repetida e recuperação após falha do processo.
+**Verificar:** testes de integração de jobs/armazenamento com tempo e S3 controlados. **Commit:** `feat(api): reconciliar artefatos órfãos com segurança`.
+
+### T17 — Capacidade, flag e observabilidade [P]
+
+**Objetivo:** controlar habilitação do formato e detectar incompatibilidade de clientes/replicas, registrando métricas e erros operacionais.
+**Contexto:** `apps/api/internal/config/config.go`, `cmd/server/main.go`, `apps/worker/app/main.py`, `job_progress.py`; `/health` atual não negocia capacidade. Métricas de reconciliação são concluídas em T16; não depender de T16 para instrumentação básica.
+**Dependências:** T10, T15. **Requisitos:** HBG-08, HBG-10, HBG-11, HBG-12.
+**Pronto quando:**
+- [ ] Implementa o verificador de capacidade chamado por T10 e o mecanismo para cliente: flag desligada por padrão, seleção persiste por chat/job, worker e cliente incompatíveis são bloqueados antes de mutação/dispatch; múltiplos destinos elegíveis são considerados. Sem verificação válida, falha fechada.
+- [ ] Métricas de formato, falhas, duração, conflitos e limpeza usam IDs/códigos sem conteúdo sensível; configuração e comportamento são testados.
+**Verificar:** testes de configuração, negociação, logs e regressão com flag desligada. **Commit:** `feat: controlar ativação do fluxo híbrido`.
+
+### T18 — Aceitação operacional e documentação
+
+**Objetivo:** validar rollout/rollback e documentar operação, compatibilidade e limitações antes de habilitar tráfego.
+**Contexto:** `docs/RUNBOOK.md`, `docs/ARCHITECTURE.md`, `docs/INTEGRATIONS.md`, `AGENTS.md`, TDD e suites de teste; preservar leitores e worker compatíveis ao desligar novas criações.
+**Dependências:** T14, T15, T16, T17. **Requisitos:** HBG-01 a HBG-12.
+**Pronto quando:**
+- [ ] Execução registra evidências de criação/edição, versões legadas, corrida, timeout, limpeza, segurança e rollback; limitações/checagens não executadas ficam explícitas.
+- [ ] Runbook descreve habilitação, capacidade, métricas, tratamento de órfãos, rollback não destrutivo e critérios de ativação; validação visual com exemplos reais e metas são acordadas com o responsável.
+**Verificar:** suítes relevantes, ensaio de rollback com dados estruturados e revisão do responsável. **Commit:** `docs: registrar operação do fluxo híbrido`.
+
+## Rastreabilidade
+
+| Requisito | Tarefas |
+| --- | --- |
+| HBG-01 | T01, T02, T06, T18 |
+| HBG-02 | T01, T02, T03, T06, T13, T14, T18 |
+| HBG-03 | T04, T05, T13, T14, T18 |
+| HBG-04 | T08, T09, T10, T14, T15, T18 |
+| HBG-05 | T08, T09, T10, T14, T18 |
+| HBG-06 | T08, T10, T12, T13, T14, T16, T18 |
+| HBG-07 | T07, T11, T12, T14, T16, T18 |
+| HBG-08 | T05, T08, T10, T13, T14, T15, T17, T18 |
+| HBG-09 | T15, T18 |
+| HBG-10 | T01–T04, T06–T12, T14, T17, T18 |
+| HBG-11 | T16, T17, T18 |
+| HBG-12 | T01–T18 |
