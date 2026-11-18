@@ -141,7 +141,7 @@ Com PostgreSQL disponível em `INTEGRATION_DATABASE_URL`, instale as dependênci
 
 ```powershell
 $env:HYBRID_E2E_PYTHON = "C:\caminho\para\worker\.venv\Scripts\python.exe"
-go test -tags=integration ./integration -run TestHybridGoAndPythonProcesses -count=1
+go test -tags=integration ./integration -run "TestHybridGoAndPythonProcesses|TestHybridRealWorkerHTTP" -count=1
 ```
 
-O teste cria uma API HTTP local, executa o grafo Python em outro processo, armazena arquivos em diretório temporário compartilhado e valida callbacks, versões e edição no PostgreSQL. LLM, renderização e S3 são simulados; o dispatch ao processo é síncrono no teste, portanto ele não substitui testes de rede/timeout do worker HTTP nem o E2E com infraestrutura real.
+Os testes criam uma API HTTP local e executam o grafo Python em outro processo, incluindo um cenário com o endpoint HTTP real do worker e execução em segundo plano. Arquivos ficam em diretório temporário compartilhado; callbacks, versões e edição são verificados no PostgreSQL. LLM, renderização e S3 são simulados; os testes não substituem o ensaio de timeout de rede nem o E2E com infraestrutura real.

@@ -66,5 +66,10 @@ graph_module.report_job_progress = no_progress
 pipeline.generate_structured_post = generate
 pipeline.plan_structured_edit = edit
 pipeline.render_structured_post = render
-payload = DispatchPayload.model_validate(json.load(sys.stdin))
-asyncio.run(_run_job(initial_state(payload)))
+if os.environ.get("HYBRID_E2E_PORT"):
+    import uvicorn
+    from app.main import app
+    uvicorn.run(app, host="127.0.0.1", port=int(os.environ["HYBRID_E2E_PORT"]), lifespan="off", log_level="warning")
+else:
+    payload = DispatchPayload.model_validate(json.load(sys.stdin))
+    asyncio.run(_run_job(initial_state(payload)))

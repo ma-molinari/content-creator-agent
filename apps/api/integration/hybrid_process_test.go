@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -164,4 +165,86 @@ func TestHybridGoAndPythonProcesses(t *testing.T) {
 	original, err := store.GetObject(context.Background(), first.DocumentS3Key)
 	require.NoError(t, err)
 	require.Equal(t, before, original)
+}
+
+// Exercise the real worker HTTP route and background callback with simulated external dependencies.
+func TestHybridRealWorkerHTTP(t *testing.T) {
+	python := os.Getenv("HYBRID_E2E_PYTHON")
+	if python == "" {
+		t.Skip("HYBRID_E2E_PYTHON not configured")
+	}
+	env := newTestEnv(t, nil)
+	root := t.TempDir()
+	store := fileArtifactStore{root: root}
+	script, err := filepath.Abs("../../worker/tests/hybrid_e2e_worker.py")
+	require.NoError(t, err)
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	workerAddress := listener.Addr().String()
+	require.NoError(t, listener.Close())
+	worker := jobs.NewHTTPWorkerClient("http://"+workerAddress, IntegrationWorkerAPIKey)
+	cfg := &config.Config{JWTSecret: testJWTSecret, JWTRefreshSecret: testJWTRefreshSecret, WorkerAPIKey: IntegrationWorkerAPIKey, StructuredPostsEnabled: true}
+	api := httptest.NewServer(buildEcho(env.DB, cfg, worker, store))
+	t.Cleanup(api.Close)
+	env.APIURL = api.URL
+	_, port, err := net.SplitHostPort(workerAddress)
+	require.NoError(t, err)
+	cmd := exec.Command(python, script)
+	cmd.Env = append(os.Environ(), "HYBRID_E2E_STORE="+root, "HYBRID_E2E_API="+api.URL, "HYBRID_E2E_KEY="+IntegrationWorkerAPIKey, "HYBRID_E2E_PORT="+port)
+	var output bytes.Buffer
+	cmd.Stdout = &output
+	cmd.Stderr = &output
+	require.NoError(t, cmd.Start())
+	t.Cleanup(func() { _ = cmd.Process.Kill(); _ = cmd.Wait() })
+	require.Eventually(t, func() bool { return worker.SupportsStructured(context.Background()) }, 15*time.Second, 100*time.Millisecond, "worker did not become ready")
+	token, uid := registerAndLogin(t, env)
+	t.Cleanup(func() { env.DB.Delete(&db.User{}, "id = ?", uid) })
+	env.putTestProfile(t, token)
+	request := func(method, path string, body []byte) *http.Response {
+		t.Helper()
+		req, err := http.NewRequest(method, api.URL+path, bytes.NewReader(body))
+		require.NoError(t, err)
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Post-Client-Version", "1")
+		res, err := env.HTTPClient.Do(req)
+		require.NoError(t, err)
+		return res
+	}
+	response := request(http.MethodPost, "/chats", []byte(`{"postType":"single"}`))
+	require.Equal(t, http.StatusCreated, response.StatusCode)
+	var ch struct {
+		ID uuid.UUID `json:"id"`
+	}
+	require.NoError(t, json.NewDecoder(response.Body).Decode(&ch))
+	response.Body.Close()
+	path := "/chats/" + ch.ID.String()
+	response = request(http.MethodPost, path+"/messages", []byte(`{"content":"crie","mode":"create"}`))
+	require.Equal(t, http.StatusAccepted, response.StatusCode)
+	var job struct {
+		JobID uuid.UUID `json:"jobId"`
+	}
+	require.NoError(t, json.NewDecoder(response.Body).Decode(&job))
+	response.Body.Close()
+	status, _ := pollJobDone(t, env, token, ch.ID, job.JobID, 15*time.Second)
+	require.Equal(t, "done", status)
+	var first db.PostVersion
+	require.NoError(t, env.DB.Where("job_id = ?", job.JobID).First(&first).Error)
+	payload, err := json.Marshal(map[string]string{"content": "edite", "mode": "edit", "baseVersionId": first.ID.String()})
+	require.NoError(t, err)
+	response = request(http.MethodPost, path+"/messages", payload)
+	require.Equal(t, http.StatusAccepted, response.StatusCode)
+	require.NoError(t, json.NewDecoder(response.Body).Decode(&job))
+	response.Body.Close()
+	status, _ = pollJobDone(t, env, token, ch.ID, job.JobID, 15*time.Second)
+	require.Equal(t, "done", status)
+	var second db.PostVersion
+	require.NoError(t, env.DB.Where("job_id = ?", job.JobID).First(&second).Error)
+	require.Equal(t, first.ID, *second.ParentVersionID)
+	before, err := store.GetObject(context.Background(), first.DocumentS3Key)
+	require.NoError(t, err)
+	require.Contains(t, string(before), "Original")
+	after, err := store.GetObject(context.Background(), second.DocumentS3Key)
+	require.NoError(t, err)
+	require.Contains(t, string(after), "Editado")
 }
