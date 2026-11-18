@@ -164,7 +164,7 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 **Dependências:** T13. **Requisitos:** HBG-02 a HBG-08, HBG-10, HBG-12.
 **Pronto quando:**
 - [ ] Postgres cobre criação/edição, criação vs edição, duas primeiras criações com base nula e callbacks fora de ordem/repetidos; o worker testa resposta perdida após commit simulado. Postgres cobre callback concluído antes de erro de dispatch e dispatch de resultado desconhecido; ensaio entre processos derruba a conexão após o commit e confirma retentativa idempotente. Falta ensaio com infraestrutura real.
-- [ ] Postgres cobre snapshot/manifesto/imagem ausentes, documento inválido e asset de outro job sem publicação; faltam troca de propriedade entre serviços e regressão legada integrada.
+- [ ] Postgres cobre snapshot/manifesto/imagem ausentes, documento inválido e asset de outro job sem publicação; HTTP verifica acesso de outro usuário e roteamento legado. Falta ensaio com S3 real.
 **Verificar:** suíte de integração Go/Postgres e testes de integração do worker; documentar dependências externas indisponíveis. **Commit:** `test: cobrir criação e concorrência de versões`.
 
 ### T15 — API de histórico e interface de modo/base [P] — implementação parcial
@@ -203,7 +203,7 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 **Contexto:** `docs/RUNBOOK.md`, `docs/ARCHITECTURE.md`, `docs/INTEGRATIONS.md`, `AGENTS.md`, TDD e suites de teste; preservar leitores e worker compatíveis ao desligar novas criações.
 **Dependências:** T14, T15, T16, T17. **Requisitos:** HBG-01 a HBG-12.
 **Pronto quando:**
-- [ ] Testes locais registram criação/edição, legado, corrida, resposta perdida, limpeza e rollback da flag sem perder edição estruturada; faltam ensaio operacional real e verificação de segurança integrada.
+- [ ] Testes locais registram criação/edição, legado, isolamento entre usuários, corrida, resposta perdida, limpeza e rollback da flag sem perder edição estruturada; falta ensaio operacional real.
 - [ ] Runbook descreve habilitação, capacidade, métricas, tratamento de órfãos, rollback não destrutivo e critérios de ativação; validação visual com exemplos reais e metas são acordadas com o responsável.
 **Verificar:** suítes relevantes, ensaio de rollback com dados estruturados e revisão do responsável. **Commit:** `docs: registrar operação do fluxo híbrido`.
 

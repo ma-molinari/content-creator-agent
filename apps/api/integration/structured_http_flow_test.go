@@ -10,6 +10,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"content-creator-agent/internal/config"
@@ -30,13 +31,23 @@ func (w *httpStructuredWorker) DispatchJob(_ context.Context, p jobs.DispatchPay
 func TestStructuredHTTPCreateAndMultipartEdit(t *testing.T) {
 	env := newTestEnv(t, nil)
 	worker := &httpStructuredWorker{}
-	cfg := &config.Config{JWTSecret: testJWTSecret, JWTRefreshSecret: testJWTRefreshSecret, WorkerAPIKey: IntegrationWorkerAPIKey, StructuredPostsEnabled: true}
+	cfg := &config.Config{JWTSecret: testJWTSecret, JWTRefreshSecret: testJWTRefreshSecret, WorkerAPIKey: IntegrationWorkerAPIKey, StructuredPostsEnabled: true, CORSAllowedOrigins: []string{"https://frontend.example"}}
 	server := httptest.NewServer(buildEcho(env.DB, cfg, worker, mockStorage{}))
 	t.Cleanup(server.Close)
 	env.APIURL = server.URL
 	token, uid := registerAndLogin(t, env)
 	t.Cleanup(func() { env.DB.Delete(&db.User{}, "id = ?", uid) })
 	env.putTestProfile(t, token)
+	preflight, err := http.NewRequest(http.MethodOptions, env.APIURL+"/chats", nil)
+	require.NoError(t, err)
+	preflight.Header.Set("Origin", "https://frontend.example")
+	preflight.Header.Set("Access-Control-Request-Method", "POST")
+	preflight.Header.Set("Access-Control-Request-Headers", "authorization,content-type,x-post-client-version")
+	preflightRes, err := env.HTTPClient.Do(preflight)
+	require.NoError(t, err)
+	preflightRes.Body.Close()
+	require.Equal(t, http.StatusNoContent, preflightRes.StatusCode)
+	require.Contains(t, strings.ToLower(preflightRes.Header.Get("Access-Control-Allow-Headers")), "x-post-client-version")
 	request := func(method, path, contentType string, body *bytes.Buffer, clientVersion bool) *http.Response {
 		t.Helper()
 		if body == nil {
@@ -99,6 +110,17 @@ func TestStructuredHTTPCreateAndMultipartEdit(t *testing.T) {
 	require.NoError(t, json.NewDecoder(res.Body).Decode(&current))
 	res.Body.Close()
 	require.NotEqual(t, uuid.Nil, current.CurrentVersionID)
+	otherToken, otherID := registerAndLogin(t, env)
+	t.Cleanup(func() { env.DB.Delete(&db.User{}, "id = ?", otherID) })
+	otherReq, err := http.NewRequest(http.MethodPost, env.APIURL+path+"/messages", bytes.NewBufferString(`{"content":"edite","mode":"edit","baseVersionId":"`+current.CurrentVersionID.String()+`"}`))
+	require.NoError(t, err)
+	otherReq.Header.Set("Authorization", "Bearer "+otherToken)
+	otherReq.Header.Set("Content-Type", "application/json")
+	otherReq.Header.Set("X-Post-Client-Version", "1")
+	otherRes, err := env.HTTPClient.Do(otherReq)
+	require.NoError(t, err)
+	otherRes.Body.Close()
+	require.Equal(t, http.StatusForbidden, otherRes.StatusCode)
 	var form bytes.Buffer
 	writer := multipart.NewWriter(&form)
 	require.NoError(t, writer.WriteField("content", "Edite"))
