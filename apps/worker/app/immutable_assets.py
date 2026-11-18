@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from dataclasses import dataclass
 from typing import Mapping
 from uuid import UUID
@@ -68,6 +69,10 @@ async def copy_version_assets(
             await asyncio.to_thread(client.put_object, Bucket=bucket, Key=key, Body=data, ContentType=content_type)
             keys[asset_id] = key
             contents[asset_id] = data
+        manifest_key = f"slides/{job_uuid}/assets.json"
+        attempted.append(manifest_key)
+        manifest = json.dumps(keys, ensure_ascii=True, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        await asyncio.to_thread(client.put_object, Bucket=bucket, Key=manifest_key, Body=manifest, ContentType="application/json")
     except Exception as exc:
         # An upload may have succeeded even if its response was lost; defer cleanup to reconciliation.
         raise AssetCopyError(attempted) from exc

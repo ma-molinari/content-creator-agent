@@ -343,6 +343,23 @@ func (s *Service) PostMessageWithOptions(ctx context.Context, userID, chatID uui
 		for _, attachment := range knownChatAtts {
 			authorizedSources[attachment.ID.String()] = attachment.S3Key
 		}
+		if options.Mode == "edit" {
+			base, err := s.repo.GetOwnedVersion(ctx, userID, chatID, *requestedBase)
+			if err == nil {
+				var inherited map[string]string
+				inherited, err = inheritedAssetSources(ctx, s.store, *base)
+				if err == nil {
+					for id, key := range inherited {
+						authorizedSources[id] = key
+					}
+				}
+			}
+			if err != nil {
+				msg := "Não foi possível obter as imagens da versão anterior."
+				_ = s.jobsRepo.UpdateStatus(ctx, job.ID, db.JobStatusFailed, &msg)
+				return nil, err
+			}
+		}
 	}
 	payload := jobs.DispatchPayload{
 		AuthorizedAssetSources: authorizedSources,

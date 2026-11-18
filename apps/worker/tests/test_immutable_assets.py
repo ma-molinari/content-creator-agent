@@ -37,7 +37,8 @@ def test_copies_current_and_inherited_assets():
     assert result.keys == {"a": f"slides/{job_id}/assets/a.png", "b": f"slides/{job_id}/assets/b.png"}
     client.objects.clear()
     assert result.contents == {"a": png, "b": png}
-    assert all(value[1] == "image/png" for value in client.uploaded.values())
+    assert client.uploaded[f"slides/{job_id}/assets.json"][1] == "application/json"
+    assert all(client.uploaded[key][1] == "image/png" for key in result.keys.values())
 
 
 def test_rejects_unknown_id_before_any_upload():
