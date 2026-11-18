@@ -130,3 +130,7 @@ npm run screenshots
 - **Worker is mocked per-test** in integration tests via a controllable `httptest.Server`. The handler receives the dispatch and can immediately call back (or simulate delay/failure) without an LLM.
 - **SQLite swap for unit tests** keeps unit tests fast and dependency-free (no Docker needed). Schema compatibility with PostgreSQL is tested at the integration layer.
 - **E2E tests embed test data** (`testdata/AUDIT.md`, `testdata/BRAND.md`) via Go `//go:embed` to provide realistic profile content without filesystem coupling.
+
+### Smoke test do renderizador estruturado
+
+`apps/worker/tests/test_structured_browser.py` é opcional e exige Chromium instalado para a versão do Playwright utilizada e uma fonte TTF local. Execute no ambiente do worker com `RUN_CHROMIUM_TESTS=1` e `TEST_FONT_PATH` apontando para o arquivo. O teste intercepta a fonte externa, não acessa a rede e cobre imagem, overflow e ausência de fonte. Ele usa uma fonte de teste, portanto não substitui a validação visual das fontes e layouts reais.
