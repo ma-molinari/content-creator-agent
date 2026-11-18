@@ -94,3 +94,13 @@ def test_lost_response_after_commit_retries_identical_callback(monkeypatch):
     assert len(payloads) == 2
     assert all(item["error"] is None for item in payloads)
     assert len(committed) == 1
+
+
+def test_confirmed_conflict_never_sends_failure_callback(monkeypatch):
+    send = AsyncMock(return_value=httpx.Response(409))
+    monkeypatch.setattr("app.structured_upload.post_complete_callback", send)
+    upload = StructuredUpload("slides/example/document.json", [{"s3Key": "slides/example/slide_01.jpeg", "slideNumber": 1}])
+    status = asyncio.run(send_structured_completion("http://api/complete", api_key="key", assistant_text="ok", upload=upload))
+    assert status == 409
+    assert send.await_count == 1
+    assert send.await_args.kwargs["json_body"]["error"] is None

@@ -117,14 +117,14 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 - [x] Testes Postgres exercitam ponteiro nulo, relações cruzadas e exclusão mútua no lock do chat; a ordem de locks de chat/job será aplicada na T10.
 **Verificar:** testes de repositório e integração Postgres. **Commit:** `feat(api): consultar versões e bases de edição`.
 
-### T10 — Aceite e conclusão transacional de jobs estruturados — implementação parcial
+### T10 — Aceite e conclusão transacional de jobs estruturados — concluída no catálogo provisório
 
 **Objetivo:** estender contratos HTTP e callback para persistir snapshots e publicar versões com controle de concorrência.
 **Contexto:** `chat/handler.go`, `chat/post_message.go`, `jobs/worker_client.go`, `jobs/handler.go`, `jobs/complete.go`; tratamento atual do callback deve ser ajustado para não converter conflito em falha genérica. Implementar validação nos formatos JSON e multipart.
 **Dependências:** T08, T09. **Requisitos:** HBG-04, HBG-05, HBG-06, HBG-08, HBG-10, HBG-12.
 **Pronto quando:**
-- [ ] `mode`/`baseVersionId` são validados por formato e ownership; job captura ponteiro esperado inclusive nulo; API recusa dispatch estruturado por padrão até que um verificador de capacidade confiável esteja disponível (T17); clientes não compatíveis não sofrem mutação. Verificador integrado e dispatch bem-sucedido testado; lista explícita de réplicas verificadas implementada (T17); o operador deve manter endereços diretos atualizados.
-- [ ] Callback valida prefixos, nomes, existência e quantidade de artefatos e, com locks consistentes, publica ou persiste `failed`/`VERSION_CONFLICT` atomicamente; repetições são idempotentes. Snapshot e manifesto têm leitura limitada e validação do contrato provisório, com exemplos compartilhados entre Go e Python; faltam mais casos de concorrência na T14.
+- [x] `mode`/`baseVersionId` são validados por formato e ownership; job captura ponteiro esperado inclusive nulo; API recusa dispatch estruturado por padrão até que um verificador de capacidade confiável esteja disponível (T17); clientes não compatíveis não sofrem mutação. Verificador integrado e dispatch bem-sucedido testado; lista explícita de réplicas verificadas implementada (T17); o operador deve manter endereços diretos atualizados.
+- [x] Callback valida prefixos, nomes, existência e quantidade de artefatos e, com locks consistentes, publica ou persiste `failed`/`VERSION_CONFLICT` atomicamente; repetições são idempotentes. Snapshot e manifesto têm leitura limitada e validação do contrato provisório, com exemplos compartilhados entre Go e Python; concorrência, callbacks repetidos e resposta perdida são cobertos na T14.
 **Verificar:** testes Go e integração Postgres para callbacks concorrentes, primeira criação nula, JSON/multipart, cliente legado e ownership. **Commit:** `feat(api): publicar versões estruturadas com controle de conflito`.
 
 ### T11 — Limpeza durável de chats e evicção [P] — implementação parcial
@@ -137,24 +137,24 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 - [ ] Testes Postgres cobrem sexto chat, cascata, falha S3, repetição, proteção de referências e retomada por nova instância simulada; falta ensaio operacional de reinício real.
 **Verificar:** testes de chat e integração Postgres/S3 simulado. **Commit:** `fix(api): preservar inventário de objetos na exclusão de chats`.
 
-### T12 — Publicação de snapshot e artefatos no worker — implementação parcial
+### T12 — Publicação de snapshot e artefatos no worker — concluída no catálogo provisório
 
 **Objetivo:** enviar documento, HTML, JPEG e manifesto imutável ao S3 e formar callback estruturado.
 **Contexto:** `nodes/upload_assets.py`, `nodes/finalize.py`, `slide_artifact_cleanup.py`; uploads não são transação com o banco. Manter prefixo `slides/{jobId}/`.
 **Dependências:** T01, T07. **Requisitos:** HBG-06, HBG-07, HBG-10, HBG-12.
 **Pronto quando:**
-- [ ] Snapshot, assets e artefatos usam escrita condicional, integração ao grafo e descoberta por prefixo; falta validação operacional da reconciliação (T16).
-- [ ] Helper envia o mesmo callback em retentativas sem fallback de erro; testes isolados cobrem timeout. Faltam integração e testes de resposta perdida após commit e conflito confirmado (T13/T14).
+- [x] Snapshot, assets e artefatos usam escrita condicional, integração ao grafo e descoberta por prefixo; falta validação operacional da reconciliação (T16).
+- [x] Helper envia o mesmo callback em retentativas sem fallback de erro; testes cobrem timeout, conflito confirmado e resposta perdida após commit entre processos.
 **Verificar:** pytest de upload/finalização com S3 e API simulados. **Commit:** `feat(worker): publicar artefatos de versões estruturadas`.
 
-### T13 — Integrar caminho estruturado ao grafo — implementação parcial
+### T13 — Integrar caminho estruturado ao grafo — concluída no catálogo provisório
 
 **Objetivo:** conectar criação e edição estruturadas à validação, renderização, upload e progresso sem alterar o caminho legado.
 **Contexto:** `graph.py`, `job_payload.py`, `state.py`, `main.py`; dispatch é HTTP com `BackgroundTasks`, não fila durável.
 **Dependências:** T03, T05, T06, T10, T12. **Requisitos:** HBG-02, HBG-03, HBG-06, HBG-08, HBG-12.
 **Pronto quando:**
-- [ ] Grafo compilado roteia por formato/modo explícitos; testes com S3 simulado cobrem snapshots, manifesto e imagem herdada em criação/edição e verificam o roteamento legado. Teste local integra API HTTP, worker HTTP em segundo plano, Chromium e Postgres com armazenamento e LLM simulados; falta validação operacional da reconciliação antes da ativação.
-- [ ] Testes cobrem criação, edição, erro, contrato e callback incerto; S3 simulado persistente valida releitura e imutabilidade, enquanto integração com API e renderização real permanece pendente.
+- [x] Grafo compilado roteia por formato/modo explícitos; testes com S3 simulado cobrem snapshots, manifesto e imagem herdada em criação/edição e verificam o roteamento legado. Teste local integra API HTTP, worker HTTP em segundo plano, Chromium e Postgres com armazenamento e LLM simulados; falta validação operacional da reconciliação antes da ativação.
+- [x] Testes cobrem criação, edição, erro, contrato e callback incerto; S3 simulado persistente valida releitura e imutabilidade, com integração HTTP e renderização real.
 **Verificar:** pytest do grafo e testes legados relevantes. **Commit:** `feat(worker): integrar geração híbrida ao grafo`.
 
 ### T14 — Cenários integrados de criação e concorrência
@@ -167,14 +167,14 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 - [ ] Postgres cobre snapshot/manifesto/imagem ausentes, documento inválido e asset de outro job sem publicação; HTTP verifica acesso de outro usuário e roteamento legado. Falta ensaio com S3 real.
 **Verificar:** suíte de integração Go/Postgres e testes de integração do worker; documentar dependências externas indisponíveis. **Commit:** `test: cobrir criação e concorrência de versões`.
 
-### T15 — API de histórico e interface de modo/base [P] — implementação parcial
+### T15 — API de histórico e interface de modo/base [P] — concluída no catálogo provisório
 
 **Objetivo:** expor versão/formato no chat e permitir que o usuário envie criação ou edição da versão atual.
 **Contexto:** `apps/api/internal/chat/handler.go`, `apps/web/src/api/chats.ts`, `pages/Chat.tsx`, `components/chat/` e `composer/`; preservar histórico e ZIP por resposta.
 **Dependências:** T10. **Requisitos:** HBG-04, HBG-08, HBG-09, HBG-12.
 **Pronto quando:**
 - [x] Leitura inclui formato e versionId; frontend envia modo/base em JSON e multipart, apresenta a versão corrente e exige ação para reenviar após conflito.
-- [ ] Testes de API e frontend cobrem versão atual, payload legado e conflito simulado; HTTP com Postgres cobre criação JSON, edição multipart e rejeição de cliente antigo. Teste local cobre API e worker HTTP com dependências externas simuladas; falta ensaio com infraestrutura real.
+- [x] Testes de API e frontend cobrem versão atual, payload legado e conflito simulado; HTTP com Postgres cobre criação JSON, edição multipart e rejeição de cliente antigo. Teste local cobre API e worker HTTP com dependências externas simuladas; falta ensaio com infraestrutura real.
 **Verificar:** testes web e Go relevantes, build web e fluxo com API simulada. **Commit:** `feat(web): editar a versão atual do post`.
 
 ### T16 — Reconciliação segura de objetos órfãos [P] — implementação parcial
@@ -193,7 +193,7 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 **Contexto:** `apps/api/internal/config/config.go`, `cmd/server/main.go`, `apps/worker/app/main.py`, `job_progress.py`; `/health` atual não negocia capacidade. Métricas de reconciliação são concluídas em T16; não depender de T16 para instrumentação básica.
 **Dependências:** T10, T15. **Requisitos:** HBG-08, HBG-10, HBG-11, HBG-12.
 **Pronto quando:**
-- [ ] Flag desligada por padrão, negociação de cliente e verificação de todos os destinos estruturados configurados antes da mutação; dispatch usa os mesmos endereços diretos e endpoint dedicado. A operação exige lista completa e atualizada, sem balanceador.
+- [x] Flag desligada por padrão, negociação de cliente e verificação de todos os destinos estruturados configurados antes da mutação; dispatch usa os mesmos endereços diretos e endpoint dedicado. A operação exige lista completa e atualizada, sem balanceador.
 - [ ] Callbacks terminais e limpeza emitem eventos de formato, resultado, duração, conflito e quantidade sem conteúdo de posts; dispatch confirmado gera evento terminal e watchdog gera contagem agregada; faltam detalhamento do watchdog por formato e validação da agregação operacional.
 **Verificar:** testes de configuração, negociação, logs e regressão com flag desligada. **Commit:** `feat: controlar ativação do fluxo híbrido`.
 
