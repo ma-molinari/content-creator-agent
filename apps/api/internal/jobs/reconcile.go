@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -148,5 +149,10 @@ func deleteUnreferenced(ctx context.Context, gdb *gorm.DB, store cleanupStorage,
 	if len(safe) == 0 {
 		return nil
 	}
-	return store.DeleteMany(ctx, safe)
+	if err := store.DeleteMany(ctx, safe); err != nil {
+		log.Printf("[metrics] event=artifact_cleanup outcome=failed objects=%d", len(safe))
+		return err
+	}
+	log.Printf("[metrics] event=artifact_cleanup outcome=done objects=%d", len(safe))
+	return nil
 }

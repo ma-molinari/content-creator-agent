@@ -85,7 +85,7 @@ func (h *Handler) Complete(c echo.Context) error {
 		if noop {
 			log.Printf("[jobs] complete job_id=%s worker error ignored (terminal state)", jobID)
 		} else {
-			log.Printf("[jobs] complete job_id=%s status=failed error=%s", jobID, msg)
+			logJobOutcome(ctx, h.gdb, jobID, "failed", metricErrorCode(body.ErrorCode))
 		}
 		return c.NoContent(http.StatusNoContent)
 	}
@@ -116,10 +116,13 @@ func (h *Handler) Complete(c echo.Context) error {
 			return httperr.Internal("[jobs] structured complete", err)
 		}
 		if conflict {
+			logJobOutcome(ctx, h.gdb, jobID, "conflict", "VERSION_CONFLICT")
 			return c.JSON(http.StatusConflict, map[string]string{"code": "VERSION_CONFLICT"})
 		}
 		if alreadyDone {
 			log.Printf("[jobs] structured complete job_id=%s status=done (idempotent no-op)", jobID)
+		} else {
+			logJobOutcome(ctx, h.gdb, jobID, "done", "NONE")
 		}
 		return c.NoContent(http.StatusNoContent)
 	}
@@ -150,7 +153,7 @@ func (h *Handler) Complete(c echo.Context) error {
 	if alreadyDone {
 		log.Printf("[jobs] complete job_id=%s status=done (idempotent no-op)", jobID)
 	} else {
-		log.Printf("[jobs] complete job_id=%s status=done", jobID)
+		logJobOutcome(ctx, h.gdb, jobID, "done", "NONE")
 	}
 	return c.NoContent(http.StatusNoContent)
 }
