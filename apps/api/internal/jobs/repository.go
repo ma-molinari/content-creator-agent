@@ -42,6 +42,15 @@ func (r *Repository) UpdateStatus(ctx context.Context, id uuid.UUID, status db.J
 	return r.db.WithContext(ctx).Model(&db.Job{}).Where("id = ?", id).Updates(updates).Error
 }
 
+// FailIfActive cannot overwrite a terminal callback that raced with dispatch.
+func (r *Repository) FailIfActive(ctx context.Context, id uuid.UUID, msg string) (bool, error) {
+	res := r.db.WithContext(ctx).Model(&db.Job{}).
+		Where("id = ? AND status IN ?", id, []db.JobStatus{db.JobStatusPending, db.JobStatusProcessing}).
+		Updates(map[string]interface{}{"status": db.JobStatusFailed, "stage": "failed", "progress": 100,
+			"error_msg": msg, "error_code": "dispatch_failed", "updated_at": time.Now().UTC()})
+	return res.RowsAffected > 0, res.Error
+}
+
 // UpdateProgress records worker stage/progress and refreshes the job heartbeat.
 func (r *Repository) UpdateProgress(ctx context.Context, id uuid.UUID, stage string, progress int, errorCode *string) error {
 	stage = strings.TrimSpace(stage)

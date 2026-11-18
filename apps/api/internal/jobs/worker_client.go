@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -13,6 +14,9 @@ import (
 
 	"github.com/google/uuid"
 )
+
+// ErrDispatchOutcomeUnknown means the worker might have accepted the job.
+var ErrDispatchOutcomeUnknown = errors.New("worker dispatch outcome unknown")
 
 // DispatchPayload is sent to POST {WORKER_URL}/jobs.
 type DispatchPayload struct {
@@ -106,7 +110,7 @@ func (c *HTTPWorkerClient) DispatchJob(ctx context.Context, payload DispatchPayl
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		log.Printf("[jobs] dispatch request failed job_id=%s err=%v", payload.JobID, err)
-		return fmt.Errorf("jobs: dispatch request: %w", err)
+		return fmt.Errorf("%w: %v", ErrDispatchOutcomeUnknown, err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -117,6 +121,9 @@ func (c *HTTPWorkerClient) DispatchJob(ctx context.Context, payload DispatchPayl
 			resp.StatusCode,
 			strings.TrimSpace(string(snip)),
 		)
+		if resp.StatusCode >= 500 {
+			return fmt.Errorf("%w: worker returned %s", ErrDispatchOutcomeUnknown, resp.Status)
+		}
 		return fmt.Errorf("jobs: worker returned %s", resp.Status)
 	}
 	return nil

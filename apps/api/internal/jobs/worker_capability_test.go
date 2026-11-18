@@ -36,3 +36,18 @@ func TestOldWorkerDoesNotAdvertiseStructuredCapability(t *testing.T) {
 	defer server.Close()
 	require.False(t, NewHTTPWorkerClient(server.URL, "test-key").SupportsStructured(context.Background()))
 }
+
+func TestDispatchDistinguishesUnknownAndRejectedOutcomes(t *testing.T) {
+	status := http.StatusInternalServerError
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(status) }))
+	client := NewHTTPWorkerClient(server.URL, "key")
+	err := client.DispatchJob(context.Background(), DispatchPayload{PostFormat: "structured_v1"})
+	require.ErrorIs(t, err, ErrDispatchOutcomeUnknown)
+	status = http.StatusBadRequest
+	err = client.DispatchJob(context.Background(), DispatchPayload{PostFormat: "structured_v1"})
+	require.Error(t, err)
+	require.NotErrorIs(t, err, ErrDispatchOutcomeUnknown)
+	server.Close()
+	err = client.DispatchJob(context.Background(), DispatchPayload{PostFormat: "structured_v1"})
+	require.ErrorIs(t, err, ErrDispatchOutcomeUnknown)
+}

@@ -171,3 +171,23 @@ func TestJobRepository_UpdateProgress(t *testing.T) {
 	require.Equal(t, "generating_slides", retry.Stage)
 	require.Equal(t, 88, retry.Progress)
 }
+
+func TestFailIfActivePreservesTerminalJobs(t *testing.T) {
+	gdb := testJobsDB(t)
+	repo := NewRepository(gdb)
+	ctx := context.Background()
+	for _, status := range []db.JobStatus{db.JobStatusProcessing, db.JobStatusDone, db.JobStatusFailed} {
+		id := uuid.New()
+		require.NoError(t, gdb.Create(&db.Job{ID: id, ChatID: uuid.New(), UserID: uuid.New(), Status: status}).Error)
+		changed, err := repo.FailIfActive(ctx, id, "dispatch rejected")
+		require.NoError(t, err)
+		require.Equal(t, status == db.JobStatusProcessing, changed)
+		var got db.Job
+		require.NoError(t, gdb.First(&got, "id = ?", id).Error)
+		if status == db.JobStatusProcessing {
+			require.Equal(t, db.JobStatusFailed, got.Status)
+		} else {
+			require.Equal(t, status, got.Status)
+		}
+	}
+}

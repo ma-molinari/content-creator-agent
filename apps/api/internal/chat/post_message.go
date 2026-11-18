@@ -337,7 +337,7 @@ func (s *Service) PostMessageWithOptions(ctx context.Context, userID, chatID uui
 			refs, err := s.profileSvc.ListReferenceSources(ctx, userID)
 			if err != nil {
 				msg := "Não foi possível obter as referências do perfil."
-				_ = s.jobsRepo.UpdateStatus(ctx, job.ID, db.JobStatusFailed, &msg)
+				_, _ = s.jobsRepo.FailIfActive(ctx, job.ID, msg)
 				return nil, err
 			}
 			for id, key := range refs {
@@ -360,7 +360,7 @@ func (s *Service) PostMessageWithOptions(ctx context.Context, userID, chatID uui
 			}
 			if err != nil {
 				msg := "Não foi possível obter as imagens da versão anterior."
-				_ = s.jobsRepo.UpdateStatus(ctx, job.ID, db.JobStatusFailed, &msg)
+				_, _ = s.jobsRepo.FailIfActive(ctx, job.ID, msg)
 				return nil, err
 			}
 		}
@@ -388,9 +388,18 @@ func (s *Service) PostMessageWithOptions(ctx context.Context, userID, chatID uui
 		ExpectsSlideRefinement: expectsSlideRefinement,
 	}
 	if err := s.worker.DispatchJob(ctx, payload); err != nil {
-		msg := err.Error()
-		if upErr := s.jobsRepo.UpdateStatus(ctx, job.ID, db.JobStatusFailed, &msg); upErr != nil {
-			log.Printf("[chat] job mark failed after dispatch error job_id=%s update_err=%v dispatch_err=%v", job.ID, upErr, err)
+		if errors.Is(err, jobs.ErrDispatchOutcomeUnknown) {
+			log.Printf("[jobs] dispatch outcome unknown job_id=%s", job.ID)
+			return &PostMessageResult{JobID: job.ID}, nil
+		}
+		msg := "Não foi possível iniciar o processamento."
+		changed, updateErr := s.jobsRepo.FailIfActive(ctx, job.ID, msg)
+		if updateErr != nil {
+			log.Printf("[chat] job mark failed after dispatch error job_id=%s update_err=%v", job.ID, updateErr)
+			return nil, ErrWorkerDispatchFailed
+		}
+		if !changed {
+			return &PostMessageResult{JobID: job.ID}, nil
 		}
 		return nil, ErrWorkerDispatchFailed
 	}
