@@ -48,6 +48,9 @@ func (r *Repository) FailIfActive(ctx context.Context, id uuid.UUID, msg string)
 		Where("id = ? AND status IN ?", id, []db.JobStatus{db.JobStatusPending, db.JobStatusProcessing}).
 		Updates(map[string]interface{}{"status": db.JobStatusFailed, "stage": "failed", "progress": 100,
 			"error_msg": msg, "error_code": "dispatch_failed", "updated_at": time.Now().UTC()})
+	if res.Error == nil && res.RowsAffected > 0 {
+		logJobOutcome(ctx, r.db, id, "failed", "DISPATCH_FAILED")
+	}
 	return res.RowsAffected > 0, res.Error
 }
 

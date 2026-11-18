@@ -82,12 +82,11 @@ func main() {
 		if err := sched.RegisterSafe(cfg.StuckJobCron, "stuck-job-cleanup", func() {
 			n, err := jobs.RunStuckJobCleanup(context.Background(), jobsRepo, maxAge)
 			if err != nil {
+				log.Printf("[metrics] event=stuck_job_cleanup outcome=failed")
 				log.Printf("[jobs] stuck cleanup error: %v", err)
 				return
 			}
-			if n > 0 {
-				log.Printf("[jobs] stuck cleanup: marked %d job(s) failed (processing > %d min)", n, cfg.StuckJobProcessingMinutes)
-			}
+			log.Printf("[metrics] event=stuck_job_cleanup outcome=done jobs=%d threshold_minutes=%d", n, cfg.StuckJobProcessingMinutes)
 		}); err != nil {
 			log.Fatalf("cron stuck jobs: %v", err)
 		}

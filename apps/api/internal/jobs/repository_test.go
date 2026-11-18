@@ -1,7 +1,10 @@
 package jobs
 
 import (
+	"bytes"
 	"context"
+	"log"
+	"strings"
 	"testing"
 	"time"
 
@@ -173,6 +176,10 @@ func TestJobRepository_UpdateProgress(t *testing.T) {
 }
 
 func TestFailIfActivePreservesTerminalJobs(t *testing.T) {
+	original := log.Writer()
+	var output bytes.Buffer
+	log.SetOutput(&output)
+	t.Cleanup(func() { log.SetOutput(original) })
 	gdb := testJobsDB(t)
 	repo := NewRepository(gdb)
 	ctx := context.Background()
@@ -190,4 +197,6 @@ func TestFailIfActivePreservesTerminalJobs(t *testing.T) {
 			require.Equal(t, status, got.Status)
 		}
 	}
+	require.Equal(t, 1, strings.Count(output.String(), "event=job_terminal"))
+	require.Contains(t, output.String(), "code=DISPATCH_FAILED")
 }

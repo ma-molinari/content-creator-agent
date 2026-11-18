@@ -194,7 +194,7 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 **Dependências:** T10, T15. **Requisitos:** HBG-08, HBG-10, HBG-11, HBG-12.
 **Pronto quando:**
 - [ ] Flag desligada por padrão, negociação de cliente e verificação de todos os destinos estruturados configurados antes da mutação; dispatch usa os mesmos endereços diretos e endpoint dedicado. A operação exige lista completa e atualizada, sem balanceador.
-- [ ] Callbacks terminais e limpeza emitem eventos de formato, resultado, duração, conflito e quantidade sem conteúdo de posts; faltam contabilizar dispatch/watchdog e validar agregação operacional.
+- [ ] Callbacks terminais e limpeza emitem eventos de formato, resultado, duração, conflito e quantidade sem conteúdo de posts; dispatch confirmado gera evento terminal e watchdog gera contagem agregada; faltam detalhamento do watchdog por formato e validação da agregação operacional.
 **Verificar:** testes de configuração, negociação, logs e regressão com flag desligada. **Commit:** `feat: controlar ativação do fluxo híbrido`.
 
 ### T18 — Aceitação operacional e documentação
