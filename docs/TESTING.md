@@ -134,3 +134,14 @@ npm run screenshots
 ### Smoke test do renderizador estruturado
 
 `apps/worker/tests/test_structured_browser.py` é opcional e exige Chromium instalado para a versão do Playwright utilizada e uma fonte TTF local. Execute no ambiente do worker com `RUN_CHROMIUM_TESTS=1` e `TEST_FONT_PATH` apontando para o arquivo. O teste intercepta a fonte externa, não acessa a rede e cobre imagem, overflow e ausência de fonte. Ele usa uma fonte de teste, portanto não substitui a validação visual das fontes e layouts reais.
+
+### Integração local Go + Python sem Docker
+
+Com PostgreSQL disponível em `INTEGRATION_DATABASE_URL`, instale as dependências do worker e informe o caminho do interpretador em `HYBRID_E2E_PYTHON`. A partir de `apps/api`, execute:
+
+```powershell
+$env:HYBRID_E2E_PYTHON = "C:\caminho\para\worker\.venv\Scripts\python.exe"
+go test -tags=integration ./integration -run TestHybridGoAndPythonProcesses -count=1
+```
+
+O teste cria uma API HTTP local, executa o grafo Python em outro processo, armazena arquivos em diretório temporário compartilhado e valida callbacks, versões e edição no PostgreSQL. LLM, renderização e S3 são simulados; o dispatch ao processo é síncrono no teste, portanto ele não substitui testes de rede/timeout do worker HTTP nem o E2E com infraestrutura real.

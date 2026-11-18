@@ -153,7 +153,7 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 **Contexto:** `graph.py`, `job_payload.py`, `state.py`, `main.py`; dispatch é HTTP com `BackgroundTasks`, não fila durável.
 **Dependências:** T03, T05, T06, T10, T12. **Requisitos:** HBG-02, HBG-03, HBG-06, HBG-08, HBG-12.
 **Pronto quando:**
-- [ ] Grafo compilado roteia por formato/modo explícitos; testes com S3 simulado cobrem snapshots, manifesto e imagem herdada em criação/edição e verificam o roteamento legado. Falta integração ponta a ponta entre serviços e reconciliação antes da ativação.
+- [ ] Grafo compilado roteia por formato/modo explícitos; testes com S3 simulado cobrem snapshots, manifesto e imagem herdada em criação/edição e verificam o roteamento legado. Teste local integra API HTTP, processo Python e Postgres com armazenamento/LLM/renderização simulados; faltam worker HTTP real e reconciliação operacional antes da ativação.
 - [ ] Testes cobrem criação, edição, erro, contrato e callback incerto; S3 simulado persistente valida releitura e imutabilidade, enquanto integração com API e renderização real permanece pendente.
 **Verificar:** pytest do grafo e testes legados relevantes. **Commit:** `feat(worker): integrar geração híbrida ao grafo`.
 
@@ -174,7 +174,7 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 **Dependências:** T10. **Requisitos:** HBG-04, HBG-08, HBG-09, HBG-12.
 **Pronto quando:**
 - [x] Leitura inclui formato e versionId; frontend envia modo/base em JSON e multipart, apresenta a versão corrente e exige ação para reenviar após conflito.
-- [ ] Testes de API e frontend cobrem versão atual, payload legado e conflito simulado; HTTP com Postgres cobre criação JSON, edição multipart e rejeição de cliente antigo. Falta validação ponta a ponta entre serviços.
+- [ ] Testes de API e frontend cobrem versão atual, payload legado e conflito simulado; HTTP com Postgres cobre criação JSON, edição multipart e rejeição de cliente antigo. Teste local cobre API HTTP e processo Python com dependências externas simuladas; falta E2E com worker HTTP real.
 **Verificar:** testes web e Go relevantes, build web e fluxo com API simulada. **Commit:** `feat(web): editar a versão atual do post`.
 
 ### T16 — Reconciliação segura de objetos órfãos [P] — implementação parcial
