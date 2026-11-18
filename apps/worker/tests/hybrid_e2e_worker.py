@@ -65,7 +65,8 @@ pipeline.report_job_progress = no_progress
 graph_module.report_job_progress = no_progress
 pipeline.generate_structured_post = generate
 pipeline.plan_structured_edit = edit
-pipeline.render_structured_post = render
+if os.environ.get("HYBRID_E2E_REAL_RENDER") != "1":
+    pipeline.render_structured_post = render
 if os.environ.get("HYBRID_E2E_PORT"):
     import uvicorn
     from app.main import app

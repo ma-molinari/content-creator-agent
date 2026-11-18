@@ -226,7 +226,20 @@ func TestHybridRealWorkerHTTP(t *testing.T) {
 	}
 	require.NoError(t, json.NewDecoder(response.Body).Decode(&job))
 	response.Body.Close()
-	status, _ := pollJobDone(t, env, token, ch.ID, job.JobID, 15*time.Second)
+	poll := func(id uuid.UUID) string {
+		t.Helper()
+		deadline := time.Now().Add(30 * time.Second)
+		for time.Now().Before(deadline) {
+			status, _ := getJobStatus(t, env, token, ch.ID, id)
+			if status == "done" || status == "failed" {
+				return status
+			}
+			time.Sleep(time.Second)
+		}
+		t.Fatal("job did not reach a terminal state")
+		return ""
+	}
+	status := poll(job.JobID)
 	require.Equal(t, "done", status)
 	var first db.PostVersion
 	require.NoError(t, env.DB.Where("job_id = ?", job.JobID).First(&first).Error)
@@ -236,7 +249,7 @@ func TestHybridRealWorkerHTTP(t *testing.T) {
 	require.Equal(t, http.StatusAccepted, response.StatusCode)
 	require.NoError(t, json.NewDecoder(response.Body).Decode(&job))
 	response.Body.Close()
-	status, _ = pollJobDone(t, env, token, ch.ID, job.JobID, 15*time.Second)
+	status = poll(job.JobID)
 	require.Equal(t, "done", status)
 	var second db.PostVersion
 	require.NoError(t, env.DB.Where("job_id = ?", job.JobID).First(&second).Error)
