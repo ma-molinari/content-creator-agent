@@ -38,7 +38,7 @@ func TestValidateStructuredDocument(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := validateStructuredDocument(context.Background(), documentStore{data: tc.data, contentType: tc.contentType}, "test", db.PostTypeSingle, tc.count)
+			_, err := validateStructuredDocument(context.Background(), documentStore{data: tc.data, contentType: tc.contentType}, "test", db.PostTypeSingle, tc.count)
 			if tc.valid {
 				require.NoError(t, err)
 			} else {
@@ -46,5 +46,6 @@ func TestValidateStructuredDocument(t *testing.T) {
 			}
 		})
 	}
-	require.Error(t, validateStructuredDocument(context.Background(), testStore{}, "test", db.PostTypeSingle, 1))
+	_, err := validateStructuredDocument(context.Background(), testStore{}, "test", db.PostTypeSingle, 1)
+	require.Error(t, err)
 }

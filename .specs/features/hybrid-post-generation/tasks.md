@@ -124,7 +124,7 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 **Dependências:** T08, T09. **Requisitos:** HBG-04, HBG-05, HBG-06, HBG-08, HBG-10, HBG-12.
 **Pronto quando:**
 - [ ] `mode`/`baseVersionId` são validados por formato e ownership; job captura ponteiro esperado inclusive nulo; API recusa dispatch estruturado por padrão até que um verificador de capacidade confiável esteja disponível (T17); clientes não compatíveis não sofrem mutação. Parte implementada e testada em modo fechado; falta integrar verificador e testar dispatch bem-sucedido.
-- [ ] Callback valida prefixos, nomes, existência e quantidade de artefatos e, com locks consistentes, publica ou persiste `failed`/`VERSION_CONFLICT` atomicamente; repetições são idempotentes. O snapshot agora tem leitura limitada, tipo e estrutura básica validados; faltam validação completa do contrato, protocolo de callback e mais casos de concorrência na T14.
+- [ ] Callback valida prefixos, nomes, existência e quantidade de artefatos e, com locks consistentes, publica ou persiste `failed`/`VERSION_CONFLICT` atomicamente; repetições são idempotentes. O snapshot e manifesto têm leitura limitada e são verificados por prefixo, tipo, contagem e correspondência de IDs; faltam validação completa do contrato e mais casos de concorrência na T14.
 **Verificar:** testes Go e integração Postgres para callbacks concorrentes, primeira criação nula, JSON/multipart, cliente legado e ownership. **Commit:** `feat(api): publicar versões estruturadas com controle de conflito`.
 
 ### T11 — Limpeza durável de chats e evicção [P] — implementação parcial

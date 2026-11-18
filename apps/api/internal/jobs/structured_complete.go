@@ -20,21 +20,21 @@ type boundedDocumentStore interface {
 	GetObjectLimited(ctx context.Context, key string, maxBytes int64) ([]byte, string, error)
 }
 
-func validateStructuredDocument(ctx context.Context, store storage.StorageService, key string, postType db.PostType, slideCount int) error {
+func validateStructuredDocument(ctx context.Context, store storage.StorageService, key string, postType db.PostType, slideCount int) (map[string]struct{}, error) {
 	bounded, ok := store.(boundedDocumentStore)
 	if !ok {
-		return gorm.ErrInvalidData
+		return nil, gorm.ErrInvalidData
 	}
 	data, contentType, err := bounded.GetObjectLimited(ctx, key, maxStructuredDocumentBytes)
 	if err != nil {
 		if storage.IsObjectNotFound(err) {
-			return ErrArtifactObjectNotFound
+			return nil, ErrArtifactObjectNotFound
 		}
-		return err
+		return nil, err
 	}
 	mediaType, _, err := mime.ParseMediaType(contentType)
 	if err != nil || mediaType != "application/json" || int64(len(data)) > maxStructuredDocumentBytes {
-		return gorm.ErrInvalidData
+		return nil, gorm.ErrInvalidData
 	}
 	var document struct {
 		SchemaVersion int               `json:"schemaVersion"`
@@ -42,15 +42,29 @@ func validateStructuredDocument(ctx context.Context, store storage.StorageServic
 		Slides        []json.RawMessage `json:"slides"`
 	}
 	if err := json.Unmarshal(data, &document); err != nil || document.SchemaVersion != 1 || document.PostType != string(postType) || len(document.Slides) != slideCount {
-		return gorm.ErrInvalidData
+		return nil, gorm.ErrInvalidData
 	}
+	used := make(map[string]struct{})
 	for _, slide := range document.Slides {
-		var item map[string]json.RawMessage
-		if json.Unmarshal(slide, &item) != nil || item == nil {
-			return gorm.ErrInvalidData
+		var item struct {
+			Elements []struct {
+				Type    string `json:"type"`
+				AssetID string `json:"assetId"`
+			} `json:"elements"`
+		}
+		if string(slide) == "null" || json.Unmarshal(slide, &item) != nil {
+			return nil, gorm.ErrInvalidData
+		}
+		for _, element := range item.Elements {
+			if element.Type == "image" {
+				if element.AssetID == "" {
+					return nil, gorm.ErrInvalidData
+				}
+				used[element.AssetID] = struct{}{}
+			}
 		}
 	}
-	return nil
+	return used, nil
 }
 
 type StructuredArtifact struct {
@@ -108,9 +122,46 @@ func CompleteStructuredReply(ctx context.Context, gdb *gorm.DB, jobID uuid.UUID,
 		if e := validateSlideArtifactKey(job.ID, key); e != nil {
 			return e
 		}
-		if e := validateStructuredDocument(ctx, store, key, chat.PostType, len(artifacts)); e != nil {
+		usedAssets, e := validateStructuredDocument(ctx, store, key, chat.PostType, len(artifacts))
+		if e != nil {
 			return e
 		}
+		bounded, ok := store.(boundedDocumentStore)
+		if !ok {
+			return gorm.ErrInvalidData
+		}
+		manifest, contentType, e := bounded.GetObjectLimited(ctx, "slides/"+job.ID.String()+"/assets.json", storage.MaxAssetManifestBytes)
+		if e != nil {
+			if storage.IsObjectNotFound(e) {
+				return ErrArtifactObjectNotFound
+			}
+			return e
+		}
+		mediaType, _, e := mime.ParseMediaType(contentType)
+		if e != nil || mediaType != "application/json" {
+			return gorm.ErrInvalidData
+		}
+		assetKeys, e := storage.ValidateAssetManifest(manifest, job.ID)
+		if e != nil {
+			return gorm.ErrInvalidData
+		}
+		if len(usedAssets) != len(assetKeys) {
+			return gorm.ErrInvalidData
+		}
+		for id := range usedAssets {
+			if _, ok := assetKeys[id]; !ok {
+				return gorm.ErrInvalidData
+			}
+		}
+		for _, assetKey := range assetKeys {
+			if e := store.HeadObject(ctx, assetKey); e != nil {
+				if storage.IsObjectNotFound(e) {
+					return ErrArtifactObjectNotFound
+				}
+				return e
+			}
+		}
+
 		seen := map[int]bool{}
 		for _, a := range artifacts {
 			if a.SlideNumber <= 0 || a.SlideNumber > len(artifacts) || seen[a.SlideNumber] || a.HtmlS3Key == nil || !strings.HasSuffix(strings.ToLower(strings.TrimSpace(*a.HtmlS3Key)), ".html") || !strings.HasSuffix(strings.ToLower(strings.TrimSpace(a.S3Key)), ".jpeg") {

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -49,7 +50,10 @@ func (mockStorage) GetSignedURL(_ context.Context, key string, _ time.Duration) 
 
 func (mockStorage) HeadObject(context.Context, string) error { return nil }
 
-func (mockStorage) GetObjectLimited(context.Context, string, int64) ([]byte, string, error) {
+func (mockStorage) GetObjectLimited(_ context.Context, key string, _ int64) ([]byte, string, error) {
+	if strings.HasSuffix(key, "/assets.json") {
+		return []byte(`{}`), "application/json", nil
+	}
 	return []byte(`{"schemaVersion":1,"postType":"single","slides":[{}]}`), "application/json", nil
 }
 
