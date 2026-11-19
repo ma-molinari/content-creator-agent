@@ -10,7 +10,7 @@
 
 ## Pendente antes da ativação
 
-- Ensaiar criação, edição, concorrência, callback incerto, limpeza e recuperação em ambiente controlado com S3 e configuração reais; avaliar custo e duração da varredura. O Docker não estava disponível no ambiente de desenvolvimento.
+- Executar o E2E estruturado opt-in (`tests/e2e/test_hybrid.py`) e ensaiar concorrência, callback incerto, limpeza e recuperação em ambiente controlado com S3 e configuração reais; avaliar custo e duração da varredura. O Docker Desktop foi iniciado após a validação local; o ensaio com S3 real ainda depende da identificação de um ambiente não produtivo.
 - Validar coleta/agregação operacional e acordar metas de latência, custo, falhas, conflitos e qualidade visual com o responsável. As amostras aprovadas não incluem marca real.
 - Ensaiar rollout e rollback no ambiente de destino, mantendo leitores e workers estruturados compatíveis. As flags de criação estruturada e reconciliação seguem desativadas por padrão.
 

@@ -145,3 +145,16 @@ go test -tags=integration ./integration -run "TestHybridGoAndPythonProcesses|Tes
 ```
 
 Os testes criam uma API HTTP local e executam o grafo Python em outro processo, incluindo um cenário com o endpoint HTTP real do worker e execução em segundo plano. Arquivos ficam em diretório temporário compartilhado; callbacks, versões e edição são verificados no PostgreSQL. LLM, renderização e S3 são simulados por padrão. Para usar o renderizador e Chromium reais, defina também `HYBRID_E2E_REAL_RENDER=1`; são necessários Chromium compatível e acesso às fontes dos templates. A LLM e o S3 continuam simulados. O cenário HTTP derruba a conexão após o commit do callback para verificar a retentativa idempotente. Os testes não substituem o E2E com infraestrutura real.
+
+### E2E estruturado em ambiente não produtivo
+
+O teste `tests/e2e/test_hybrid.py` é opt-in e exercita criação, edição, histórico e downloads com worker, LLM e S3 do ambiente informado. Ele cria uma conta de teste e exclui o chat criado ao final; a conta permanece cadastrada. Execute somente em um ambiente não produtivo dedicado, com a flag estruturada e os workers compatíveis configurados. A execução faz chamadas reais à LLM e ao S3.
+
+```powershell
+$env:E2E_API_URL = "http://localhost:8080"
+$env:E2E_HYBRID = "1"
+python -m pytest tests/e2e/test_hybrid.py -v
+Remove-Item Env:E2E_HYBRID
+```
+
+Sem `E2E_HYBRID=1`, o teste é ignorado. O arquivo `test_hybrid_contract.py` valida o próprio teste com HTTP simulado e não acessa serviços externos.
