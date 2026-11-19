@@ -10,9 +10,9 @@
 
 ## Ensaio Docker isolado
 
-- API, worker e PostgreSQL executados em containers temporários; S3 foi simulado em memória com endpoint HTTP local, a LLM foi simulada e o Chromium usou uma fonte de teste. O E2E de criação, edição, histórico e downloads passou.
+- Ensaio reproduzível por `python tests/docker_hybrid/run.py`: API, worker e PostgreSQL executados em containers temporários; S3 foi simulado em memória com endpoint HTTP local, a LLM foi simulada e o Chromium usou uma fonte de teste. O E2E de criação, edição, histórico e downloads passou.
 - Após reiniciar a API com a flag desligada, um novo chat foi criado no formato legado e um chat estruturado preexistente foi editado com sucesso.
-- A rotina de reconciliação foi interrompida enquanto o S3 simulado estava pausado. Após reinício, removeu os dois objetos simulados pendentes, manteve os inventários e pôde ser executada novamente. A agregação dos logs da API identificou dois jobs estruturados concluídos; essa amostra não define metas.
+- A rotina de reconciliação foi interrompida enquanto o S3 simulado estava pausado. Após reinício, removeu os objetos simulados pendentes e manteve os inventários. A agregação dos logs da API identificou dois jobs estruturados concluídos; essa amostra não define metas.
 - Containers, rede e arquivos temporários do ensaio foram removidos. O Docker Desktop foi iniciado e permaneceu disponível.
 
 ## Protocolo S3 simulado

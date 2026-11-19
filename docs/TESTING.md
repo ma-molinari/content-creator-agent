@@ -158,3 +158,17 @@ Remove-Item Env:E2E_HYBRID
 ```
 
 Sem `E2E_HYBRID=1`, o teste é ignorado. O arquivo `test_hybrid_contract.py` valida o próprio teste com HTTP simulado e não acessa serviços externos.
+
+### Ensaio Docker isolado sem bucket
+
+O ensaio reproduzível usa containers temporários de API, worker, PostgreSQL e um simulador S3 HTTP. A API é compilada a partir do código atual; o worker usa o código atual montado no container. Geração e edição pela LLM são simuladas, e Chromium usa uma fonte de teste local. O simulador cobre apenas as operações necessárias ao ensaio e não implementa todo o protocolo S3.
+
+A partir da raiz, com Docker, Go, Python e `httpx` instalados e as imagens `content-creator-agent-api:latest`, `content-creator-agent-worker:latest` e `postgres:16-alpine` disponíveis:
+
+```powershell
+python tests/docker_hybrid/run.py
+```
+
+Se necessário, construa as imagens do projeto com `docker compose build api worker`. Os nomes das imagens podem ser ajustados pelas variáveis `HYBRID_DOCKER_API_IMAGE`, `HYBRID_DOCKER_WORKER_IMAGE` e `HYBRID_DOCKER_POSTGRES_IMAGE`. O ensaio usa uma rede e credenciais locais próprias, cria containers e tenta removê-los mesmo em caso de falha, reinicia a API para testar rollback e interrompe/reinicia a reconciliação com o S3 simulado pausado. Não usa as credenciais ou o bucket das aplicações.
+
+O ensaio não substitui a validação em ambiente de destino com AWS S3 e LLM reais, nem define metas de rollout.
