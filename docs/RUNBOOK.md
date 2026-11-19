@@ -93,3 +93,10 @@ O resumo conta resultados e calcula p95 de duração por formato, além de conta
 
 
 No fluxo estruturado, se a resposta do dispatch não chegar ou for 5xx, a API mantém o job em processamento: o worker pode tê-lo aceitado. O callback pode concluí-lo; caso não haja progresso ou conclusão, o watchdog o encerra conforme `STUCK_JOB_PROCESSING_MINUTES`. Uma rejeição explícita de dispatch só marca o job como falho se ele ainda não estiver terminal.
+
+### Preparação e rollback
+
+1. Antes de habilitar novos chats, confirme migrations, frontend compatível, todos os destinos diretos em `STRUCTURED_WORKER_URLS` e a disponibilidade das fontes; mantenha a reconciliação desligada até ensaiá-la em ambiente controlado com S3.
+2. Estabeleça uma linha de base e combine metas de duração, falhas, conflitos, custo e qualidade visual antes de ampliar o tráfego. Valide o catálogo com uma marca real, pois as amostras aprovadas são genéricas.
+3. Para interromper novas criações estruturadas, configure `STRUCTURED_POSTS_ENABLED=false` e aplique a configuração às réplicas da API. Preserve migrations, leitores e workers estruturados compatíveis e sua lista de destinos para continuar acessando e editando as versões existentes.
+4. Em falhas repetidas de limpeza, mantenha `ARTIFACT_RECONCILE_ENABLED=false`, preserve os inventários e investigue permissões, disponibilidade do S3 e estado dos jobs antes de tentar novamente. Não remova objetos manualmente com base apenas em timeout.

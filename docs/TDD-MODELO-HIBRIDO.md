@@ -231,10 +231,10 @@ Cada fase deve ser revisada e testada antes da próxima; não há prazo estimado
 
 ## Questões em aberto
 
-- Quais layouts, estilos, limites e fontes compõem o catálogo inicial? Definir a partir de exemplos reais antes de congelar o schema V1.
-- Qual texto e código específico apresentar quando o pedido não couber no catálogo? A V1 encerra o job com erro e pedido de reformulação, preservando a versão atual.
+- **Resolvido em 2026-11-18:** o responsável aprovou o catálogo V1 pelas amostras genéricas em `.specs/features/hybrid-post-generation/visual/`; detalhes e limites constam em `catalogo-v1.md`. A validação com marca real continua como critério de rollout.
+- **Implementado:** pedido de edição não representável encerra o job com `EDIT_UNSUPPORTED` e mensagem de reformulação, preservando a versão atual.
 - Quais metas de latência, custo, qualidade visual e taxa de erros justificam expansão do rollout? Definir após linha de base.
-- Qual mecanismo de feature flag e reconciliação de objetos órfãos será operado no ambiente de produção? Definir antes da ativação.
+- **Implementado, pendente de operação:** flag `STRUCTURED_POSTS_ENABLED` e reconciliação agendada desativadas por padrão; validar coleta, custos, destinos e procedimento de ativação no ambiente real antes do rollout.
 
 ## Alternativas consideradas
 
