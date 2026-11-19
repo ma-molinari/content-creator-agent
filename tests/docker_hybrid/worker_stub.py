@@ -1,4 +1,5 @@
 """Run the real worker with deterministic LLM responses and a local test font."""
+import asyncio
 import base64
 import importlib
 from pathlib import Path
@@ -27,17 +28,28 @@ async def local_font(route):
         await route.abort()
 
 
-async def generate(**_kwargs):
+async def generate(**kwargs):
+    elements = [{"id": "title", "type": "text", "role": "heading", "content": "Testes automatizados", "style": {"color": "#ffffff", "size": "large"}}]
+    if kwargs["authorized_assets"]:
+        asset = sorted(kwargs["authorized_assets"])[0]
+        elements.append({"id": "image", "type": "image", "assetId": asset, "fit": "cover"})
     return PostDocumentV1.model_validate({"schemaVersion": 1, "postType": "single", "slides": [{
         "id": "slide", "layout": "hero", "background": {"type": "solid", "color": "#142a37"},
-        "elements": [{"id": "title", "type": "text", "role": "heading", "content": "Testes automatizados", "style": {"color": "#ffffff", "size": "large"}}],
+        "elements": elements,
     }]})
 
 
-async def edit(*, document, authorized_assets, **_kwargs):
+async def analyze_attachments(_state):
+    return {"attachment_plan": []}
+
+
+async def edit(*, request, document, authorized_assets, **_kwargs):
+    if request.startswith("concorrente"):
+        await asyncio.sleep(3)
     return apply_operations(document, [{"op": "set_text", "slideId": "slide", "elementId": "title", "content": "Testes com confiança"}], authorized_assets)
 
 
+pipeline.attachment_analyze = analyze_attachments
 pipeline.generate_structured_post = generate
 pipeline.plan_structured_edit = edit
 render._allow_font_route = local_font

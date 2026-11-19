@@ -84,6 +84,12 @@ class Handler(BaseHTTPRequestHandler):
         return self.respond(204)
 
     def do_POST(self):
+        if self.path == "/__rehearsal/remove-attachments":
+            with LOCK:
+                keys = [key for key in OBJECTS if "/chat-attachments/" in key]
+                for key in keys:
+                    del OBJECTS[key]
+            return self.respond(200, json.dumps({"removed": len(keys)}).encode(), {"Content-Type": "application/json"})
         _, query = self.parsed()
         if "delete" not in query:
             return self.respond(400)

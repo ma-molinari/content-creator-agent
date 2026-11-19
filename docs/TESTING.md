@@ -169,6 +169,6 @@ A partir da raiz, com Docker, Go, Python e `httpx` instalados e as imagens `cont
 python tests/docker_hybrid/run.py
 ```
 
-Se necessário, construa as imagens do projeto com `docker compose build api worker`. Os nomes das imagens podem ser ajustados pelas variáveis `HYBRID_DOCKER_API_IMAGE`, `HYBRID_DOCKER_WORKER_IMAGE` e `HYBRID_DOCKER_POSTGRES_IMAGE`. O ensaio usa uma rede e credenciais locais próprias, cria containers e tenta removê-los mesmo em caso de falha, reinicia a API para testar rollback e interrompe/reinicia a reconciliação com o S3 simulado pausado. Não usa as credenciais ou o bucket das aplicações.
+Se necessário, construa as imagens do projeto com `docker compose build api worker`. Os nomes das imagens podem ser ajustados pelas variáveis `HYBRID_DOCKER_API_IMAGE`, `HYBRID_DOCKER_WORKER_IMAGE` e `HYBRID_DOCKER_POSTGRES_IMAGE`. O ensaio usa uma rede e credenciais locais próprias, cria containers e tenta removê-los mesmo em caso de falha, verifica cliente antigo, isolamento de usuário, imagem herdada, edições concorrentes e resposta de callback perdida, reinicia a API para testar rollback e interrompe/reinicia a reconciliação com o S3 simulado pausado. Não usa as credenciais ou o bucket das aplicações.
 
 O ensaio não substitui a validação em ambiente de destino com AWS S3 e LLM reais, nem define metas de rollout.

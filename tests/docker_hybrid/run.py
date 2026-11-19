@@ -1,4 +1,5 @@
 """Run a disposable hybrid rehearsal using Docker, a fake S3, and a fake LLM."""
+import base64
 import json
 import os
 from pathlib import Path
@@ -41,7 +42,7 @@ def wait_until(check, message, timeout=40):
 def main():
     suffix = uuid.uuid4().hex[:10]
     network = "postmind-rehearsal-" + suffix
-    names = {part: "postmind-" + part + "-" + suffix for part in ("postgres", "s3", "api", "worker")}
+    names = {part: "postmind-" + part + "-" + suffix for part in ("postgres", "s3", "api", "proxy", "worker")}
     arch = docker("image", "inspect", "--format", "{{.Architecture}}", API_IMAGE)
     if arch not in ("arm64", "amd64"):
         raise RuntimeError("Unsupported API image architecture: " + arch)
@@ -67,7 +68,9 @@ def main():
                 return url
 
             api_url = start_api(True)
-            docker("run", "-d", "--rm", "--name", names["worker"], "--network", network, "--network-alias", "worker", "-v", f"{ROOT / 'apps' / 'worker' / 'app'}:/app/app:ro", "-v", f"{FIXTURES / 'worker_stub.py'}:/mock_worker.py:ro", "-e", "OPENAI_API_KEY=local-mock", "-e", "GO_API_URL=http://api:8081", "-e", "WORKER_API_KEY=" + KEY, *common_aws, "--entrypoint", "python", WORKER_IMAGE, "/mock_worker.py")
+            docker("run", "-d", "--rm", "--name", names["proxy"], "--network", network, "--network-alias", "callback", "-v", f"{FIXTURES / 'callback_proxy.py'}:/callback_proxy.py:ro", "--entrypoint", "python", WORKER_IMAGE, "/callback_proxy.py")
+            wait_until(lambda: subprocess.run(["docker", "exec", names["proxy"], "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/__rehearsal/stats')"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0, "Callback proxy did not become ready")
+            docker("run", "-d", "--rm", "--name", names["worker"], "--network", network, "--network-alias", "worker", "-v", f"{ROOT / 'apps' / 'worker' / 'app'}:/app/app:ro", "-v", f"{FIXTURES / 'worker_stub.py'}:/mock_worker.py:ro", "-e", "OPENAI_API_KEY=local-mock", "-e", "GO_API_URL=http://callback:8081", "-e", "WORKER_API_KEY=" + KEY, *common_aws, "--entrypoint", "python", WORKER_IMAGE, "/mock_worker.py")
             wait_until(lambda: subprocess.run(["docker", "exec", names["worker"], "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0, "Worker did not become ready")
 
             with httpx.Client(base_url=api_url, timeout=30) as client:
@@ -76,13 +79,15 @@ def main():
                     response = client.request(method, path, **kwargs)
                     response.raise_for_status()
                     return response
-                def wait_job(chat_id, job_id, headers):
+                def wait_job(chat_id, job_id, headers, allow_conflict=False):
+                    result = {}
                     def terminal():
-                        response = call("GET", f"/chats/{chat_id}/jobs/{job_id}/status", headers=headers).json()
-                        if response["status"] == "failed":
-                            raise RuntimeError("Job failed: " + str(response.get("errorCode")))
-                        return response["status"] == "done"
+                        result.update(call("GET", f"/chats/{chat_id}/jobs/{job_id}/status", headers=headers).json())
+                        if result["status"] == "failed" and not (allow_conflict and result.get("errorCode") == "VERSION_CONFLICT"):
+                            raise RuntimeError("Job failed: " + str(result.get("errorCode")))
+                        return result["status"] in ("done", "failed")
                     wait_until(terminal, "Job did not finish", timeout=120)
+                    return result
                 call("POST", "/auth/register", json=credentials)
                 token = call("POST", "/auth/login", json=credentials).json()["accessToken"]
                 headers = {"Authorization": "Bearer " + token, "X-Post-Client-Version": "1"}
@@ -91,16 +96,38 @@ def main():
                 chat = call("POST", "/chats", headers=headers, json={"postType": "single"}).json()
                 assert chat["postFormat"] == "structured_v1"
                 chat_id = chat["id"]
-                job = call("POST", f"/chats/{chat_id}/messages", headers=headers, json={"content": "Crie um post curto.", "mode": "create"}).json()
+                png = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/aXcAAAAASUVORK5CYII=")
+                job = call("POST", f"/chats/{chat_id}/messages", headers=headers, data={"content": "Crie um post curto.", "mode": "create"}, files={"attachments": ("test.png", png, "image/png")}).json()
                 wait_job(chat_id, job["jobId"], headers)
                 initial = call("GET", f"/chats/{chat_id}", headers=headers).json()["currentVersionId"]
                 assert initial
+                old_client = client.get(f"/chats/{chat_id}", headers={"Authorization": "Bearer " + token})
+                assert old_client.status_code == 426
+                other = {"email": "other-" + uuid.uuid4().hex + "@example.com", "password": "password123"}
+                call("POST", "/auth/register", json=other)
+                other_token = call("POST", "/auth/login", json=other).json()["accessToken"]
+                other_headers = {"Authorization": "Bearer " + other_token, "X-Post-Client-Version": "1"}
+                forbidden = client.post(f"/chats/{chat_id}/messages", headers=other_headers, json={"content": "edite", "mode": "edit", "baseVersionId": initial})
+                assert forbidden.status_code == 403
+                assert call("GET", f"/chats/{chat_id}", headers=headers).json()["currentVersionId"] == initial
+                removed = docker("exec", names["s3"], "python", "-c", "import urllib.request; print(urllib.request.urlopen(urllib.request.Request('http://127.0.0.1:9000/__rehearsal/remove-attachments', data=b'', method='POST')).read().decode())")
+                assert json.loads(removed)["removed"] == 1
                 job = call("POST", f"/chats/{chat_id}/messages", headers=headers, json={"content": "Altere o título.", "mode": "edit", "baseVersionId": initial}).json()
                 wait_job(chat_id, job["jobId"], headers)
                 edited = call("GET", f"/chats/{chat_id}", headers=headers).json()
                 assert edited["currentVersionId"] != initial
+                base = edited["currentVersionId"]
+                competing = []
+                for number in (1, 2):
+                    job = call("POST", f"/chats/{chat_id}/messages", headers=headers, json={"content": f"concorrente {number}", "mode": "edit", "baseVersionId": base}).json()
+                    competing.append(job["jobId"])
+                outcomes = [wait_job(chat_id, job_id, headers, allow_conflict=True) for job_id in competing]
+                assert sorted(item["status"] for item in outcomes) == ["done", "failed"]
+                assert next(item for item in outcomes if item["status"] == "failed")["errorCode"] == "VERSION_CONFLICT"
+                edited = call("GET", f"/chats/{chat_id}", headers=headers).json()
+                assert edited["currentVersionId"] != base
                 responses = [item for item in edited["contents"] if item.get("versionId")]
-                assert len(responses) == 2
+                assert len(responses) == 3
                 for item in responses:
                     blob = call("GET", f"/chats/{chat_id}/contents/{item['id']}/download", headers=headers).content
                     with zipfile.ZipFile(io.BytesIO(blob)) as archive:
@@ -123,6 +150,11 @@ def main():
                 result = subprocess.run(["docker", "logs", names["api"]], check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 return (result.stdout + result.stderr).splitlines()
             assert summarize(api_logs())["jobs"]["structured_v1"]["done"] >= 1
+            def callback_stats():
+                output = docker("exec", names["proxy"], "python", "-c", "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8081/__rehearsal/stats').read().decode())")
+                return json.loads(output)
+            wait_until(lambda: callback_stats()["completion_attempts"] >= 6, "Callback retry not observed", timeout=15)
+            assert callback_stats()["responses_dropped"] == 1
 
             def object_count():
                 output = docker("exec", names["s3"], "python", "-c", "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:9000/__rehearsal/count').read().decode())")
@@ -142,7 +174,7 @@ def main():
             wait_until(lambda: summarize(api_logs())["reconcile"]["done_runs"] >= 1, "Reconciliation metric not found", timeout=10)
             count = docker("exec", names["postgres"], "psql", "-U", "rehearsal", "-d", "rehearsal", "-tAc", "SELECT count(*) FROM chat_cleanup_tasks")
             assert int(count) >= 1
-            print("Ensaio Docker concluído: criação, edição, downloads, rollback, métricas e recuperação da limpeza.")
+            print("Ensaio Docker concluído: segurança, assets, concorrência, callback, rollback e reconciliação.")
         finally:
             for name in reversed(list(names.values())):
                 docker("rm", "-f", name, check=False)

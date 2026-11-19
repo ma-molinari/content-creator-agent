@@ -10,8 +10,8 @@
 
 ## Ensaio Docker isolado
 
-- Ensaio reproduzível por `python tests/docker_hybrid/run.py`: API, worker e PostgreSQL executados em containers temporários; S3 foi simulado em memória com endpoint HTTP local, a LLM foi simulada e o Chromium usou uma fonte de teste. O E2E de criação, edição, histórico e downloads passou.
-- Após reiniciar a API com a flag desligada, um novo chat foi criado no formato legado e um chat estruturado preexistente foi editado com sucesso.
+- Ensaio reproduzível por `python tests/docker_hybrid/run.py`: API, worker e PostgreSQL executados em containers temporários; S3 foi simulado em memória com endpoint HTTP local, a LLM foi simulada e o Chromium usou uma fonte de teste. Passaram criação com anexo, edição após remoção da origem da imagem, histórico e downloads.
+- Cliente antigo e outro usuário foram bloqueados; duas edições concorrentes tiveram uma vencedora e um conflito. Uma resposta de callback foi descartada após o commit, seguida de retentativa sem versão duplicada. Após reiniciar a API com a flag desligada, um novo chat foi criado no formato legado e um chat estruturado preexistente foi editado com sucesso.
 - A rotina de reconciliação foi interrompida enquanto o S3 simulado estava pausado. Após reinício, removeu os objetos simulados pendentes e manteve os inventários. A agregação dos logs da API identificou dois jobs estruturados concluídos; essa amostra não define metas.
 - Containers, rede e arquivos temporários do ensaio foram removidos. O Docker Desktop foi iniciado e permaneceu disponível.
 
@@ -30,3 +30,14 @@ Com PostgreSQL em Docker e armazenamento simulado em memória, o cenário de 205
 - Ensaiar rollout e rollback no ambiente de destino, mantendo leitores e workers estruturados compatíveis. As flags de criação estruturada e reconciliação seguem desativadas por padrão.
 
 O endpoint simulado não comprova compatibilidade integral com AWS S3, permissões, políticas do bucket, comportamento da rede ou qualidade de respostas da LLM em produção.
+
+## Procedimento pendente para um bucket não produtivo
+
+1. Identificar conta, região, bucket e credenciais já disponibilizadas ao ambiente de teste, sem registrá-las neste documento. Confirmar que a API e o worker acessam o mesmo bucket e que não há endpoint de simulador configurado inadvertidamente.
+2. Em ambiente isolado, verificar as permissões necessárias para gravar, ler, listar e excluir objetos de teste. Implantar frontend, API e todos os workers compatíveis, com a reconciliação desativada inicialmente.
+3. Executar o E2E opt-in documentado em `docs/TESTING.md`. Acrescentar ensaios com anexo de imagem, remoção da referência original, edições concorrentes e perda da resposta do callback; verificar histórico e downloads de versões anteriores.
+4. Preparar artefatos descartáveis que atendam à janela mínima de 24 horas, ensaiar reconciliação, interrupção e nova execução, conferindo proteção de objetos referenciados e coleta de métricas. Não alterar timestamps ou reduzir a janela em um bucket compartilhado.
+5. Medir duração, falhas, conflitos, custo e qualidade visual com uma marca real. Acordar as metas de expansão com o responsável antes de habilitar tráfego no ambiente de destino.
+6. Ensaiar o rollback no ambiente de destino: desligar novas criações estruturadas e confirmar leitura, download e edição de versões existentes com workers compatíveis preservados.
+
+Registrar resultados, período, versões implantadas e limitações; não incluir chaves, credenciais, URLs assinadas ou conteúdo privado.
