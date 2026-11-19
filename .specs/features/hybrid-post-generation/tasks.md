@@ -184,7 +184,7 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 **Dependências:** T08, T10, T11, T12. **Requisitos:** HBG-06, HBG-07, HBG-11, HBG-12.
 **Pronto quando:**
 - [ ] Reconciliação implementa varredura de inventários e jobs falhos com verificação de estado, referências e janela mínima de 24h; agendamento desativado por padrão. Consultas de inventários e jobs e listagem S3 são paginadas; inventários são retidos indefinidamente até existir limite comprovado de duração do worker; falta validar custo e operação antes de habilitar.
-- [ ] Teste Postgres cobre jobs ativos/falhos, objetos recentes/referenciados, repetição e falha temporária; faltam testes de callback incerto e recuperação real de processo.
+- [ ] Testes Postgres cobrem jobs ativos/falhos, objetos recentes/referenciados, repetição, falha temporária e callback com resposta perdida; falta ensaio operacional de recuperação real de processo.
 **Verificar:** testes de integração de jobs/armazenamento com tempo e S3 controlados. **Commit:** `feat(api): reconciliar artefatos órfãos com segurança`.
 
 ### T17 — Capacidade, flag e observabilidade [P] — implementação parcial

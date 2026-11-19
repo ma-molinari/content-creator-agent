@@ -282,6 +282,20 @@ func TestHybridRealWorkerHTTP(t *testing.T) {
 	require.Equal(t, "done", status)
 	var first db.PostVersion
 	require.NoError(t, env.DB.Where("job_id = ?", job.JobID).First(&first).Error)
+	// The first callback committed but its response was dropped. Reconciliation
+	// must preserve its snapshot even if an inventory mentions that job.
+	old := time.Now().UTC().Add(-48 * time.Hour)
+	cleanupID := uuid.New()
+	keysJSON, err := json.Marshal([]string{first.DocumentS3Key})
+	require.NoError(t, err)
+	idsJSON, err := json.Marshal([]uuid.UUID{first.JobID})
+	require.NoError(t, err)
+	require.NoError(t, env.DB.Exec("INSERT INTO chat_cleanup_tasks (id,chat_id,object_keys,job_ids,created_at) VALUES (?,?,?,?,?)", cleanupID, uuid.New(), string(keysJSON), string(idsJSON), old).Error)
+	t.Cleanup(func() { env.DB.Exec("DELETE FROM chat_cleanup_tasks WHERE id = ?", cleanupID) })
+	prefix := fmt.Sprintf("slides/%s/", first.JobID)
+	cleanupStore := &reconcileStore{objects: map[string][]storage.ObjectInfo{prefix: {{Key: first.DocumentS3Key, LastModified: &old}}}}
+	require.NoError(t, jobs.ReconcileArtifacts(context.Background(), env.DB, cleanupStore, time.Now().UTC().Add(-24*time.Hour)))
+	require.Empty(t, cleanupStore.deleted)
 	firstManifest, err := store.GetObject(context.Background(), fmt.Sprintf("slides/%s/assets.json", first.JobID))
 	require.NoError(t, err)
 	var inherited map[string]string
