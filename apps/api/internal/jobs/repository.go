@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // Repository persists job rows.
@@ -88,7 +89,9 @@ func (r *Repository) UpdateProgress(ctx context.Context, id uuid.UUID, stage str
 
 // FailStuckProcessingJobs marks processing jobs older than cutoff as failed.
 func (r *Repository) FailStuckProcessingJobs(ctx context.Context, cutoff time.Time, errMsg string) (int64, error) {
-	res := r.db.WithContext(ctx).Model(&db.Job{}).
+	var expired []db.Job
+	res := r.db.WithContext(ctx).Model(&expired).
+		Clauses(clause.Returning{Columns: []clause.Column{{Name: "id"}, {Name: "post_format"}, {Name: "created_at"}}}).
 		Where("status = ? AND COALESCE(heartbeat_at, updated_at) < ?", db.JobStatusProcessing, cutoff).
 		Updates(map[string]interface{}{
 			"status":     db.JobStatusFailed,
@@ -98,5 +101,10 @@ func (r *Repository) FailStuckProcessingJobs(ctx context.Context, cutoff time.Ti
 			"error_code": "stuck_processing",
 			"updated_at": time.Now().UTC(),
 		})
+	if res.Error == nil {
+		for _, job := range expired {
+			logTerminalJob(job, "failed", "STUCK_PROCESSING")
+		}
+	}
 	return res.RowsAffected, res.Error
 }

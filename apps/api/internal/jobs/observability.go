@@ -26,9 +26,13 @@ func logJobOutcome(ctx context.Context, gdb *gorm.DB, jobID uuid.UUID, outcome, 
 	if err := gdb.WithContext(ctx).Select("id", "post_format", "created_at").First(&job, "id = ?", jobID).Error; err != nil {
 		return
 	}
+	logTerminalJob(job, outcome, code)
+}
+
+func logTerminalJob(job db.Job, outcome, code string) {
 	elapsed := time.Since(job.CreatedAt).Milliseconds()
 	if elapsed < 0 {
 		elapsed = 0
 	}
-	log.Printf("[metrics] event=job_terminal job_id=%s format=%s outcome=%s code=%s duration_ms=%d", jobID, job.PostFormat, outcome, code, elapsed)
+	log.Printf("[metrics] event=job_terminal job_id=%s format=%s outcome=%s code=%s duration_ms=%d", job.ID, job.PostFormat, outcome, code, elapsed)
 }

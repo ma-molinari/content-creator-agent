@@ -200,3 +200,28 @@ func TestFailIfActivePreservesTerminalJobs(t *testing.T) {
 	require.Equal(t, 1, strings.Count(output.String(), "event=job_terminal"))
 	require.Contains(t, output.String(), "code=DISPATCH_FAILED")
 }
+
+func TestWatchdogEmitsTerminalEventsOncePerFormat(t *testing.T) {
+	gdb := testJobsDB(t)
+	repo := NewRepository(gdb)
+	old := time.Now().UTC().Add(-2 * time.Hour)
+	for _, format := range []db.PostFormat{db.PostFormatLegacy, db.PostFormatStructuredV1} {
+		require.NoError(t, gdb.Create(&db.Job{ID: uuid.New(), ChatID: uuid.New(), UserID: uuid.New(), Status: db.JobStatusProcessing, PostFormat: format, CreatedAt: old, UpdatedAt: old}).Error)
+	}
+	original := log.Writer()
+	var output bytes.Buffer
+	log.SetOutput(&output)
+	t.Cleanup(func() { log.SetOutput(original) })
+	cutoff := time.Now().UTC().Add(-time.Hour)
+	n, err := repo.FailStuckProcessingJobs(context.Background(), cutoff, StuckJobErrorMsg)
+	require.NoError(t, err)
+	require.EqualValues(t, 2, n)
+	n, err = repo.FailStuckProcessingJobs(context.Background(), cutoff, StuckJobErrorMsg)
+	require.NoError(t, err)
+	require.Zero(t, n)
+	require.Equal(t, 2, strings.Count(output.String(), "event=job_terminal"))
+	require.Contains(t, output.String(), "format=legacy_html")
+	require.Contains(t, output.String(), "format=structured_v1")
+	require.Contains(t, output.String(), "code=STUCK_PROCESSING")
+	require.Contains(t, output.String(), "duration_ms=")
+}
