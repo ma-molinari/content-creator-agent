@@ -17,7 +17,7 @@
                                              │  + Playwright)       │
                                              │  :8000               │
                                              └──────────┬───────────┘
-                                                        │ POST /internal/jobs/:id/complete
+                                                        │ POST :8081/internal/jobs/:id/complete
                                                         ▼ (callback to Go API)
                                              ┌──────────────────────┐
                                              │   PostgreSQL 16      │
@@ -102,7 +102,7 @@ User types message
   → [API] returns 202 {jobId}
   → [Worker] LangGraph ainvoke in background task
   → [Worker] render slides → JPEG → upload to S3
-  → [Worker] POST http://api:8080/internal/jobs/:id/complete
+  → [Worker] POST http://api:8081/internal/jobs/:id/complete
   → [API] DB transaction: create assistant ChatContent + ChatContentImage rows, set Job{done}
   → User polls GET /chats/:id/jobs/:jobId/status → "done"
   → Frontend loads updated chat thread

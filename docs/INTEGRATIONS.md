@@ -113,7 +113,7 @@ The API stores `jobs.stage`, monotonic `jobs.progress`, and `jobs.heartbeat_at`.
 **On success:** API writes assistant `ChatContent`, `ChatContentImage` rows, marks `Job.status = done` — all in one DB transaction.
 **On error:** API marks `Job.status = failed` with `error_msg`.
 **Implementation:** `apps/api/internal/jobs/handler.go`, `complete.go`
-**Configuration:** `GO_API_URL` in `apps/worker/.env`
+**Configuration:** `GO_API_URL` in `apps/worker/.env`; use the internal listener, e.g. `http://api:8081` in Docker Compose. Port 8081 is not published to the host by default.
 
 ---
 

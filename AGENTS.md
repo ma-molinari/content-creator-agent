@@ -15,7 +15,7 @@ React SPA (Vite/TS)  ←— HTTPS/REST + JWT —→  Go API (Echo, :8080)
                                                   ▼
                                             Python Worker (FastAPI + LangGraph + Playwright, :8000)
                                                   │
-                                                  │ POST /internal/jobs/:id/complete (callback)
+                                                  │ POST :8081/internal/jobs/:id/complete (callback)
                                                   ▼
                                             PostgreSQL 16  +  AWS S3
 ```
@@ -173,7 +173,7 @@ Modelos GORM em `apps/api/internal/db/models.go`.
 - `GET /chats/:id/jobs/:jobId/status`
 - `GET /api/llm/ready`
 
-**Interno (X-Worker-API-Key):** `POST /internal/jobs/:id/complete` e `.../progress`
+**Interno (:8081, X-Worker-API-Key):** `POST /internal/jobs/:id/complete` e `.../progress`
 
 ---
 
