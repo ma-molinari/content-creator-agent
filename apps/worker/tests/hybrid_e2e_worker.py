@@ -12,13 +12,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.job_payload import DispatchPayload, initial_state
 from app.main import _run_job
 from app.post_document import PostDocumentV1
-from app.post_operations import apply_operations
+from langchain_core.messages import AIMessage
 
 pipeline = importlib.import_module("app.nodes.structured_pipeline")
 graph_module = importlib.import_module("app.graph")
 config_module = importlib.import_module("app.config")
+editing = importlib.import_module("app.structured_editing")
 root = Path(os.environ["HYBRID_E2E_STORE"])
-settings = SimpleNamespace(aws_region="test", aws_access_key_id="test", aws_secret_access_key="test", aws_s3_bucket="test", go_api_url=os.environ["HYBRID_E2E_API"], worker_api_key=os.environ["HYBRID_E2E_KEY"])
+settings = SimpleNamespace(aws_region="test", aws_access_key_id="test", aws_secret_access_key="test", aws_s3_bucket="test", go_api_url=os.environ["HYBRID_E2E_API"], worker_api_key=os.environ["HYBRID_E2E_KEY"], openai_api_key="test", openai_chat_model="test", generate_slides_max_tokens_cap=1024)
 
 
 class FileS3:
@@ -50,8 +51,17 @@ async def generate(**_kwargs):
     }]})
 
 
-async def edit(*, document, authorized_assets, **_kwargs):
-    return apply_operations(document, [{"op": "set_text", "slideId": "s", "elementId": "title", "content": "Editado"}], authorized_assets)
+class FakeEditLLM:
+    def __init__(self, **_kwargs):
+        pass
+
+    async def ainvoke(self, messages):
+        payload = json.loads(messages[-1].content)
+        if payload["request"] == "não suportado":
+            return AIMessage(content=json.dumps({"status": "unsupported", "operations": []}))
+        return AIMessage(content=json.dumps({"status": "ok", "operations": [
+            {"op": "set_text", "slideId": "s", "elementId": "title", "content": "Editado"},
+        ]}))
 
 
 async def render(_document, _assets):
@@ -64,7 +74,7 @@ pipeline.boto3.client = lambda *_args, **_kwargs: FileS3()
 pipeline.report_job_progress = no_progress
 graph_module.report_job_progress = no_progress
 pipeline.generate_structured_post = generate
-pipeline.plan_structured_edit = edit
+editing.ChatOpenAI = FakeEditLLM
 if os.environ.get("HYBRID_E2E_REAL_RENDER") != "1":
     pipeline.render_structured_post = render
 if os.environ.get("HYBRID_E2E_PORT"):

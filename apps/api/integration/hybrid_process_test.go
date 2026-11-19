@@ -295,4 +295,21 @@ func TestHybridRealWorkerHTTP(t *testing.T) {
 	var versionCount int64
 	require.NoError(t, env.DB.Model(&db.PostVersion{}).Where("chat_id = ?", ch.ID).Count(&versionCount).Error)
 	require.EqualValues(t, 2, versionCount)
+	// Unsupported edits fail safely without publishing or changing the current version.
+	unsupported, err := json.Marshal(map[string]string{"content": "não suportado", "mode": "edit", "baseVersionId": second.ID.String()})
+	require.NoError(t, err)
+	response = request(http.MethodPost, path+"/messages", unsupported)
+	require.Equal(t, http.StatusAccepted, response.StatusCode)
+	require.NoError(t, json.NewDecoder(response.Body).Decode(&job))
+	response.Body.Close()
+	require.Equal(t, "failed", poll(job.JobID))
+	var failed db.Job
+	require.NoError(t, env.DB.First(&failed, "id = ?", job.JobID).Error)
+	require.NotNil(t, failed.ErrorCode)
+	require.Equal(t, "EDIT_UNSUPPORTED", *failed.ErrorCode)
+	var chat db.Chat
+	require.NoError(t, env.DB.First(&chat, "id = ?", ch.ID).Error)
+	require.Equal(t, second.ID, *chat.CurrentVersionID)
+	require.NoError(t, env.DB.Model(&db.PostVersion{}).Where("chat_id = ?", ch.ID).Count(&versionCount).Error)
+	require.EqualValues(t, 2, versionCount)
 }
