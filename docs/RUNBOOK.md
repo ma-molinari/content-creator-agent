@@ -83,4 +83,13 @@ Configure `STRUCTURED_WORKER_URLS` com uma lista separada por vírgulas, contend
 
 Os eventos `[metrics] event=job_terminal` incluem formato, resultado, código e duração em milissegundos para callbacks terminais processados pela API; callbacks idempotentes não geram uma segunda contagem. `[metrics] event=artifact_cleanup` informa o resultado e a quantidade tentada por lote, sem nomes de objetos. Tentativas repetidas podem contar novamente o mesmo objeto. Os eventos são logs, não uma série de métricas agregada: falhas confirmadas antes ou durante o dispatch também geram `job_terminal`; o watchdog gera um `job_terminal` por job encerrado, com formato e duração, além de `stuck_job_cleanup` com contagem agregada.
 
+Para validar uma agregação local dos eventos sem exibir IDs ou conteúdo, a partir da raiz do repositório:
+
+```powershell
+docker compose logs --since 24h api | python tools/summarize_job_metrics.py
+```
+
+O resumo conta resultados e calcula p95 de duração por formato, além de contar tentativas de limpeza e execuções do watchdog. O período deve ser delimitado na origem dos logs. A agregação depende da entrega dos logs e não deduplica entradas repetidas; objetos tentados novamente também são recontados. Ela não substitui a configuração e validação do coletor operacional nem define metas de rollout.
+
+
 No fluxo estruturado, se a resposta do dispatch não chegar ou for 5xx, a API mantém o job em processamento: o worker pode tê-lo aceitado. O callback pode concluí-lo; caso não haja progresso ou conclusão, o watchdog o encerra conforme `STUCK_JOB_PROCESSING_MINUTES`. Uma rejeição explícita de dispatch só marca o job como falho se ele ainda não estiver terminal.
