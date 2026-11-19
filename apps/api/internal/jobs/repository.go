@@ -91,7 +91,7 @@ func (r *Repository) UpdateProgress(ctx context.Context, id uuid.UUID, stage str
 func (r *Repository) FailStuckProcessingJobs(ctx context.Context, cutoff time.Time, errMsg string) (int64, error) {
 	var expired []db.Job
 	res := r.db.WithContext(ctx).Model(&expired).
-		Clauses(clause.Returning{Columns: []clause.Column{{Name: "id"}, {Name: "post_format"}, {Name: "created_at"}}}).
+		Clauses(clause.Returning{Columns: []clause.Column{{Name: "id"}, {Name: "chat_id"}, {Name: "stage"}, {Name: "post_format"}, {Name: "created_at"}}}).
 		Where("status = ? AND COALESCE(heartbeat_at, updated_at) < ?", db.JobStatusProcessing, cutoff).
 		Updates(map[string]interface{}{
 			"status":     db.JobStatusFailed,
@@ -103,7 +103,7 @@ func (r *Repository) FailStuckProcessingJobs(ctx context.Context, cutoff time.Ti
 		})
 	if res.Error == nil {
 		for _, job := range expired {
-			logTerminalJob(job, "failed", "STUCK_PROCESSING")
+			logTerminalJob(job, "failed", "STUCK_PROCESSING", nil)
 		}
 	}
 	return res.RowsAffected, res.Error

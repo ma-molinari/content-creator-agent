@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -101,7 +102,13 @@ func TestStructuredHTTPCreateAndMultipartEdit(t *testing.T) {
 		response.Body.Close()
 		require.Equal(t, http.StatusNoContent, response.StatusCode)
 	}
+	originalLog := log.Writer()
+	var logOutput bytes.Buffer
+	log.SetOutput(&logOutput)
+	t.Cleanup(func() { log.SetOutput(originalLog) })
 	complete(create.JobID)
+	require.Contains(t, logOutput.String(), "schema_version=1 renderer_version=1")
+	require.Contains(t, logOutput.String(), "chat_id="+created.ID.String())
 	res = request(http.MethodGet, path, "", nil, true)
 	require.Equal(t, http.StatusOK, res.StatusCode)
 	var current struct {

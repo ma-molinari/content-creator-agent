@@ -35,3 +35,21 @@ func TestJobOutcomeLogsSafeFields(t *testing.T) {
 	require.Equal(t, lowercaseCode, metricErrorCode(&lowercaseCode))
 	require.Equal(t, "UNSPECIFIED", metricErrorCode(nil))
 }
+
+func TestTerminalEventSanitizesVersionAndStage(t *testing.T) {
+	original := log.Writer()
+	var output bytes.Buffer
+	log.SetOutput(&output)
+	t.Cleanup(func() { log.SetOutput(original) })
+	job := db.Job{ID: uuid.New(), ChatID: uuid.New(), Stage: "done", PostFormat: db.PostFormatStructuredV1, CreatedAt: time.Now()}
+	logTerminalJob(job, "done", "NONE", &db.PostVersion{SchemaVersion: 1, RendererVersion: "1.0.0"})
+	require.Contains(t, output.String(), "chat_id="+job.ChatID.String())
+	require.Contains(t, output.String(), "stage=done")
+	require.Contains(t, output.String(), "schema_version=1 renderer_version=1.0.0")
+	output.Reset()
+	job.Stage = "secret\nINJECTED"
+	logTerminalJob(job, "done", "NONE", &db.PostVersion{SchemaVersion: 1, RendererVersion: "secret\nINJECTED"})
+	require.Contains(t, output.String(), "stage=UNSPECIFIED")
+	require.Contains(t, output.String(), "schema_version=unknown renderer_version=unknown")
+	require.NotContains(t, output.String(), "secret")
+}
