@@ -184,7 +184,7 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 **Dependências:** T08, T10, T11, T12. **Requisitos:** HBG-06, HBG-07, HBG-11, HBG-12.
 **Pronto quando:**
 - [ ] Reconciliação implementa varredura de inventários e jobs falhos com verificação de estado, referências e janela mínima de 24h; agendamento desativado por padrão. Consultas de inventários e jobs e listagem S3 são paginadas; inventários são retidos indefinidamente até existir limite comprovado de duração do worker. Consultas e exclusões são agrupadas; custo relativo medido em Docker com S3 simulado, faltando validar a operação com S3 real antes de habilitar.
-- [x] Testes cobrem jobs ativos/falhos, objetos recentes/referenciados, repetição e callback com resposta perdida; recuperação após interrupção foi ensaiada em Docker com S3 simulado.
+- [x] Testes cobrem jobs ativos/falhos, objetos recentes/referenciados, repetição e callback com resposta perdida; SDK S3 foi testado contra endpoint simulado com paginação e falha parcial, e recuperação após interrupção foi ensaiada em Docker.
 **Verificar:** testes de integração de jobs/armazenamento com tempo e S3 controlados. **Commit:** `feat(api): reconciliar artefatos órfãos com segurança`.
 
 ### T17 — Capacidade, flag e observabilidade [P] — concluída localmente

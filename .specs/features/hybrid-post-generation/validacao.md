@@ -15,6 +15,10 @@
 - A rotina de reconciliação foi interrompida enquanto o S3 simulado estava pausado. Após reinício, removeu os dois objetos simulados pendentes, manteve os inventários e pôde ser executada novamente. A agregação dos logs da API identificou dois jobs estruturados concluídos; essa amostra não define metas.
 - Containers, rede e arquivos temporários do ensaio foram removidos. O Docker Desktop foi iniciado e permaneceu disponível.
 
+## Protocolo S3 simulado
+
+O cliente AWS SDK da API foi exercitado contra um endpoint HTTP simulado com PostgreSQL em Docker. O teste percorreu duas páginas, recebeu uma resposta de exclusão parcialmente malsucedida e retomou a limpeza preservando objetos recentes e referenciados. O simulador valida esse contrato específico, sem substituir um teste com AWS S3 real.
+
 ## Medição local da reconciliação
 
 Com PostgreSQL em Docker e armazenamento simulado em memória, o cenário de 205 inventários sem jobs ou objetos listados passou de 820 consultas de referência e 205 chamadas de exclusão para 12 consultas e três chamadas após o agrupamento. As execuções medidas levaram 367 ms e 24 ms, respectivamente. São amostras locais isoladas, não estimativas de latência ou custo do AWS S3; a operação real ainda precisa ser medida.
