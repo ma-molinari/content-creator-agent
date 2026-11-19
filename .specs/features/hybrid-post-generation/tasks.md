@@ -26,35 +26,35 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 
 ## Tarefas
 
-### T01 — Contrato do documento e catálogo inicial — implementação parcial
+### T01 — Contrato do documento e catálogo inicial — concluída
 
 **Objetivo:** definir schema versionado e catálogo inicial de layouts, elementos, estilos e limites para snapshots estruturados.
 **Contexto:** `apps/worker/app/state.py`, `slide_count_inference.py`, `config.py`; TDD, seção Contrato lógico. Novos módulos sob `apps/worker/app/`; schema deve diferenciar o pacote JSON atual que carrega HTML.
 **Dependências:** nenhuma. **Requisitos:** HBG-01, HBG-02, HBG-10, HBG-12.
 **Pronto quando:**
-- [x] Documento valida tipos, IDs estáveis/únicos, single, limites de carrossel, layouts/estilos conhecidos e rejeita campos extras, URLs e HTML/CSS livre; escolhas do catálogo e limites ficam documentadas como propostas verificáveis.
+- [x] Documento valida tipos, IDs estáveis/únicos, single, limites de carrossel, layouts/estilos conhecidos e rejeita campos extras, URLs e HTML/CSS livre; escolhas do catálogo e limites ficam documentadas.
 - [x] Referências de imagem usam IDs, sem URL assinada; testes cobrem documentos válidos, inválidos e versão desconhecida.
-- [ ] Validar catálogo e limites com o responsável antes de congelar o schema; até então são hipóteses do protótipo.
+- [x] Responsável aprovou o catálogo inicial V1 em 2026-11-18 após avaliar as amostras; o teto de 20 slides permanece técnico, sem se tornar regra de produto.
 **Verificar:** executar testes pytest específicos do novo contrato no ambiente do worker. **Commit:** `feat(worker): definir contrato estruturado de posts`.
 
-### T02 — Renderizador controlado de templates [P] — implementação parcial
+### T02 — Renderizador controlado de templates [P] — concluída
 
 **Objetivo:** transformar documentos válidos em HTML/CSS de slides usando templates versionados e escape de conteúdo.
 **Contexto:** T01; `apps/worker/app/nodes/render_and_contrast.py`, `slide_design_checks.py`, `slide_render_html.py` e prompts existentes. Sem scripts do usuário ou recursos arbitrários; versionar renderizador e fontes.
 **Dependências:** T01. **Requisitos:** HBG-01, HBG-02, HBG-10, HBG-12.
 **Pronto quando:**
 - [x] Templates suportam o catálogo inicial, assets por referência autorizada e saída de 1080×1350; texto é escapado e o HTML é determinístico.
-- [ ] Completar testes de renderização visual, overflow e fontes indisponíveis; validar o catálogo com o responsável. Fontes Google e a incompatibilidade do validador legado com Inter exigem integração específica na T03.
+- [x] Testes cobrem overflow e fontes indisponíveis; amostras com fontes reais foram aprovadas pelo responsável. O caminho estruturado integra as verificações específicas na T03.
 **Verificar:** testes do renderizador e verificações de design do worker; capturas controladas para amostras. **Commit:** `feat(worker): renderizar documentos com templates controlados`.
 
-### T03 — Captura e validação visual da saída estruturada — implementação parcial
+### T03 — Captura e validação visual da saída estruturada — concluída
 
 **Objetivo:** integrar o HTML gerado às verificações de design, carregamento de assets, contraste e exportação JPEG existentes.
 **Contexto:** `render_and_contrast.py`, `validate_design.py`, `slide_asset_wait.py`; não alterar silenciosamente o snapshot canônico na correção de contraste.
 **Dependências:** T02. **Requisitos:** HBG-02, HBG-10, HBG-12.
 **Pronto quando:**
 - [x] Renderização isolada produz HTML derivado e JPEG 1080×1350; imagens ausentes, overflow identificável, fontes indisponíveis e falhas de renderização geram erro.
-- [ ] Renderização conectada ao grafo; teste automatizado em Chromium cobre imagem, overflow e fonte indisponível usando fonte local simulada. Faltam validação visual das fontes reais e regressão integrada completa.
+- [x] Renderização conectada ao grafo; testes automatizados cobrem imagem, overflow e fonte indisponível, com Chromium real no fluxo integrado. Amostras com fontes reais foram aprovadas; a suíte legada passou.
 **Verificar:** testes pytest específicos e Playwright Chromium do worker. **Commit:** `feat(worker): validar e exportar slides estruturados`.
 
 ### T04 — Operações tipadas de edição [P] — concluída no catálogo provisório
