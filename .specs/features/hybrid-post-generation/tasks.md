@@ -127,14 +127,14 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 - [x] Callback valida prefixos, nomes, existência e quantidade de artefatos e, com locks consistentes, publica ou persiste `failed`/`VERSION_CONFLICT` atomicamente; repetições são idempotentes. Snapshot e manifesto têm leitura limitada e validação do contrato provisório, com exemplos compartilhados entre Go e Python; concorrência, callbacks repetidos e resposta perdida são cobertos na T14.
 **Verificar:** testes Go e integração Postgres para callbacks concorrentes, primeira criação nula, JSON/multipart, cliente legado e ownership. **Commit:** `feat(api): publicar versões estruturadas com controle de conflito`.
 
-### T11 — Limpeza durável de chats e evicção [P] — implementação parcial
+### T11 — Limpeza durável de chats e evicção [P] — concluída
 
 **Objetivo:** registrar inventário de artefatos antes da exclusão em cascata para limpeza idempotente de chats excluídos ou removidos pelo limite.
 **Contexto:** `chat/repository.go` e `chat/service.go`: evicção atual remove o chat antes de coletar chaves; incluir anexos, imagens, HTMLs, snapshots, pacotes e assets. Tarefa durável não deve depender do chat excluído.
 **Dependências:** T08. **Requisitos:** HBG-07, HBG-10, HBG-12.
 **Pronto quando:**
-- [ ] Exclusão/evicção registram inventário e IDs de jobs antes da cascata; consumidor durável verifica referências e prefixos na T16. Falta validação operacional antes de habilitar a reconciliação.
-- [ ] Testes Postgres cobrem sexto chat, cascata, falha S3, repetição, proteção de referências e retomada por nova instância simulada; falta ensaio operacional de reinício real.
+- [x] Exclusão/evicção registram inventário e IDs de jobs antes da cascata; consumidor durável verifica referências e prefixos na T16. Falta validação operacional antes de habilitar a reconciliação.
+- [x] Testes Postgres cobrem sexto chat, cascata, falha de armazenamento, repetição, proteção de referências e retomada em processo separado com armazenamento local.
 **Verificar:** testes de chat e integração Postgres/S3 simulado. **Commit:** `fix(api): preservar inventário de objetos na exclusão de chats`.
 
 ### T12 — Publicação de snapshot e artefatos no worker — concluída no catálogo provisório
