@@ -89,7 +89,7 @@ Para validar uma agregação local dos eventos sem exibir IDs ou conteúdo, a pa
 docker compose logs --since 24h api | python tools/summarize_job_metrics.py
 ```
 
-O resumo conta resultados e calcula p95 de duração por formato, além de contar tentativas de limpeza e execuções do watchdog. O período deve ser delimitado na origem dos logs. A agregação depende da entrega dos logs e não deduplica entradas repetidas; objetos tentados novamente também são recontados. Ela não substitui a configuração e validação do coletor operacional nem define metas de rollout.
+O resumo conta resultados e calcula p95 de duração por formato, além de contar tentativas de limpeza e execuções do watchdog. Os eventos `artifact_reconcile` também informam inventários, jobs, prefixos, páginas, objetos listados, consultas de referência, chamadas de exclusão e duração por execução. `delete_calls` conta chamadas internas ao armazenamento, não necessariamente requisições faturadas pelo S3. O período deve ser delimitado na origem dos logs. A agregação depende da entrega dos logs e não deduplica entradas repetidas; objetos tentados novamente também são recontados. Ela não substitui a configuração e validação do coletor operacional nem define metas de rollout.
 
 
 No fluxo estruturado, se a resposta do dispatch não chegar ou for 5xx, a API mantém o job em processamento: o worker pode tê-lo aceitado. O callback pode concluí-lo; caso não haja progresso ou conclusão, o watchdog o encerra conforme `STUCK_JOB_PROCESSING_MINUTES`. Uma rejeição explícita de dispatch só marca o job como falho se ele ainda não estiver terminal.

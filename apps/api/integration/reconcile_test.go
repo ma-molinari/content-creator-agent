@@ -3,10 +3,13 @@
 package integration
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
+	"strings"
 	"testing"
 	"time"
 
@@ -75,7 +78,13 @@ func TestReconcileProtectsActiveRecentAndReferencedObjects(t *testing.T) {
 	prefix := func(id uuid.UUID) string { return fmt.Sprintf("slides/%s/", id) }
 	refKey := "users/reference.jpg"
 	require.NoError(t, env.DB.Create(&db.UserProfileReference{ID: uuid.New(), UserID: userID, S3Key: refKey}).Error)
-	keys, _ := json.Marshal([]string{refKey, "users/deleted.jpg"})
+	contentID := uuid.New()
+	require.NoError(t, env.DB.Create(&db.ChatContent{ID: contentID, ChatID: chatID, Role: db.ChatContentRoleAssistant, Content: "ok"}).Error)
+	imageKey, htmlKey, attachmentKey, documentKey := "slides/protected.jpeg", "slides/protected.html", "users/attachment.png", "slides/protected.json"
+	require.NoError(t, env.DB.Create(&db.ChatContentImage{ID: uuid.New(), ChatContentID: contentID, S3Key: imageKey, HtmlS3Key: &htmlKey, URL: "url", SlideNumber: 1}).Error)
+	require.NoError(t, env.DB.Create(&db.ChatContentAttachment{ID: uuid.New(), ChatContentID: contentID, S3Key: attachmentKey, MimeType: "image/png", SizeBytes: 1}).Error)
+	require.NoError(t, env.DB.Create(&db.PostVersion{ID: uuid.New(), ChatID: chatID, JobID: doneID, AssistantContentID: contentID, DocumentS3Key: documentKey, SchemaVersion: 1, RendererVersion: "1"}).Error)
+	keys, _ := json.Marshal([]string{refKey, imageKey, htmlKey, attachmentKey, documentKey, "users/deleted.jpg"})
 	ids, _ := json.Marshal([]uuid.UUID{deletedID})
 	taskID := uuid.New()
 	require.NoError(t, env.DB.Exec("INSERT INTO chat_cleanup_tasks (id,chat_id,object_keys,job_ids,created_at) VALUES (?,?,?,?,?)", taskID, uuid.New(), string(keys), string(ids), old).Error)
@@ -86,6 +95,10 @@ func TestReconcileProtectsActiveRecentAndReferencedObjects(t *testing.T) {
 		prefix(doneID):    {{Key: prefix(doneID) + "done.jpeg", LastModified: &old}},
 		prefix(deletedID): {{Key: prefix(deletedID) + "orphan.html", LastModified: &old}},
 	}}
+	original := log.Writer()
+	var output bytes.Buffer
+	log.SetOutput(&output)
+	t.Cleanup(func() { log.SetOutput(original) })
 	store.failNext = true
 	require.Error(t, jobs.ReconcileArtifacts(context.Background(), env.DB, store, cutoff))
 	require.Empty(t, store.deleted)
@@ -94,6 +107,12 @@ func TestReconcileProtectsActiveRecentAndReferencedObjects(t *testing.T) {
 	store.deleted = nil
 	require.NoError(t, jobs.ReconcileArtifacts(context.Background(), env.DB, store, cutoff))
 	require.ElementsMatch(t, []string{"users/deleted.jpg", prefix(failedID) + "old.jpeg", prefix(deletedID) + "orphan.html"}, store.deleted)
+	require.Equal(t, 1, strings.Count(output.String(), "event=artifact_reconcile outcome=failed"))
+	require.Equal(t, 2, strings.Count(output.String(), "event=artifact_reconcile outcome=done"))
+	require.Contains(t, output.String(), "inventories=1")
+	require.Contains(t, output.String(), "reference_queries=")
+	require.Contains(t, output.String(), "duration_ms=")
+	require.NotContains(t, output.String(), refKey)
 }
 
 func TestReconcilePaginatesInventoriesWithEqualTimestamps(t *testing.T) {
@@ -115,6 +134,7 @@ func TestReconcilePaginatesInventoriesWithEqualTimestamps(t *testing.T) {
 	store := &reconcileStore{objects: map[string][]storage.ObjectInfo{}}
 	require.NoError(t, jobs.ReconcileArtifacts(context.Background(), env.DB, store, cutoff))
 	require.ElementsMatch(t, expected, store.deleted)
+	require.Equal(t, 3, store.deleteCalls)
 }
 
 func TestReconcilePaginatesFailedJobsWithEqualTimestamps(t *testing.T) {
@@ -158,4 +178,30 @@ func TestReconcileRetriesAfterObjectPageFailure(t *testing.T) {
 	store.deleted = nil
 	require.NoError(t, jobs.ReconcileArtifacts(context.Background(), env.DB, store, cutoff))
 	require.ElementsMatch(t, keys, store.deleted)
+}
+
+func TestReconcileLargeInventoryProtectsReferencesAcrossBatches(t *testing.T) {
+	env := newTestEnv(t, nil)
+	uid, taskID := uuid.New(), uuid.New()
+	require.NoError(t, env.DB.Create(&db.User{ID: uid, Email: uuid.NewString() + "@test.invalid", PasswordHash: "hash", SecurityKeyHash: "hash"}).Error)
+	t.Cleanup(func() {
+		env.DB.Delete(&db.User{}, "id = ?", uid)
+		env.DB.Exec("DELETE FROM chat_cleanup_tasks WHERE id = ?", taskID)
+	})
+	keys := make([]string, 0, 1002)
+	for i := 0; i < 1001; i++ {
+		keys = append(keys, fmt.Sprintf("users/large/%04d", i))
+	}
+	referenced := keys[900]
+	require.NoError(t, env.DB.Create(&db.UserProfileReference{ID: uuid.New(), UserID: uid, S3Key: referenced}).Error)
+	keys = append(keys, keys[0])
+	encoded, err := json.Marshal(keys)
+	require.NoError(t, err)
+	old := time.Now().UTC().Add(-48 * time.Hour)
+	require.NoError(t, env.DB.Exec("INSERT INTO chat_cleanup_tasks (id,chat_id,object_keys,job_ids,created_at) VALUES (?,?,?,?,?)", taskID, uuid.New(), string(encoded), "[]", old).Error)
+	store := &reconcileStore{objects: map[string][]storage.ObjectInfo{}}
+	require.NoError(t, jobs.ReconcileArtifacts(context.Background(), env.DB, store, time.Now().UTC().Add(-24*time.Hour)))
+	require.NotContains(t, store.deleted, referenced)
+	require.Len(t, store.deleted, 1001)
+	require.Equal(t, 2, store.deleteCalls)
 }

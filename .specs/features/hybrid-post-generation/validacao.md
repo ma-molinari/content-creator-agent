@@ -15,6 +15,10 @@
 - A rotina de reconciliação foi interrompida enquanto o S3 simulado estava pausado. Após reinício, removeu os dois objetos simulados pendentes, manteve os inventários e pôde ser executada novamente. A agregação dos logs da API identificou dois jobs estruturados concluídos; essa amostra não define metas.
 - Containers, rede e arquivos temporários do ensaio foram removidos. O Docker Desktop foi iniciado e permaneceu disponível.
 
+## Medição local da reconciliação
+
+Com PostgreSQL em Docker e armazenamento simulado em memória, o cenário de 205 inventários sem jobs ou objetos listados passou de 820 consultas de referência e 205 chamadas de exclusão para 12 consultas e três chamadas após o agrupamento. As execuções medidas levaram 367 ms e 24 ms, respectivamente. São amostras locais isoladas, não estimativas de latência ou custo do AWS S3; a operação real ainda precisa ser medida.
+
 ## Pendente antes da ativação
 
 - Executar o E2E estruturado opt-in (`tests/e2e/test_hybrid.py`) e ensaiar concorrência, callback incerto, limpeza e recuperação em ambiente controlado com S3 e configuração reais; avaliar custo e duração da varredura. Não havia bucket disponível para ensaio com S3 real.

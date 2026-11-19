@@ -31,9 +31,22 @@ type cleanupInventory struct {
 
 func (cleanupInventory) TableName() string { return "chat_cleanup_tasks" }
 
+type reconcileStats struct {
+	inventories, failedJobs, prefixes, pages, listedObjects, referenceQueries, deleteCalls, attemptedObjects int64
+}
+
 // ReconcileArtifacts sweeps old deleted-chat inventories and failed-job prefixes.
 // Inventories remain as tombstones so uploads arriving late are removed on a later run.
-func ReconcileArtifacts(ctx context.Context, gdb *gorm.DB, store cleanupStorage, cutoff time.Time) error {
+func ReconcileArtifacts(ctx context.Context, gdb *gorm.DB, store cleanupStorage, cutoff time.Time) (result error) {
+	started := time.Now()
+	stats := &reconcileStats{}
+	defer func() {
+		outcome := "done"
+		if result != nil {
+			outcome = "failed"
+		}
+		log.Printf("[metrics] event=artifact_reconcile outcome=%s inventories=%d failed_jobs=%d prefixes=%d pages=%d listed_objects=%d reference_queries=%d delete_calls=%d attempted_objects=%d duration_ms=%d", outcome, stats.inventories, stats.failedJobs, stats.prefixes, stats.pages, stats.listedObjects, stats.referenceQueries, stats.deleteCalls, stats.attemptedObjects, time.Since(started).Milliseconds())
+	}()
 	const batchSize = 100
 	var lastTaskTime time.Time
 	var lastTaskID uuid.UUID
@@ -46,19 +59,45 @@ func ReconcileArtifacts(ctx context.Context, gdb *gorm.DB, store cleanupStorage,
 		if err := query.Order("created_at, id").Limit(batchSize).Find(&tasks).Error; err != nil {
 			return err
 		}
+		// Bound each deletion batch while avoiding one S3 request per inventory.
+		const maxDeleteBatch = 1000
+		pending := make([]string, 0, maxDeleteBatch)
+		var jobIDs []uuid.UUID
+		flush := func() error {
+			if err := deleteUnreferenced(ctx, gdb, store, pending, stats); err != nil {
+				return err
+			}
+			pending = pending[:0]
+			return nil
+		}
 		for _, task := range tasks {
+			stats.inventories++
 			var keys []string
 			var ids []uuid.UUID
 			if json.Unmarshal([]byte(task.ObjectKeys), &keys) != nil || json.Unmarshal([]byte(task.JobIDs), &ids) != nil {
 				return errors.New("invalid cleanup inventory")
 			}
-			if err := deleteUnreferenced(ctx, gdb, store, keys); err != nil {
-				return err
-			}
-			for _, id := range ids {
-				if err := reconcileJobPrefix(ctx, gdb, store, id, cutoff); err != nil {
-					return err
+			for len(keys) > 0 {
+				size := maxDeleteBatch - len(pending)
+				if size > len(keys) {
+					size = len(keys)
 				}
+				pending = append(pending, keys[:size]...)
+				keys = keys[size:]
+				if len(pending) == maxDeleteBatch {
+					if err := flush(); err != nil {
+						return err
+					}
+				}
+			}
+			jobIDs = append(jobIDs, ids...)
+		}
+		if err := flush(); err != nil {
+			return err
+		}
+		for _, id := range jobIDs {
+			if err := reconcileJobPrefix(ctx, gdb, store, id, cutoff, stats); err != nil {
+				return err
 			}
 		}
 		if len(tasks) < batchSize {
@@ -79,7 +118,8 @@ func ReconcileArtifacts(ctx context.Context, gdb *gorm.DB, store cleanupStorage,
 			return err
 		}
 		for _, job := range failed {
-			if err := reconcileJobPrefix(ctx, gdb, store, job.ID, cutoff); err != nil {
+			stats.failedJobs++
+			if err := reconcileJobPrefix(ctx, gdb, store, job.ID, cutoff, stats); err != nil {
 				return err
 			}
 		}
@@ -92,7 +132,8 @@ func ReconcileArtifacts(ctx context.Context, gdb *gorm.DB, store cleanupStorage,
 	return nil
 }
 
-func reconcileJobPrefix(ctx context.Context, gdb *gorm.DB, store cleanupStorage, id uuid.UUID, cutoff time.Time) error {
+func reconcileJobPrefix(ctx context.Context, gdb *gorm.DB, store cleanupStorage, id uuid.UUID, cutoff time.Time, stats *reconcileStats) error {
+	stats.prefixes++
 	return gdb.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var job db.Job
 		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&job, "id = ?", id).Error
@@ -111,44 +152,77 @@ func reconcileJobPrefix(ctx context.Context, gdb *gorm.DB, store cleanupStorage,
 		}
 		prefix := fmt.Sprintf("slides/%s/", id)
 		return store.WalkObjectPages(ctx, prefix, func(objects []storage.ObjectInfo) error {
+			stats.pages++
+			stats.listedObjects += int64(len(objects))
 			keys := make([]string, 0, len(objects))
 			for _, obj := range objects {
 				if strings.HasPrefix(obj.Key, prefix) && obj.LastModified != nil && obj.LastModified.Before(cutoff) {
 					keys = append(keys, obj.Key)
 				}
 			}
-			return deleteUnreferenced(ctx, tx, store, keys)
+			return deleteUnreferenced(ctx, tx, store, keys, stats)
 		})
 	})
 }
 
-func deleteUnreferenced(ctx context.Context, gdb *gorm.DB, store cleanupStorage, keys []string) error {
+func deleteUnreferenced(ctx context.Context, gdb *gorm.DB, store cleanupStorage, keys []string, stats *reconcileStats) error {
+	const maxLookupBatch = 500
+	referenced := make(map[string]struct{})
+	for start := 0; start < len(keys); start += maxLookupBatch {
+		end := start + maxLookupBatch
+		if end > len(keys) {
+			end = len(keys)
+		}
+		batch := keys[start:end]
+		var images []struct {
+			S3Key     string
+			HTMLS3Key *string
+		}
+		stats.referenceQueries++
+		if err := gdb.WithContext(ctx).Table("chat_content_image").Select("s3_key", "html_s3_key").Where("s3_key IN ? OR html_s3_key IN ?", batch, batch).Scan(&images).Error; err != nil {
+			return err
+		}
+		for _, image := range images {
+			referenced[image.S3Key] = struct{}{}
+			if image.HTMLS3Key != nil {
+				referenced[*image.HTMLS3Key] = struct{}{}
+			}
+		}
+		for _, table := range []struct{ name, column string }{
+			{"chat_content_attachment", "s3_key"},
+			{"post_versions", "document_s3_key"},
+			{"user_profile_references", "s3_key"},
+		} {
+			var found []string
+			stats.referenceQueries++
+			if err := gdb.WithContext(ctx).Table(table.name).Where(table.column+" IN ?", batch).Pluck(table.column, &found).Error; err != nil {
+				return err
+			}
+			for _, key := range found {
+				referenced[key] = struct{}{}
+			}
+		}
+	}
 	safe := make([]string, 0, len(keys))
+	seen := make(map[string]struct{})
 	for _, key := range keys {
 		if key == "" {
 			continue
 		}
-		var n int64
-		for _, query := range []struct{ table, condition string }{
-			{"chat_content_image", "s3_key = ? OR html_s3_key = ?"},
-			{"chat_content_attachment", "s3_key = ? OR s3_key = ?"},
-			{"post_versions", "document_s3_key = ? OR document_s3_key = ?"},
-			{"user_profile_references", "s3_key = ? OR s3_key = ?"},
-		} {
-			if err := gdb.WithContext(ctx).Table(query.table).Where(query.condition, key, key).Count(&n).Error; err != nil {
-				return err
-			}
-			if n > 0 {
-				break
-			}
+		if _, ok := referenced[key]; ok {
+			continue
 		}
-		if n == 0 {
-			safe = append(safe, key)
+		if _, ok := seen[key]; ok {
+			continue
 		}
+		seen[key] = struct{}{}
+		safe = append(safe, key)
 	}
 	if len(safe) == 0 {
 		return nil
 	}
+	stats.deleteCalls++
+	stats.attemptedObjects += int64(len(safe))
 	if err := store.DeleteMany(ctx, safe); err != nil {
 		log.Printf("[metrics] event=artifact_cleanup outcome=failed objects=%d", len(safe))
 		return err

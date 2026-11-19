@@ -13,6 +13,7 @@ class MetricsSummaryTest(unittest.TestCase):
             'prefix [metrics] event=artifact_cleanup outcome=failed objects=2',
             'prefix [metrics] event=stuck_job_cleanup outcome=done jobs=1 threshold_minutes=20',
             'prefix [metrics] event=stuck_job_cleanup outcome=failed',
+            'prefix [metrics] event=artifact_reconcile outcome=done inventories=2 failed_jobs=1 prefixes=3 pages=2 listed_objects=4 reference_queries=8 delete_calls=2 attempted_objects=4 duration_ms=1000',
             'prefix [metrics] event=job_terminal format=structured_v1 outcome=done duration_ms=invalid',
             'prefix [metrics] event=artifact_cleanup outcome=done objects=-1',
             'unrelated log content=private',
@@ -22,6 +23,9 @@ class MetricsSummaryTest(unittest.TestCase):
         self.assertEqual(result['jobs']['legacy_html']['failed'], 1)
         self.assertEqual(result['cleanup'], {'done_batches': 1, 'failed_batches': 1, 'attempted_objects': 5})
         self.assertEqual(result['watchdog'], {'done_runs': 1, 'failed_runs': 1, 'jobs': 1})
+        self.assertEqual(result['reconcile']['inventories'], 2)
+        self.assertEqual(result['reconcile']['listed_objects'], 4)
+        self.assertEqual(result['reconcile']['duration_p95_ms'], 1000)
         self.assertNotIn('secret', str(result))
         self.assertNotIn('private', str(result))
 
