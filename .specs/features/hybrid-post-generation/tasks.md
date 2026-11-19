@@ -87,14 +87,14 @@ T01 e T08 são trilhas iniciais independentes. Depois de T01, T02, T04, T06 e T0
 - [x] Testes simulam LLM, single/carrossel, formato inválido e ID de asset não autorizado.
 **Verificar:** pytest específico do gerador e contrato. **Commit:** `feat(worker): gerar documentos estruturados com llm`.
 
-### T07 — Assets imutáveis para cada versão — implementação parcial
+### T07 — Assets imutáveis para cada versão — concluída
 
 **Objetivo:** resolver IDs autorizados e copiar assets utilizados para o prefixo do job, com manifesto de referências duráveis.
 **Contexto:** `s3_image_utils.py`, `nodes/upload_assets.py`, `attachment_analyze.py`, `apps/api/internal/profile/service.go` e `jobs/worker_client.go`; o dispatch atual fornece chaves de referências do perfil, não seus IDs. Estender o contrato para fornecer mapeamento ID→chave autorizado para anexos, referências de perfil e assets herdados da base. Cópias incluem recursos herdados e não dependem do perfil permanecer inalterado.
 **Dependências:** T01. **Requisitos:** HBG-07, HBG-10, HBG-12.
 **Pronto quando:**
-- [ ] Worker copia assets e grava `assets.json`; API envia referências próprias e anexos do chat e valida chaves herdadas restritas ao job da versão autorizada. Manifesto integrado ao grafo; falta validação ponta a ponta com reconciliação.
-- [ ] Testes isolados cobrem cópia, manifesto, chaves de outro job e falha parcial; teste Postgres verifica isolamento das referências do perfil. Persistência/releitura cobertas em S3 simulado; falta teste entre serviços de ownership dos assets herdados.
+- [x] Worker copia assets e grava `assets.json`; API envia referências próprias e anexos do chat e valida chaves herdadas restritas ao job da versão autorizada. O fluxo entre serviços preserva assets após remoção da referência original; operação da reconciliação permanece na T16.
+- [x] Testes cobrem cópia, manifesto, chaves de outro job e falha parcial; Postgres verifica isolamento de referências e fluxo HTTP entre serviços verifica persistência e releitura em S3 simulado.
 **Verificar:** pytest dos serviços de assets e upload. **Commit:** `feat(worker): preservar assets por versão`.
 
 ### T08 — Migração e modelos de versionamento [P] — concluída

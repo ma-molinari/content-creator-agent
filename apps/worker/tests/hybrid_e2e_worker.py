@@ -18,6 +18,7 @@ pipeline = importlib.import_module("app.nodes.structured_pipeline")
 graph_module = importlib.import_module("app.graph")
 config_module = importlib.import_module("app.config")
 editing = importlib.import_module("app.structured_editing")
+profile_overview = importlib.import_module("app.nodes.profile_overview")
 root = Path(os.environ["HYBRID_E2E_STORE"])
 settings = SimpleNamespace(aws_region="test", aws_access_key_id="test", aws_secret_access_key="test", aws_s3_bucket="test", go_api_url=os.environ["HYBRID_E2E_API"], worker_api_key=os.environ["HYBRID_E2E_KEY"], openai_api_key="test", openai_chat_model="test", generate_slides_max_tokens_cap=1024)
 
@@ -44,11 +45,19 @@ async def no_progress(*_args, **_kwargs):
     pass
 
 
-async def generate(**_kwargs):
+async def generate(**kwargs):
+    elements = [{"id": "title", "type": "text", "role": "heading", "content": "Original", "style": {"color": "#ffffff", "size": "large"}}]
+    if kwargs["authorized_assets"]:
+        asset_id = sorted(kwargs["authorized_assets"])[0]
+        elements.append({"id": "image", "type": "image", "assetId": asset_id, "fit": "cover"})
     return PostDocumentV1.model_validate({"schemaVersion": 1, "postType": "single", "slides": [{
         "id": "s", "layout": "hero", "background": {"type": "solid", "color": "#000000"},
-        "elements": [{"id": "title", "type": "text", "role": "heading", "content": "Original", "style": {"color": "#ffffff", "size": "large"}}],
+        "elements": elements,
     }]})
+
+
+async def describe_references(state):
+    return {"profile_text": state["profile_text"]}
 
 
 class FakeEditLLM:
@@ -68,6 +77,7 @@ async def render(_document, _assets):
     return ([{"filename": "slide_01.html", "html": "<html>simulado</html>"}], [{"filename": "slide_01.jpeg", "jpeg_bytes": b"\xff\xd8\xffsimulado"}])
 
 
+profile_overview.describe_references = describe_references
 pipeline.get_settings = lambda: settings
 config_module.get_settings = lambda: settings
 pipeline.boto3.client = lambda *_args, **_kwargs: FileS3()

@@ -5,6 +5,7 @@ package integration
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -231,6 +232,13 @@ func TestHybridRealWorkerHTTP(t *testing.T) {
 	token, uid := registerAndLogin(t, env)
 	t.Cleanup(func() { env.DB.Delete(&db.User{}, "id = ?", uid) })
 	env.putTestProfile(t, token)
+	assetID := uuid.New()
+	sourceKey := "users/" + uid.String() + "/references/" + assetID.String() + ".png"
+	png, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/aXcAAAAASUVORK5CYII=")
+	require.NoError(t, err)
+	require.NoError(t, store.Upload(context.Background(), sourceKey, png))
+	require.NoError(t, os.WriteFile(store.file(sourceKey)+".type", []byte("image/png"), 0600))
+	require.NoError(t, env.DB.Create(&db.UserProfileReference{ID: assetID, UserID: uid, S3Key: sourceKey}).Error)
 	request := func(method, path string, body []byte) *http.Response {
 		t.Helper()
 		req, err := http.NewRequest(method, api.URL+path, bytes.NewReader(body))
@@ -274,6 +282,13 @@ func TestHybridRealWorkerHTTP(t *testing.T) {
 	require.Equal(t, "done", status)
 	var first db.PostVersion
 	require.NoError(t, env.DB.Where("job_id = ?", job.JobID).First(&first).Error)
+	firstManifest, err := store.GetObject(context.Background(), fmt.Sprintf("slides/%s/assets.json", first.JobID))
+	require.NoError(t, err)
+	var inherited map[string]string
+	require.NoError(t, json.Unmarshal(firstManifest, &inherited))
+	require.Contains(t, inherited, assetID.String())
+	require.NoError(t, env.DB.Delete(&db.UserProfileReference{}, "id = ?", assetID).Error)
+	require.NoError(t, store.Delete(context.Background(), sourceKey))
 	payload, err := json.Marshal(map[string]string{"content": "edite", "mode": "edit", "baseVersionId": first.ID.String()})
 	require.NoError(t, err)
 	response = request(http.MethodPost, path+"/messages", payload)
@@ -285,6 +300,18 @@ func TestHybridRealWorkerHTTP(t *testing.T) {
 	var second db.PostVersion
 	require.NoError(t, env.DB.Where("job_id = ?", job.JobID).First(&second).Error)
 	require.Equal(t, first.ID, *second.ParentVersionID)
+	secondManifest, err := store.GetObject(context.Background(), fmt.Sprintf("slides/%s/assets.json", second.JobID))
+	require.NoError(t, err)
+	var copied map[string]string
+	require.NoError(t, json.Unmarshal(secondManifest, &copied))
+	require.Contains(t, copied, assetID.String())
+	require.NotEqual(t, inherited[assetID.String()], copied[assetID.String()])
+	firstAsset, err := store.GetObject(context.Background(), inherited[assetID.String()])
+	require.NoError(t, err)
+	secondAsset, err := store.GetObject(context.Background(), copied[assetID.String()])
+	require.NoError(t, err)
+	require.Equal(t, png, firstAsset)
+	require.Equal(t, png, secondAsset)
 	before, err := store.GetObject(context.Background(), first.DocumentS3Key)
 	require.NoError(t, err)
 	require.Contains(t, string(before), "Original")
