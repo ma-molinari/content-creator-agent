@@ -17,7 +17,7 @@
 
 ## LocalStack para desenvolvimento
 
-O LocalStack 3.8.1 foi iniciado no Docker com bucket `postmind-local`. Foram verificadas escrita, leitura e exclusão pelo cliente Python e pelo cliente Go na rede Docker, acesso a URL assinada pelo host e escrita imutável do worker, incluindo rejeição de conteúdo divergente. O overlay `docker-compose.localstack.yml` reproduz a configuração. O ensaio Docker com `HYBRID_DOCKER_S3=localstack` também passou para criação, imagem herdada, edição concorrente, callback perdido e rollback; a LLM foi simulada. A reconciliação com idade mínima foi exercitada separadamente no modo de simulador mínimo. A validação não cobre AWS S3 real nem a LLM real.
+O LocalStack 3.8.1 foi iniciado no Docker com bucket `postmind-local`. Foram verificadas escrita, leitura e exclusão pelo cliente Python e pelo cliente Go na rede Docker, acesso a URL assinada pelo host e escrita imutável do worker, incluindo rejeição de conteúdo divergente. O overlay `docker-compose.localstack.yml` reproduz a configuração. O ensaio Docker com `HYBRID_DOCKER_S3=localstack` também passou para criação, imagem herdada, edição concorrente, callback perdido, rollback e recuperação da reconciliação após interrupção durante uma chamada ao S3; a LLM foi simulada. Um proxy exclusivo do ensaio envelheceu as datas retornadas pela listagem e as tarefas no banco descartável foram envelhecidas, preservando a regra de 24 horas da aplicação. Foram verificados a remoção dos objetos, a retenção dos inventários e o evento de reconciliação concluída. A validação não cobre AWS S3 real nem a LLM real.
 
 ## Protocolo S3 simulado
 

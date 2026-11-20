@@ -46,7 +46,7 @@ def main():
         raise ValueError("HYBRID_DOCKER_S3 must be stub or localstack")
     suffix = uuid.uuid4().hex[:10]
     network = "postmind-rehearsal-" + suffix
-    names = {part: "postmind-" + part + "-" + suffix for part in ("postgres", "s3", "api", "proxy", "worker")}
+    names = {part: "postmind-" + part + "-" + suffix for part in ("postgres", "s3", "s3proxy", "api", "proxy", "worker")}
     arch = docker("image", "inspect", "--format", "{{.Architecture}}", API_IMAGE)
     if arch not in ("arm64", "amd64"):
         raise RuntimeError("Unsupported API image architecture: " + arch)
@@ -60,14 +60,17 @@ def main():
             docker("run", "-d", "--rm", "--name", names["postgres"], "--network", network, "--network-alias", "postgres", "-e", "POSTGRES_USER=rehearsal", "-e", "POSTGRES_PASSWORD=rehearsal", "-e", "POSTGRES_DB=rehearsal", PG_IMAGE)
             wait_until(lambda: subprocess.run(["docker", "exec", names["postgres"], "pg_isready", "-U", "rehearsal", "-d", "rehearsal"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0, "PostgreSQL did not become ready")
             if S3_MODE == "localstack":
-                docker("run", "-d", "--rm", "--name", names["s3"], "--network", network, "-e", "SERVICES=s3", "-e", "AWS_DEFAULT_REGION=us-east-1", LOCALSTACK_IMAGE)
+                docker("run", "-d", "--rm", "--name", names["s3"], "--network", network, "--network-alias", "s3", "-e", "SERVICES=s3", "-e", "AWS_DEFAULT_REGION=us-east-1", LOCALSTACK_IMAGE)
                 wait_until(lambda: subprocess.run(["docker", "exec", names["s3"], "awslocal", "s3api", "list-buckets"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0, "LocalStack did not become ready", timeout=90)
                 docker("exec", names["s3"], "awslocal", "s3api", "create-bucket", "--bucket", "rehearsal")
-                s3_port = 4566
+                docker("run", "-d", "--rm", "--name", names["s3proxy"], "--network", network, "-v", f"{FIXTURES / 'localstack_time_proxy.py'}:/s3_proxy.py:ro", "--entrypoint", "python", WORKER_IMAGE, "/s3_proxy.py")
+                wait_until(lambda: subprocess.run(["docker", "exec", names["s3proxy"], "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:9000/__rehearsal/stats')"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0, "S3 proxy did not become ready")
+                s3_port = 9000
             else:
                 docker("run", "-d", "--rm", "--name", names["s3"], "--network", network, "-e", "REHEARSAL_AGE_SECONDS=172800", "-v", f"{FIXTURES / 's3_stub.py'}:/mock_s3.py:ro", "--entrypoint", "python", WORKER_IMAGE, "/mock_s3.py")
                 s3_port = 9000
-            inspect = json.loads(docker("inspect", names["s3"]))
+            endpoint_name = names["s3proxy"] if S3_MODE == "localstack" else names["s3"]
+            inspect = json.loads(docker("inspect", endpoint_name))
             s3_ip = inspect[0]["NetworkSettings"]["Networks"][network]["IPAddress"]
             common_aws = ["-e", "AWS_REGION=us-east-1", "-e", "AWS_ACCESS_KEY_ID=localtest", "-e", "AWS_SECRET_ACCESS_KEY=localtest", "-e", "AWS_S3_BUCKET=rehearsal", "-e", "AWS_ENDPOINT_URL=http://" + s3_ip + ":" + str(s3_port)]
 
@@ -173,28 +176,37 @@ def main():
             wait_until(lambda: callback_stats()["completion_attempts"] >= 6, "Callback retry not observed", timeout=15)
             assert callback_stats()["responses_dropped"] == 1
 
-            if S3_MODE == "stub":
-                def object_count():
-                    output = docker("exec", names["s3"], "python", "-c", "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:9000/__rehearsal/count').read().decode())")
-                    return json.loads(output)["count"]
-                assert object_count() > 0
-                docker("exec", names["postgres"], "psql", "-U", "rehearsal", "-d", "rehearsal", "-c", "UPDATE chat_cleanup_tasks SET created_at = NOW() - INTERVAL '48 hours'")
-                docker("stop", names["api"])
-                docker("pause", names["s3"])
-                try:
-                    start_api(False, reconcile=True)
-                    time.sleep(3)
-                    docker("kill", names["api"])
-                finally:
-                    docker("unpause", names["s3"], check=False)
+            def object_count():
+                if S3_MODE == "localstack":
+                    objects = json.loads(docker("exec", names["s3"], "awslocal", "s3api", "list-objects-v2", "--bucket", "rehearsal"))
+                    return len(objects.get("Contents", []))
+                output = docker("exec", names["s3"], "python", "-c", "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:9000/__rehearsal/count').read().decode())")
+                return json.loads(output)["count"]
+            assert object_count() > 0
+            docker("exec", names["postgres"], "psql", "-U", "rehearsal", "-d", "rehearsal", "-c", "UPDATE chat_cleanup_tasks SET created_at = NOW() - INTERVAL '48 hours'")
+            def s3_proxy_stats():
+                data = docker("exec", names["s3proxy"], "python", "-c", "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:9000/__rehearsal/stats').read().decode())")
+                return json.loads(data)
+            docker("stop", names["api"])
+            before_pause = s3_proxy_stats()["forwarded_requests"] if S3_MODE == "localstack" else 0
+            docker("pause", names["s3"])
+            try:
                 start_api(False, reconcile=True)
-                wait_until(lambda: object_count() == 0, "Reconciliation did not remove simulated objects", timeout=30)
-                wait_until(lambda: summarize(api_logs())["reconcile"]["done_runs"] >= 1, "Reconciliation metric not found", timeout=10)
-                count = docker("exec", names["postgres"], "psql", "-U", "rehearsal", "-d", "rehearsal", "-tAc", "SELECT count(*) FROM chat_cleanup_tasks")
-                assert int(count) >= 1
-            else:
-                print("Reconciliação com janela de 24 horas não foi executada no LocalStack.")
-            print("Ensaio Docker concluído: segurança, assets, concorrência, callback e rollback (S3=" + S3_MODE + ").")
+                if S3_MODE == "localstack":
+                    wait_until(lambda: s3_proxy_stats()["forwarded_requests"] > before_pause, "Reconciliation did not reach the paused S3", timeout=15)
+                else:
+                    time.sleep(3)
+                docker("kill", names["api"])
+            finally:
+                docker("unpause", names["s3"], check=False)
+            start_api(False, reconcile=True)
+            wait_until(lambda: object_count() == 0, "Reconciliation did not remove simulated objects", timeout=40)
+            wait_until(lambda: summarize(api_logs())["reconcile"]["done_runs"] >= 1, "Reconciliation metric not found", timeout=10)
+            count = docker("exec", names["postgres"], "psql", "-U", "rehearsal", "-d", "rehearsal", "-tAc", "SELECT count(*) FROM chat_cleanup_tasks")
+            assert int(count) >= 1
+            if S3_MODE == "localstack":
+                assert s3_proxy_stats()["aged_timestamps"] > 0
+            print("Ensaio Docker concluído: segurança, assets, concorrência, callback, rollback e reconciliação (S3=" + S3_MODE + ").")
         finally:
             for name in reversed(list(names.values())):
                 docker("rm", "-f", name, check=False)

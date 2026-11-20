@@ -179,7 +179,7 @@ python tests/docker_hybrid/run.py
 Remove-Item Env:HYBRID_DOCKER_S3
 ```
 
-Nesse modo, a reconciliação com objetos de mais de 24 horas não é executada; ela continua coberta pelo modo padrão, que simula a idade dos objetos. Ambos os modos simulam a LLM. O ensaio não substitui a validação em ambiente de destino com AWS S3 e LLM reais, nem define metas de rollout.
+Ambos os modos exercitam a reconciliação e sua recuperação após interrupção. No LocalStack, um proxy exclusivo do ensaio altera a idade retornada na listagem e as tarefas temporárias são envelhecidas no banco descartável; a regra de 24 horas da aplicação permanece intacta. Ambos os modos simulam a LLM. O ensaio não substitui a validação em ambiente de destino com AWS S3 e LLM reais, nem define metas de rollout.
 
 ### LocalStack para desenvolvimento
 
