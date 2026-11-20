@@ -128,7 +128,7 @@ func TestS3ReconciliationRecoversFromPartialDelete(t *testing.T) {
 	t.Cleanup(server.Close)
 	t.Setenv("AWS_ENDPOINT_URL", server.URL)
 	t.Setenv("AWS_ENDPOINT_URL_S3", "")
-	client, err := storage.NewS3Service("us-east-1", "rehearsal", "local-test", "local-test")
+	client, err := storage.NewS3Service("us-east-1", "rehearsal", "local-test", "local-test", storage.S3Options{})
 	require.NoError(t, err)
 	cutoff := time.Now().UTC().Add(-24 * time.Hour)
 	err = jobs.ReconcileArtifacts(context.Background(), env.DB, client, cutoff)

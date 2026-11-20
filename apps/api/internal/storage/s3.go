@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -32,8 +34,13 @@ type S3Service struct {
 	presign *s3.PresignClient
 }
 
+type S3Options struct {
+	ForcePathStyle bool
+	PublicEndpoint string
+}
+
 // NewS3Service builds an S3-backed storage client. bucket and region must be non-empty.
-func NewS3Service(region, bucket, accessKeyID, secretAccessKey string) (*S3Service, error) {
+func NewS3Service(region, bucket, accessKeyID, secretAccessKey string, options S3Options) (*S3Service, error) {
 	if region == "" || bucket == "" {
 		return nil, fmt.Errorf("storage: AWS_REGION and AWS_S3_BUCKET are required")
 	}
@@ -49,11 +56,23 @@ func NewS3Service(region, bucket, accessKeyID, secretAccessKey string) (*S3Servi
 	if err != nil {
 		return nil, fmt.Errorf("storage: load AWS config: %w", err)
 	}
-	cli := s3.NewFromConfig(awscfg)
+	configure := func(o *s3.Options) { o.UsePathStyle = options.ForcePathStyle }
+	cli := s3.NewFromConfig(awscfg, configure)
+	presignClient := cli
+	if endpoint := strings.TrimSpace(options.PublicEndpoint); endpoint != "" {
+		parsed, err := url.Parse(endpoint)
+		if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+			return nil, fmt.Errorf("storage: invalid public S3 endpoint")
+		}
+		presignClient = s3.NewFromConfig(awscfg, func(o *s3.Options) {
+			configure(o)
+			o.BaseEndpoint = &endpoint
+		})
+	}
 	return &S3Service{
 		bucket:  bucket,
 		client:  cli,
-		presign: s3.NewPresignClient(cli),
+		presign: s3.NewPresignClient(presignClient),
 	}, nil
 }
 

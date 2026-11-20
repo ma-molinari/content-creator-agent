@@ -42,7 +42,7 @@ func main() {
 	svc := auth.NewService(repo, cfg.JWTSecret, cfg.JWTRefreshSecret, cookieSecure)
 	h := auth.NewHandler(svc)
 
-	stor, err := storage.NewS3Service(cfg.AWSRegion, cfg.S3Bucket, cfg.AWSAccessKeyID, cfg.AWSSecretAccessKey)
+	stor, err := storage.NewS3Service(cfg.AWSRegion, cfg.S3Bucket, cfg.AWSAccessKeyID, cfg.AWSSecretAccessKey, storage.S3Options{ForcePathStyle: cfg.S3ForcePathStyle, PublicEndpoint: cfg.S3PublicEndpoint})
 	if err != nil {
 		log.Fatalf("storage: %v", err)
 	}

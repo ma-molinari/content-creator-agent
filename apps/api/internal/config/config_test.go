@@ -38,3 +38,15 @@ func TestStructuredWorkerURLs(t *testing.T) {
 	t.Setenv("STRUCTURED_WORKER_URLS", " http://worker-a:8000, ,http://worker-b:8000 ")
 	require.Equal(t, []string{"http://worker-a:8000", "http://worker-b:8000"}, Load().StructuredWorkerURLs)
 }
+
+func TestS3LocalEndpointSettings(t *testing.T) {
+	t.Setenv("AWS_S3_FORCE_PATH_STYLE", "")
+	t.Setenv("AWS_S3_PUBLIC_ENDPOINT", "")
+	require.False(t, Load().S3ForcePathStyle)
+	require.Empty(t, Load().S3PublicEndpoint)
+	t.Setenv("AWS_S3_FORCE_PATH_STYLE", "true")
+	t.Setenv("AWS_S3_PUBLIC_ENDPOINT", " http://localhost:4566 ")
+	cfg := Load()
+	require.True(t, cfg.S3ForcePathStyle)
+	require.Equal(t, "http://localhost:4566", cfg.S3PublicEndpoint)
+}

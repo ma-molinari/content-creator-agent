@@ -17,6 +17,8 @@ type Config struct {
 	AWSAccessKeyID     string
 	AWSSecretAccessKey string
 	S3Bucket           string
+	S3ForcePathStyle   bool
+	S3PublicEndpoint   string
 	// WorkerURL is the base URL of the Python worker (e.g. http://worker:8000).
 	WorkerURL string
 	// WorkerAPIKey is shared between the Go API and the worker for internal calls.
@@ -98,6 +100,8 @@ func Load() Config {
 		AWSAccessKeyID:              os.Getenv("AWS_ACCESS_KEY_ID"),
 		AWSSecretAccessKey:          os.Getenv("AWS_SECRET_ACCESS_KEY"),
 		S3Bucket:                    os.Getenv("AWS_S3_BUCKET"),
+		S3ForcePathStyle:            strings.EqualFold(strings.TrimSpace(os.Getenv("AWS_S3_FORCE_PATH_STYLE")), "true"),
+		S3PublicEndpoint:            strings.TrimSpace(os.Getenv("AWS_S3_PUBLIC_ENDPOINT")),
 		WorkerURL:                   os.Getenv("WORKER_URL"),
 		WorkerAPIKey:                os.Getenv("WORKER_API_KEY"),
 		StructuredWorkerURLs:        structuredURLs,
