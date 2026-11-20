@@ -156,3 +156,17 @@ The API stores `jobs.stage`, monotonic `jobs.progress`, and `jobs.heartbeat_at`.
 **Networking:** bridge network `app-net`; inter-service DNS by service name (`postgres`, `api`, `worker`)
 **Volumes:** named volume `pgdata` for Postgres persistence
 **Production overlay:** `docker-compose.prod.yml` applied on top of base compose for prod deployments
+
+### S3 local com LocalStack
+
+Para desenvolvimento, o overlay opcional `docker-compose.localstack.yml` inicia o LocalStack 3.8.1 e cria o bucket `postmind-local`. A API e o worker usam `http://localstack:4566` dentro da rede Docker. A API usa endereçamento por caminho e assina URLs para `http://localhost:4566`, acessíveis pelo navegador na mesma máquina.
+
+Na raiz do projeto, para iniciar somente o simulador:
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.localstack.yml up -d localstack
+```
+
+Para executar também a aplicação com esse armazenamento, use o mesmo comando com `up -d --build` sem restringir o serviço. O overlay usa credenciais fictícias locais e não configura a chave da LLM. Os objetos são de desenvolvimento e podem ser perdidos ao recriar ou reiniciar o simulador; não use o overlay em produção.
+
+A API aceita `AWS_S3_FORCE_PATH_STYLE=true` para serviços compatíveis que exigem endereçamento por caminho e `AWS_S3_PUBLIC_ENDPOINT` para definir o endereço usado nas URLs assinadas. Ambos são opcionais e devem permanecer desativados/vazios no uso normal da AWS. O LocalStack não substitui a validação de permissões, políticas e comportamento no AWS S3 real.

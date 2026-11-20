@@ -172,3 +172,22 @@ python tests/docker_hybrid/run.py
 Se necessário, construa as imagens do projeto com `docker compose build api worker`. Os nomes das imagens podem ser ajustados pelas variáveis `HYBRID_DOCKER_API_IMAGE`, `HYBRID_DOCKER_WORKER_IMAGE` e `HYBRID_DOCKER_POSTGRES_IMAGE`. O ensaio usa uma rede e credenciais locais próprias, cria containers e tenta removê-los mesmo em caso de falha, verifica cliente antigo, isolamento de usuário, imagem herdada, edições concorrentes e resposta de callback perdida, reinicia a API para testar rollback e interrompe/reinicia a reconciliação com o S3 simulado pausado. Não usa as credenciais ou o bucket das aplicações.
 
 O ensaio não substitui a validação em ambiente de destino com AWS S3 e LLM reais, nem define metas de rollout.
+
+### LocalStack para desenvolvimento
+
+`docker-compose.localstack.yml` adiciona um S3 simulado e um bucket `postmind-local`. A inicialização e configuração estão documentadas em `docs/INTEGRATIONS.md`. A API usa o endpoint interno Docker para operações e o endpoint público `localhost:4566` para URLs acessadas pelo navegador; o worker usa o endpoint interno. Use apenas para desenvolvimento local.
+
+Com o serviço ativo, o teste de integração do cliente Go cria e remove um objeto de teste no bucket local:
+
+```powershell
+$env:LOCALSTACK_TEST_ENDPOINT = "http://127.0.0.1:4566"
+Push-Location apps/api
+go test -tags=integration ./integration -run TestLocalStackS3RoundTrip -count=1
+Pop-Location
+Push-Location apps/worker
+python -m pytest tests/test_localstack_assets.py -q
+Pop-Location
+Remove-Item Env:LOCALSTACK_TEST_ENDPOINT
+```
+
+O teste do worker verifica a escrita condicional, a repetição idempotente e a rejeição de conteúdo divergente. Ambos os testes aceitam apenas endpoints de loopback e não substitui o ensaio com AWS S3 real.
