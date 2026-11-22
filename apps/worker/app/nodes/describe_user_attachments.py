@@ -9,6 +9,7 @@ import re
 from typing import Any, cast
 
 import boto3
+from botocore.config import Config
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
 
@@ -66,10 +67,20 @@ async def describe_user_attachments(state: AgentState) -> dict[str, object]:
         aws_secret_access_key=settings.aws_secret_access_key,
     )
 
+    # An explicit endpoint keeps presigned URLs regional while preserving S3-compatible endpoints.
+    presign_client: Any = boto3.client(
+        "s3",
+        region_name=settings.aws_region,
+        aws_access_key_id=settings.aws_access_key_id,
+        aws_secret_access_key=settings.aws_secret_access_key,
+        endpoint_url=s3_client.meta.endpoint_url,
+        config=Config(signature_version="s3v4"),
+    )
+
     signed_urls: list[str] = []
     for key in keys:
         try:
-            signed_urls.append(presign_get_url(s3_client, bucket, key))
+            signed_urls.append(presign_get_url(presign_client, bucket, key))
         except Exception:
             logger.exception(
                 "describe_user_attachments: presign failed job_id=%s key=%s",

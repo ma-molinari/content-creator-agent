@@ -15,7 +15,7 @@
 - Slide artifacts: `slides/{jobId}/{filename}.jpeg`
 - Profile references: unknown key prefix (managed by `profile` package)
 - Keys validated server-side against path traversal: no `..`, no `\`, no leading `/`, must start with `slides/{jobId}/`
-**Presigned URL TTL:** 1 hour (`signedURLExpiry = time.Hour`)
+**Presigned URL TTL:** 1 hour (`signedURLExpiry = time.Hour`). Para anexos, o worker usa SigV4 e o endpoint regional resolvido pelo cliente S3; endpoints customizados continuam suportados.
 **Upload retry:** 3 attempts with exponential backoff (100ms, 200ms)
 **Batch delete:** up to 1000 keys per `DeleteObjects` call
 **Slide HTML source (worker):** each slide JPEG can have a sibling object `slides/{jobId}/slide_XX.html` (`Content-Type: text/html`). The Go API persists `chat_content_image.html_s3_key` only when the worker sends `htmlS3Key` on the completion callback (`HeadObject` must succeed before commit). Behaviour is configurable via **`REQUIRE_HTML_ARTIFACT_UPLOAD`** on the worker (default true): when true, missing HTML artefacts fail the job and uploaded JPEG/HTML keys from that attempt are cleaned up before the failure callback.

@@ -19,6 +19,13 @@
 
 O LocalStack 3.8.1 foi iniciado no Docker com bucket `postmind-local`. Foram verificadas escrita, leitura e exclusão pelo cliente Python e pelo cliente Go na rede Docker, acesso a URL assinada pelo host e escrita imutável do worker, incluindo rejeição de conteúdo divergente. O overlay `docker-compose.localstack.yml` reproduz a configuração. O ensaio Docker com `HYBRID_DOCKER_S3=localstack` também passou para criação, imagem herdada, edição concorrente, callback perdido, rollback e recuperação da reconciliação após interrupção durante uma chamada ao S3; a LLM foi simulada. Um proxy exclusivo do ensaio envelheceu as datas retornadas pela listagem e as tarefas no banco descartável foram envelhecidas, preservando a regra de 24 horas da aplicação. Foram verificados a remoção dos objetos, a retenção dos inventários e o evento de reconciliação concluída. A validação não cobre AWS S3 real nem a LLM real.
 
+## Ensaio isolado com AWS S3 e LLM reais — 2026-11-22
+
+- API, worker e PostgreSQL rodaram em containers Docker isolados; o bucket configurado foi acessado na região `us-east-2`. URLs assinadas geradas pela API e pelo worker foram baixadas com sucesso. O worker passou a assinar com SigV4 no endpoint regional resolvido pelo SDK; endpoints S3 customizados continuam suportados.
+- O E2E estruturado opt-in passou com criação, edição, histórico e download de duas versões. Outro ensaio criou um post com anexo, confirmou a cópia do asset, removeu a origem de teste e editou a versão com sucesso. Duas edições concorrentes partiram da mesma versão: uma concluiu e a outra terminou em conflito. A LLM e o S3 foram reais; o conteúdo de perfil e a imagem eram sintéticos.
+- Os chats e objetos do ensaio foram removidos; objetos dos prefixos dos jobs descartáveis foram conferidos e removidos antes do descarte do banco isolado. A rotina automática com objetos de mais de 24 horas não foi exercitada nesse ambiente.
+- A imagem do worker foi reconstruída após incluir a biblioteca exigida pelo Playwright na imagem base. A suíte do worker passou com 198 testes e três ignorados; o ensaio Docker com LocalStack continuou passando.
+
 ## Protocolo S3 simulado
 
 A suíte Go completa passou com PostgreSQL em Docker, incluindo o cliente AWS SDK da API contra um endpoint HTTP simulado. O teste percorreu duas páginas, recebeu uma resposta de exclusão parcialmente malsucedida e retomou a limpeza preservando objetos recentes e referenciados. O simulador valida esse contrato específico, sem substituir um teste com AWS S3 real.
@@ -29,7 +36,7 @@ Com PostgreSQL em Docker e armazenamento simulado em memória, o cenário de 205
 
 ## Pendente antes da ativação
 
-- Executar o E2E estruturado opt-in (`tests/e2e/test_hybrid.py`) e ensaiar concorrência, callback incerto, limpeza e recuperação em ambiente controlado com S3 e configuração reais; avaliar custo e duração da varredura. Não havia bucket disponível para ensaio com S3 real.
+- Ensaiar callback incerto, limpeza e recuperação em ambiente controlado com S3 e configuração reais; avaliar custo e duração da varredura com objetos que tenham ao menos 24 horas. O E2E estruturado básico já passou com S3 e LLM reais no Docker isolado.
 - Validar coleta/agregação operacional e acordar metas de latência, custo, falhas, conflitos e qualidade visual com o responsável. As amostras aprovadas não incluem marca real.
 - Ensaiar rollout e rollback no ambiente de destino, mantendo leitores e workers estruturados compatíveis. As flags de criação estruturada e reconciliação seguem desativadas por padrão.
 
