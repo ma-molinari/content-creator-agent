@@ -199,3 +199,15 @@ Remove-Item Env:LOCALSTACK_TEST_ENDPOINT
 ```
 
 O teste do worker verifica a escrita condicional, a repetição idempotente e a rejeição de conteúdo divergente. Ambos os testes aceitam apenas endpoints de loopback e não substitui o ensaio com AWS S3 real.
+
+### Ensaio isolado com AWS S3 real
+
+Para testar o callback com resposta perdida e preparar a reconciliação, use um bucket dedicado não produtivo, credenciais com leitura, escrita, listagem e exclusão, e uma LLM configurada. Os arquivos `apps/api/.env` e `apps/worker/.env` devem apontar para o mesmo bucket e região, sem endpoint customizado. O ensaio usa `httpx`, `boto3` e `python-dotenv` no Python local, imagens Docker já construídas e pode gerar custos de S3 e LLM.
+
+```powershell
+python tests/docker_hybrid/real_s3.py prepare
+# Depois da data UTC informada pelo comando:
+python tests/docker_hybrid/real_s3.py verify
+```
+
+O projeto Compose e o volume `postmind-t18-real-s3_pgdata` são exclusivos do teste; preserve o volume e o objeto criado entre as duas etapas. A flag de reconciliação é habilitada somente no container isolado durante `verify`. O verificador recusa executar antes da janela e se o bucket ou a região mudarem. Ele verifica o objeto antigo, um objeto recente e a retenção do inventário; interrupção, referências protegidas e custo em escala continuam exigindo ensaio próprio. Depois de registrar as evidências, execute o comando `docker compose ... down -v` exibido por `verify` para descartar o volume.

@@ -6,7 +6,7 @@
 - **Requisitos:** `.specs/features/hybrid-post-generation/spec.md`; **tarefas:** `.specs/features/hybrid-post-generation/tasks.md`; **design:** `docs/TDD-MODELO-HIBRIDO.md`.
 - **Decisões do usuário:** templates flexíveis, edição linear da versão corrente com rejeição de conflitos; catálogo inicial V1 aprovado pelas amostras; responsável é o usuário, sem ticket.
 - **Divergência preexistente resolvida:** o teste de acesso a chat de outro usuário foi alinhado ao HTTP 403 já implementado e documentado; a suíte de integração completa passou com PostgreSQL temporário.
-- **Pendências:** configuração operacional dos destinos, coleta de métricas, reconciliação com S3 real e metas de rollout. Evidências locais e limites em `.specs/features/hybrid-post-generation/validacao.md`. Preservar o histórico abaixo como registro de outras features; seu conteúdo descreve estados históricos e pode estar desatualizado em relação ao código.
+- **Pendências:** configuração operacional dos destinos, coleta de métricas, reconciliação com S3 real e metas de rollout. Callback incerto validado com S3 e LLM reais; reconciliação preparada no volume `postmind-t18-real-s3_pgdata`, elegível após 2026-11-23 19:45:29 UTC; executar `python tests/docker_hybrid/real_s3.py verify`. Evidências locais e limites em `.specs/features/hybrid-post-generation/validacao.md`. Preservar o histórico abaixo como registro de outras features; seu conteúdo descreve estados históricos e pode estar desatualizado em relação ao código.
 
 ## Última atualização
 

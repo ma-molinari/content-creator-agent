@@ -26,6 +26,13 @@ O LocalStack 3.8.1 foi iniciado no Docker com bucket `postmind-local`. Foram ver
 - Os chats e objetos do ensaio foram removidos; objetos dos prefixos dos jobs descartáveis foram conferidos e removidos antes do descarte do banco isolado. A rotina automática com objetos de mais de 24 horas não foi exercitada nesse ambiente.
 - A imagem do worker foi reconstruída após incluir a biblioteca exigida pelo Playwright na imagem base. A suíte do worker passou com 198 testes e três ignorados; o ensaio Docker com LocalStack continuou passando.
 
+## Callback incerto e preparação da reconciliação com S3 real — 2026-11-22
+
+- Em stack Docker isolada, com S3 e LLM reais, o proxy de teste descartou a primeira resposta de conclusão após a API retornar sucesso. O worker repetiu o callback e foram verificadas exatamente uma versão para o job e uma resposta versionada no chat.
+- Após excluir o chat descartável, um objeto de teste foi criado no prefixo do job e seu inventário foi mantido no volume Docker isolado `postmind-t18-real-s3_pgdata`. A verificação antecipada confirmou que a rotina não é habilitada antes da janela mínima.
+- A partir de **2026-11-23 19:45:29 UTC** (16:45:29 em São Paulo), executar `python tests/docker_hybrid/real_s3.py verify`. O verificador confere o bucket e a região originais, cria um objeto recente, habilita a reconciliação apenas no ambiente isolado e verifica remoção do antigo, preservação do recente e manutenção do inventário. O ensaio real de 24 horas ainda não foi executado.
+- A remoção do volume ou do objeto de teste antes da verificação invalida a preparação. As configurações de produção não foram alteradas. O teste ainda não comprova recuperação após interrupção no S3 real nem proteção de objetos referenciados nessa execução.
+
 ## Protocolo S3 simulado
 
 A suíte Go completa passou com PostgreSQL em Docker, incluindo o cliente AWS SDK da API contra um endpoint HTTP simulado. O teste percorreu duas páginas, recebeu uma resposta de exclusão parcialmente malsucedida e retomou a limpeza preservando objetos recentes e referenciados. O simulador valida esse contrato específico, sem substituir um teste com AWS S3 real.
@@ -36,7 +43,7 @@ Com PostgreSQL em Docker e armazenamento simulado em memória, o cenário de 205
 
 ## Pendente antes da ativação
 
-- Ensaiar callback incerto, limpeza e recuperação em ambiente controlado com S3 e configuração reais; avaliar custo e duração da varredura com objetos que tenham ao menos 24 horas. O E2E estruturado básico já passou com S3 e LLM reais no Docker isolado.
+- Após a data indicada acima, executar a reconciliação preparada com S3 real; ainda faltam ensaios de interrupção e recuperação e de proteção de objetos referenciados, além da avaliação de custo e duração em escala representativa. O callback incerto e o E2E básico passaram com S3 e LLM reais no Docker isolado.
 - Validar coleta/agregação operacional e acordar metas de latência, custo, falhas, conflitos e qualidade visual com o responsável. As amostras aprovadas não incluem marca real.
 - Ensaiar rollout e rollback no ambiente de destino, mantendo leitores e workers estruturados compatíveis. As flags de criação estruturada e reconciliação seguem desativadas por padrão.
 
@@ -46,7 +53,7 @@ O endpoint simulado não comprova compatibilidade integral com AWS S3, permissõ
 
 1. Identificar conta, região, bucket e credenciais já disponibilizadas ao ambiente de teste, sem registrá-las neste documento. Confirmar que a API e o worker acessam o mesmo bucket e que não há endpoint de simulador configurado inadvertidamente.
 2. Em ambiente isolado, verificar as permissões necessárias para gravar, ler, listar e excluir objetos de teste. Implantar frontend, API e todos os workers compatíveis, com a reconciliação desativada inicialmente.
-3. Executar o E2E opt-in documentado em `docs/TESTING.md`. Acrescentar ensaios com anexo de imagem, remoção da referência original, edições concorrentes e perda da resposta do callback; verificar histórico e downloads de versões anteriores.
+3. O E2E opt-in, o anexo com remoção da origem, as edições concorrentes e a perda da resposta do callback passaram no Docker isolado com S3 e LLM reais; repetir os cenários conforme necessário no ambiente de destino e verificar histórico e downloads.
 4. Preparar artefatos descartáveis que atendam à janela mínima de 24 horas, ensaiar reconciliação, interrupção e nova execução, conferindo proteção de objetos referenciados e coleta de métricas. Não alterar timestamps ou reduzir a janela em um bucket compartilhado.
 5. Medir duração, falhas, conflitos, custo e qualidade visual com uma marca real. Acordar as metas de expansão com o responsável antes de habilitar tráfego no ambiente de destino.
 6. Ensaiar o rollback no ambiente de destino: desligar novas criações estruturadas e confirmar leitura, download e edição de versões existentes com workers compatíveis preservados.

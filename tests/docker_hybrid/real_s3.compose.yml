@@ -1,0 +1,31 @@
+services:
+  postgres:
+    environment:
+      POSTGRES_USER: t18
+      POSTGRES_PASSWORD: t18-local-only
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d content_creator"]
+  api:
+    image: content-creator-agent-api:latest
+    ports: !override
+      - "127.0.0.1::8080"
+    environment:
+      DATABASE_URL: "postgres://t18:t18-local-only@postgres:5432/content_creator?sslmode=disable"
+      STRUCTURED_POSTS_ENABLED: "true"
+      STRUCTURED_WORKER_URLS: "http://worker:8000"
+      ARTIFACT_RECONCILE_ENABLED: "${T18_RECONCILE_ENABLED:-false}"
+      ARTIFACT_RECONCILE_CRON: "@every 2s"
+  worker:
+    image: content-creator-agent-worker:latest
+    environment:
+      GO_API_URL: http://callback:8081
+    depends_on:
+      callback:
+        condition: service_started
+  callback:
+    image: content-creator-agent-worker:latest
+    entrypoint: ["python", "/callback_proxy.py"]
+    volumes:
+      - ./tests/docker_hybrid/callback_proxy.py:/callback_proxy.py:ro
+    networks:
+      - app-net
