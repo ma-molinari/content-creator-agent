@@ -3,6 +3,7 @@ package jobs
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -15,6 +16,21 @@ type StructuredWorkerPool struct {
 	legacy     WorkerClient
 	structured []*HTTPWorkerClient
 	next       uint64
+}
+
+// SupportsStructuredV2 probes every direct destination used by DispatchJob.
+func (p *StructuredWorkerPool) SupportsStructuredV2(ctx context.Context, readSchema int) bool {
+	if len(p.structured) == 0 {
+		log.Printf("[metrics] event=worker_capability schema_version=2 outcome=unavailable")
+		return false
+	}
+	for _, worker := range p.structured {
+		if !worker.SupportsStructuredV2(ctx, readSchema) {
+			log.Printf("[metrics] event=worker_capability schema_version=2 outcome=unavailable")
+			return false
+		}
+	}
+	return true
 }
 
 func NewStructuredWorkerPool(legacy WorkerClient, addresses []string, apiKey string) (*StructuredWorkerPool, error) {

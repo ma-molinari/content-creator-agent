@@ -22,6 +22,7 @@ var ErrDispatchOutcomeUnknown = errors.New("worker dispatch outcome unknown")
 type DispatchPayload struct {
 	AuthorizedAssetSources map[string]string     `json:"authorized_asset_sources,omitempty"`
 	PostFormat             string                `json:"post_format,omitempty"`
+	TargetSchemaVersion    *int                  `json:"target_schema_version,omitempty"`
 	GenerationMode         string                `json:"generation_mode,omitempty"`
 	BaseVersionID          *uuid.UUID            `json:"base_version_id,omitempty"`
 	DocumentS3Key          string                `json:"document_s3_key,omitempty"`
@@ -91,6 +92,9 @@ func (c *HTTPWorkerClient) DispatchJob(ctx context.Context, payload DispatchPayl
 	if c.baseURL == "" {
 		return fmt.Errorf("jobs: worker URL not configured")
 	}
+	if payload.TargetSchemaVersion != nil && (*payload.TargetSchemaVersion < 1 || *payload.TargetSchemaVersion > 2 || (*payload.TargetSchemaVersion == 2 && payload.PostFormat != "structured_v1")) {
+		return fmt.Errorf("jobs: invalid target schema")
+	}
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return err
@@ -98,6 +102,9 @@ func (c *HTTPWorkerClient) DispatchJob(ctx context.Context, payload DispatchPayl
 	path := "/jobs"
 	if payload.PostFormat == "structured_v1" {
 		path = "/jobs/structured"
+		if payload.TargetSchemaVersion != nil && *payload.TargetSchemaVersion == 2 {
+			path = "/jobs/structured/v2"
+		}
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, bytes.NewReader(body))
 	if err != nil {
@@ -115,12 +122,16 @@ func (c *HTTPWorkerClient) DispatchJob(ctx context.Context, payload DispatchPayl
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		snip, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		log.Printf(
-			"[jobs] dispatch worker HTTP error job_id=%s status=%d body_snippet=%q",
-			payload.JobID,
-			resp.StatusCode,
-			strings.TrimSpace(string(snip)),
-		)
+		if payload.TargetSchemaVersion != nil && *payload.TargetSchemaVersion == 2 {
+			log.Printf("[jobs] dispatch worker HTTP error job_id=%s status=%d", payload.JobID, resp.StatusCode)
+		} else {
+			log.Printf(
+				"[jobs] dispatch worker HTTP error job_id=%s status=%d body_snippet=%q",
+				payload.JobID,
+				resp.StatusCode,
+				strings.TrimSpace(string(snip)),
+			)
+		}
 		if resp.StatusCode >= 500 {
 			return fmt.Errorf("%w: worker returned %s", ErrDispatchOutcomeUnknown, resp.Status)
 		}
@@ -131,26 +142,56 @@ func (c *HTTPWorkerClient) DispatchJob(ctx context.Context, payload DispatchPayl
 
 // SupportsStructured reports capability only when a worker explicitly advertises contract V1.
 func (c *HTTPWorkerClient) SupportsStructured(ctx context.Context) bool {
+	capability, ok := c.structuredCapability(ctx)
+	return ok && capability.ContractVersion == 1
+}
+
+type structuredCapability struct {
+	ContractVersion      int   `json:"contractVersion"`
+	ReadSchemas          []int `json:"readSchemas"`
+	WriteSchemas         []int `json:"writeSchemas"`
+	DecorationOperations bool  `json:"decorationOperations"`
+}
+
+func (c *HTTPWorkerClient) structuredCapability(ctx context.Context) (structuredCapability, bool) {
+	var none structuredCapability
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/capabilities", nil)
 	if err != nil {
-		return false
+		return none, false
 	}
 	req.Header.Set("X-Worker-API-Key", c.apiKey)
 	response, err := c.httpClient.Do(req)
 	if err != nil {
-		return false
+		return none, false
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		return false
+		return none, false
 	}
 	var body struct {
-		StructuredPost struct {
-			ContractVersion int `json:"contractVersion"`
-		} `json:"structuredPost"`
+		StructuredPost structuredCapability `json:"structuredPost"`
 	}
 	if err := json.NewDecoder(io.LimitReader(response.Body, 4096)).Decode(&body); err != nil {
+		return none, false
+	}
+	return body.StructuredPost, true
+}
+
+// SupportsStructuredV2 requires write V2 and, for edits, the exact base read schema.
+// readSchema=0 denotes a creation without a base.
+func (c *HTTPWorkerClient) SupportsStructuredV2(ctx context.Context, readSchema int) bool {
+	capability, ok := c.structuredCapability(ctx)
+	if !ok || capability.ContractVersion != 1 || !capability.DecorationOperations || !containsSchema(capability.WriteSchemas, 2) {
 		return false
 	}
-	return body.StructuredPost.ContractVersion == 1
+	return readSchema == 0 || ((readSchema == 1 || readSchema == 2) && containsSchema(capability.ReadSchemas, readSchema))
+}
+
+func containsSchema(versions []int, wanted int) bool {
+	for _, version := range versions {
+		if version == wanted {
+			return true
+		}
+	}
+	return false
 }

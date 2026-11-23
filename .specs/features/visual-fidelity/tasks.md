@@ -217,9 +217,11 @@ Para o ensaio visual e E2E com serviços externos, seguir os procedimentos opt-i
 
 **Pronto quando:**
 
-- [ ] Workers novos anunciam leitura/escrita por versão e operações gráficas sem quebrar consumidores V1; campos ausentes significam somente V1. A API verifica todos os destinos diretos que poderão receber o job.
-- [ ] V2 usa exclusivamente a rota dedicada, mesmo que um worker antigo ignore campos extras; a rota valida alvo e não existe fallback para rota V1. Edição V1→V2 exige leitura V1/escrita V2; V2→V2 exige leitura/escrita V2.
-- [ ] Testes cobrem workers antigos/novos, ausência/erro/redirect, alteração após probe e resultado desconhecido; preservar semântica de rejeição explícita versus timeout/5xx no dispatch. Disponibilidade e incompatibilidade de capacidade são observáveis sem registrar respostas sensíveis.
+- [x] Workers novos anunciam leitura/escrita por versão e operações gráficas sem quebrar consumidores V1; campos ausentes significam somente V1. A API verifica todos os destinos diretos que poderão receber o job.
+- [x] V2 usa exclusivamente a rota dedicada, mesmo que um worker antigo ignore campos extras; a rota valida alvo e não existe fallback para rota V1. Edição V1→V2 exige leitura V1/escrita V2; V2→V2 exige leitura/escrita V2.
+- [x] Testes cobrem workers antigos/novos, ausência/erro/redirect, alteração após probe e resultado desconhecido; preservar semântica de rejeição explícita versus timeout/5xx no dispatch. Disponibilidade e incompatibilidade de capacidade são observáveis sem registrar respostas sensíveis.
+
+**Validação:** testes do pacote Go `internal/jobs` e cinco testes de capacidades/rota do worker em Docker passaram em 23/11/2026.
 
 **Verificar:** testes de pool, capability, endpoint e dispatch V1/V2. **Commit:** `feat: negociar capacidades visuais v2`.
 
