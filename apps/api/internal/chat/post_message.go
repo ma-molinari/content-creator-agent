@@ -222,38 +222,9 @@ func (s *Service) PostMessageWithOptions(ctx context.Context, userID, chatID uui
 	if err != nil {
 		return nil, err
 	}
+	// Profile references are retired; inherited post assets remain independently authorized.
 	var refKeys []string
-	if s.profileSvc != nil {
-		refKeys, err = s.profileSvc.ListReferenceS3Keys(ctx, userID)
-		if err != nil {
-			return nil, err
-		}
-	}
-	var referenceSources map[string]string
-	if chatRow.PostFormat == db.PostFormatStructuredV1 {
-		referenceSources = make(map[string]string)
-		if s.profileSvc != nil {
-			referenceSources, err = s.profileSvc.ListReferenceSources(ctx, userID)
-			if err != nil {
-				return nil, err
-			}
-			keys := make(map[string]bool, len(refKeys))
-			for _, key := range refKeys {
-				keys[key] = true
-			}
-			if len(referenceSources) != len(refKeys) {
-				return nil, ErrStructuredUnavailable
-			}
-			for _, key := range referenceSources {
-				if !keys[key] {
-					return nil, ErrStructuredUnavailable
-				}
-			}
-		}
-	}
-	if chatRow.PostFormat == db.PostFormatStructuredV1 && len(refKeys) > 0 && (s.referencePolicyReady == nil || !s.referencePolicyReady(ctx)) {
-		return nil, ErrStructuredUnavailable
-	}
+	referenceSources := map[string]string{}
 	userMsg := &db.ChatContent{
 		ID:      uuid.New(),
 		ChatID:  chatID,

@@ -165,7 +165,6 @@ func main() {
 	protected.GET("/setup/status", ch.SetupStatus)
 	protected.GET("/profile", profileH.Get)
 	protected.PUT("/profile", profileH.Save)
-	protected.POST("/profile/references", profileH.PostReference)
 	protected.DELETE("/profile/references/:id", profileH.DeleteReference)
 
 	chatLLM := protected.Group("/chats")

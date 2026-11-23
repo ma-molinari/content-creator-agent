@@ -2,15 +2,12 @@ import { useCallback, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import {
-  useDeleteReference,
   useProfile,
   useSaveProfile,
-  useUploadReference,
 } from '@/api/profile'
 import { InlineSpinner } from '@/components/ui/InlineSpinner'
 import { OnboardingHint } from '@/components/onboarding'
 import { ProfileBrandGuide } from '@/components/profile/ProfileBrandGuide'
-import { AlertDialog } from '@/components/ui/AlertDialog'
 import { toast } from '@/lib/toast'
 
 const EXAMPLE_AUDIT_TEXT = `Falo com adultos que buscam conteúdo sobre saúde emocional e rotinas de bem-estar, em tom de parceria — como uma conversa com alguém que entende do assunto sem soar distante (principalmente entre 25 e 45 anos).
@@ -64,13 +61,10 @@ Evitar descontos, preços, prazos ou características inventados e comparações
 export default function ProfileSettings() {
   const profile = useProfile()
   const save = useSaveProfile()
-  const uploadRef = useUploadReference()
-  const deleteRef = useDeleteReference()
 
   const [auditDraft, setAuditDraft] = useState<string | null>(null)
   const [brandDraft, setBrandDraft] = useState<string | null>(null)
   const [step, setStep] = useState(0)
-  const [confirmRefDelete, setConfirmRefDelete] = useState<string | null>(null)
   const auditText = auditDraft !== null ? auditDraft : (profile.data?.auditText ?? '')
   const brandText = brandDraft !== null ? brandDraft : (profile.data?.brandText ?? '')
   const auditReady = auditText.trim().length > 0
@@ -124,18 +118,9 @@ export default function ProfileSettings() {
       toast.error('Preencha o que é a sua marca para continuar.')
       return
     }
-    setStep((current) => Math.min(2, current + 1))
+    setStep((current) => Math.min(1, current + 1))
   }
 
-  async function deleteReference(id: string) {
-    setConfirmRefDelete(null)
-    try {
-      await deleteRef.mutateAsync(id)
-      toast.success('Referência removida.')
-    } catch {
-      toast.error('Não foi possível remover.')
-    }
-  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -152,7 +137,7 @@ export default function ProfileSettings() {
           </div>
 
           <p className="mb-4 max-w-2xl text-sm text-[var(--color-text-secondary)]">
-            Configure a base que orienta tom, público e identidade visual dos posts. O fluxo tem três passos rápidos e
+            Configure a base que orienta tom, público e identidade visual dos posts. O fluxo tem dois passos rápidos e
             você pode voltar para ajustar qualquer parte.
           </p>
 
@@ -180,7 +165,7 @@ export default function ProfileSettings() {
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-brand-primary)]">
-                          Passo 1 de 3
+                          Passo 1 de 2
                         </p>
                         <h2 id="profile-step-audit" className="mt-1 text-lg font-semibold text-[var(--color-text-primary)]">
                           Perfil hoje
@@ -234,7 +219,7 @@ export default function ProfileSettings() {
                   <section aria-labelledby="profile-step-brand" className="space-y-4">
                     <div>
                       <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-brand-primary)]">
-                        Passo 2 de 3
+                        Passo 2 de 2
                       </p>
                       <h2 id="profile-step-brand" className="mt-1 text-lg font-semibold text-[var(--color-text-primary)]">
                         Direção da marca
@@ -284,67 +269,6 @@ export default function ProfileSettings() {
                     </details>
                   </section>
                 )}
-
-                {step === 2 && (
-                  <section aria-labelledby="profile-step-references" className="space-y-4">
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-wide text-[var(--color-brand-primary)]">
-                        Passo 3 de 3
-                      </p>
-                      <h2 id="profile-step-references" className="mt-1 text-lg font-semibold text-[var(--color-text-primary)]">
-                        Referências visuais
-                      </h2>
-                      <p className="mt-1 max-w-xl text-sm text-[var(--color-text-secondary)]">
-                        Adicione imagens que representem seu estilo. É opcional, mas melhora direção visual dos slides.
-                      </p>
-                    </div>
-                    <label className="inline-flex cursor-pointer rounded-[var(--radius-md)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-app)] px-3 py-1.5 text-sm font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-muted)]">
-                      {uploadRef.isPending ? 'Enviando…' : 'Adicionar imagem'}
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp,image/gif"
-                        className="sr-only"
-                        disabled={uploadRef.isPending}
-                        onChange={async (e) => {
-                          const f = e.target.files?.[0]
-                          e.target.value = ''
-                          if (!f) return
-                          try {
-                            await uploadRef.mutateAsync(f)
-                            toast.success('Referência adicionada.')
-                          } catch {
-                            toast.error('Não foi possível enviar. Verifique formato e tamanho.')
-                          }
-                        }}
-                      />
-                    </label>
-                    {profile.data?.references && profile.data.references.length > 0 ? (
-                      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-                        {profile.data.references.map((r) => (
-                          <li
-                            key={r.id}
-                            className="relative aspect-square overflow-hidden rounded-[var(--radius-md)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-muted)]"
-                          >
-                            <img src={r.url} alt="" className="h-full w-full object-cover" />
-                            <button
-                              type="button"
-                              title="Remover"
-                              className="absolute right-1 top-1 rounded bg-black/60 px-2 py-0.5 text-xs font-medium text-white hover:bg-black/75"
-                              disabled={deleteRef.isPending}
-                              onClick={() => setConfirmRefDelete(r.id)}
-                            >
-                              Remover
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="rounded-[var(--radius-md)] bg-[var(--color-bg-app)] px-3 py-3 text-sm text-[var(--color-text-secondary)]">
-                        Nenhuma referência visual adicionada ainda.
-                      </p>
-                    )}
-                  </section>
-                )}
               </div>
 
               <div className="sticky bottom-0 -mx-4 border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-app)] px-4 py-3">
@@ -362,7 +286,7 @@ export default function ProfileSettings() {
                         Voltar
                       </button>
                     )}
-                    {step < 2 ? (
+                    {step < 1 ? (
                       <button
                         type="button"
                         onClick={nextStep}
@@ -386,17 +310,6 @@ export default function ProfileSettings() {
           )}
         </div>
       </div>
-      <AlertDialog
-        open={confirmRefDelete !== null}
-        title="Remover referência"
-        description="A imagem deixará de orientar novas gerações de design."
-        confirmLabel="Remover"
-        loading={deleteRef.isPending}
-        onConfirm={() => {
-          if (confirmRefDelete) void deleteReference(confirmRefDelete)
-        }}
-        onCancel={() => setConfirmRefDelete(null)}
-      />
     </div>
   )
 }
@@ -412,11 +325,10 @@ function StepProgress({ step, auditReady, brandReady, onSelect }: StepProgressPr
   const items = [
     { label: 'Perfil hoje', done: auditReady },
     { label: 'Marca', done: brandReady },
-    { label: 'Referências', done: true },
   ]
 
   return (
-    <div className="grid gap-2 sm:grid-cols-3">
+    <div className="grid gap-2 sm:grid-cols-2">
       {items.map((item, index) => {
         const active = step === index
         return (

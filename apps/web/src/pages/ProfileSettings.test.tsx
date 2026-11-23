@@ -34,7 +34,6 @@ describe('exemplos de perfil', () => {
     await user.type(auditInput, 'Meu perfil personalizado')
     await user.click(screen.getByRole('button', { name: 'Continuar' }))
     expect((screen.getByRole('textbox', { name: /o que é a sua marca/i }) as HTMLTextAreaElement).value).toContain(brand)
-    await user.click(screen.getByRole('button', { name: 'Continuar' }))
     await user.click(screen.getByRole('button', { name: 'Salvar perfil' }))
     expect(mocks.save).toHaveBeenCalledWith({ auditText: 'Meu perfil personalizado', brandText: expect.stringContaining(brand) })
   })
