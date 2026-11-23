@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import time
 import uuid
 
@@ -17,6 +18,9 @@ from botocore.exceptions import ClientError
 import httpx
 
 ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tools"))
+from summarize_job_metrics import summarize
+
 PROJECT = "postmind-t18-real-s3"
 COMPOSE = ["docker", "compose", "-p", PROJECT, "-f", str(ROOT / "docker-compose.yml"),
            "-f", str(ROOT / "tests/docker_hybrid/real_s3.compose.yml")]
@@ -209,13 +213,18 @@ def verify():
         gate_request("/__rehearsal/release", "POST")
         compose("up", "-d", "--no-deps", "--force-recreate", "api", reconcile=True, proxy=True)
         wait(lambda: missing(client, bucket, key), "A reconciliação não removeu o objeto antigo", timeout=120)
-        wait(lambda: "event=artifact_reconcile outcome=done" in compose("logs", "--no-color", "api"),
-             "Métrica de reconciliação concluída não encontrada", timeout=30)
+        def reconcile_metrics():
+            values = summarize(compose("logs", "--no-color", "api").splitlines())["reconcile"]
+            return values if values["done_runs"] else None
+        metrics = wait(reconcile_metrics, "Métrica de reconciliação concluída não encontrada", timeout=30)
+        if not all(metrics[field] > 0 for field in ("done_runs", "inventories", "prefixes", "listed_objects", "attempted_objects")):
+            raise RuntimeError("Métricas não comprovam a reconciliação esperada")
         client.head_object(Bucket=bucket, Key=recent)
         client.head_object(Bucket=bucket, Key=protected)
         if sql("SELECT count(*) FROM chat_cleanup_tasks WHERE chat_id = :'chat_id'::uuid", chat_id=chat_id) != "1":
             raise RuntimeError("Inventário do chat não foi preservado")
         print("Reconciliação retomada após interrupção: objeto antigo removido; objeto recente, referência e inventário preservados.")
+        print("Métricas agregadas:", json.dumps(metrics, ensure_ascii=False))
     finally:
         try:
             if reference_id:

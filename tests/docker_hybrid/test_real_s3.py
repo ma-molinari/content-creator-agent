@@ -52,7 +52,7 @@ def test_verify_checks_old_deletion_and_preserves_recent(monkeypatch):
     client.head_object.return_value = {"LastModified": datetime.now(timezone.utc) - timedelta(hours=25)}
     job_id, chat_id = str(uuid.uuid4()), str(uuid.uuid4())
     row = json.dumps({"job_id": job_id, "chat_id": chat_id, "bucket": "test-bucket", "region": "us-east-2"})
-    commands = MagicMock(return_value="event=artifact_reconcile outcome=done")
+    commands = MagicMock(return_value="[metrics] event=artifact_reconcile outcome=done inventories=1 failed_jobs=0 prefixes=1 pages=1 listed_objects=3 reference_queries=1 delete_calls=1 attempted_objects=1 duration_ms=20")
     monkeypatch.setattr(real_s3, "volume_exists", lambda: True)
     monkeypatch.setattr(real_s3, "storage", lambda: (client, "test-bucket", "us-east-2"))
     monkeypatch.setattr(real_s3, "compose", commands)
