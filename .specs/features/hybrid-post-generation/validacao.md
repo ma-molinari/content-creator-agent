@@ -30,8 +30,13 @@ O LocalStack 3.8.1 foi iniciado no Docker com bucket `postmind-local`. Foram ver
 
 - Em stack Docker isolada, com S3 e LLM reais, o proxy de teste descartou a primeira resposta de conclusão após a API retornar sucesso. O worker repetiu o callback e foram verificadas exatamente uma versão para o job e uma resposta versionada no chat.
 - Após excluir o chat descartável, um objeto de teste foi criado no prefixo do job e seu inventário foi mantido no volume Docker isolado `postmind-t18-real-s3_pgdata`. A verificação antecipada confirmou que a rotina não é habilitada antes da janela mínima.
-- A partir de **2026-11-23 19:45:29 UTC** (16:45:29 em São Paulo), executar `python tests/docker_hybrid/real_s3.py verify`. O verificador confere o bucket e a região originais, cria um objeto recente, habilita a reconciliação apenas no ambiente isolado e verifica remoção do antigo, preservação do recente e manutenção do inventário. O ensaio real de 24 horas ainda não foi executado.
-- A remoção do volume ou do objeto de teste antes da verificação invalida a preparação. As configurações de produção não foram alteradas. O teste ainda não comprova recuperação após interrupção no S3 real nem proteção de objetos referenciados nessa execução.
+- A partir de **2026-11-23 19:45:29 UTC** (16:45:29 em São Paulo), executar `python tests/docker_hybrid/real_s3.py verify`. O verificador confere o bucket e a região originais, cria objetos recente e referenciado, interrompe a API durante uma chamada real ao S3 e verifica a retomada, a remoção do objeto antigo e a preservação dos objetos recente e referenciado e do inventário. O ensaio real de 24 horas ainda não foi executado.
+- A remoção do volume ou do objeto de teste antes da verificação invalida a preparação. As configurações de produção não foram alteradas. O proxy de interrupção foi validado separadamente com chamadas reais dos clientes Python e Go ao S3; o cenário completo de interrupção e proteção de referências depende da janela de 24 horas.
+
+## Rollback em Docker com AWS S3 e LLM reais — 2026-11-23
+
+- Em stack e banco descartáveis separados do ensaio de reconciliação, uma versão estruturada foi criada com S3 e LLM reais. Após desabilitar novas criações estruturadas e recriar a API, um novo chat usou o formato legado; leitura, download e edição do chat estruturado existente continuaram funcionando.
+- Os objetos do ensaio e a stack descartável foram removidos. O teste não substitui o rollout e rollback no ambiente de destino nem a avaliação de qualidade com uma marca real.
 
 ## Protocolo S3 simulado
 
@@ -43,7 +48,7 @@ Com PostgreSQL em Docker e armazenamento simulado em memória, o cenário de 205
 
 ## Pendente antes da ativação
 
-- Após a data indicada acima, executar a reconciliação preparada com S3 real; ainda faltam ensaios de interrupção e recuperação e de proteção de objetos referenciados, além da avaliação de custo e duração em escala representativa. O callback incerto e o E2E básico passaram com S3 e LLM reais no Docker isolado.
+- Após a data indicada acima, executar a reconciliação preparada com S3 real, incluindo interrupção, recuperação e proteção de referências; avaliar custo e duração em escala representativa. O callback incerto e o E2E básico passaram com S3 e LLM reais no Docker isolado.
 - Validar coleta/agregação operacional e acordar metas de latência, custo, falhas, conflitos e qualidade visual com o responsável. As amostras aprovadas não incluem marca real.
 - Ensaiar rollout e rollback no ambiente de destino, mantendo leitores e workers estruturados compatíveis. As flags de criação estruturada e reconciliação seguem desativadas por padrão.
 

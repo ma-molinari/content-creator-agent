@@ -26,8 +26,9 @@ def run(*command, env=None):
     return subprocess.run(command, check=True, cwd=ROOT, env=env, text=True, capture_output=True).stdout.strip()
 
 
-def compose(*args, reconcile=False):
-    env = {**os.environ, "T18_RECONCILE_ENABLED": str(reconcile).lower()}
+def compose(*args, reconcile=False, proxy=False):
+    env = {**os.environ, "T18_RECONCILE_ENABLED": str(reconcile).lower(),
+           "T18_HTTPS_PROXY": "http://s3-gate:3128" if proxy else ""}
     return run(*COMPOSE, *args, env=env)
 
 
@@ -161,11 +162,18 @@ def missing(client, bucket, key):
         raise
 
 
+def gate_request(path, method="GET"):
+    code = ("import urllib.request; "
+            f"request=urllib.request.Request('http://localhost:3128{path}', method='{method}'); "
+            "print(urllib.request.urlopen(request).read().decode())")
+    return run("docker", "exec", PROJECT + "-s3-gate-1", "python", "-c", code)
+
+
 def verify():
     client, bucket, region = storage()
     if not volume_exists():
         raise RuntimeError("Volume do ensaio não existe; não é seguro continuar")
-    recent = None
+    recent = protected = reference_id = None
     compose("up", "-d", "--no-build", "postgres", "api", "worker")
     try:
         row = json.loads(sql("SELECT row_to_json(t)::text FROM t18_rehearsal t"))
@@ -178,21 +186,45 @@ def verify():
         eligible = head["LastModified"] + timedelta(hours=24, minutes=1)
         if datetime.now(timezone.utc) < eligible:
             raise RuntimeError("A janela de 24 horas ainda não terminou: " + eligible.isoformat())
-        recent = f"slides/{job_id}/t18-recent-probe-{uuid.uuid4()}.bin"
+        prefix = f"slides/{job_id}/"
+        recent = prefix + f"t18-recent-probe-{uuid.uuid4()}.bin"
+        protected = prefix + f"t18-referenced-probe-{uuid.uuid4()}.bin"
         client.put_object(Bucket=bucket, Key=recent, Body=b"postmind-t18-recent", IfNoneMatch="*")
-        compose("up", "-d", "--no-deps", "--force-recreate", "api", reconcile=True)
+        client.put_object(Bucket=bucket, Key=protected, Body=b"postmind-t18-referenced", IfNoneMatch="*")
+        reference_id = str(uuid.uuid4())
+        sql("""INSERT INTO user_profile_references (id, user_id, s3_key)
+               SELECT :'ref_id'::uuid, id, :'s3_key' FROM users LIMIT 1;
+               UPDATE chat_cleanup_tasks SET object_keys =
+               (object_keys::jsonb || jsonb_build_array(:'s3_key'::text))::text
+               WHERE chat_id = :'chat_id'::uuid;""",
+            ref_id=reference_id, s3_key=protected, chat_id=chat_id)
+        if sql("SELECT count(*) FROM user_profile_references WHERE id = :'ref_id'::uuid", ref_id=reference_id) != "1":
+            raise RuntimeError("Não foi possível preparar a referência protegida")
+        compose("up", "-d", "--no-deps", "--force-recreate", "s3-gate")
+        wait(lambda: gate_request("/__rehearsal/stats") != "", "Proxy S3 indisponível")
+        compose("up", "-d", "--no-deps", "--force-recreate", "api", reconcile=True, proxy=True)
+        wait(lambda: json.loads(gate_request("/__rehearsal/stats"))["connections"] > 0,
+             "A reconciliação não iniciou uma chamada ao S3", timeout=60)
+        run("docker", "kill", PROJECT + "-api-1")
+        gate_request("/__rehearsal/release", "POST")
+        compose("up", "-d", "--no-deps", "--force-recreate", "api", reconcile=True, proxy=True)
         wait(lambda: missing(client, bucket, key), "A reconciliação não removeu o objeto antigo", timeout=120)
+        wait(lambda: "event=artifact_reconcile outcome=done" in compose("logs", "--no-color", "api"),
+             "Métrica de reconciliação concluída não encontrada", timeout=30)
         client.head_object(Bucket=bucket, Key=recent)
+        client.head_object(Bucket=bucket, Key=protected)
         if sql("SELECT count(*) FROM chat_cleanup_tasks WHERE chat_id = :'chat_id'::uuid", chat_id=chat_id) != "1":
             raise RuntimeError("Inventário do chat não foi preservado")
-        logs = compose("logs", "--no-color", "api")
-        if "event=artifact_reconcile outcome=done" not in logs:
-            raise RuntimeError("Métrica de reconciliação concluída não encontrada")
-        print("Reconciliação: objeto antigo removido; objeto recente e inventário preservados.")
+        print("Reconciliação retomada após interrupção: objeto antigo removido; objeto recente, referência e inventário preservados.")
     finally:
-        compose("stop")
-        if recent:
-            client.delete_object(Bucket=bucket, Key=recent)
+        try:
+            if reference_id:
+                sql("DELETE FROM user_profile_references WHERE id = :'ref_id'::uuid", ref_id=reference_id)
+            for artifact in (recent, protected):
+                if artifact:
+                    client.delete_object(Bucket=bucket, Key=artifact)
+        finally:
+            compose("stop")
     print("Para remover o volume isolado após registrar as evidências: docker compose -p postmind-t18-real-s3 -f docker-compose.yml -f tests/docker_hybrid/real_s3.compose.yml down -v")
 
 

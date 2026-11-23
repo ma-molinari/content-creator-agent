@@ -13,6 +13,7 @@ services:
       DATABASE_URL: "postgres://t18:t18-local-only@postgres:5432/content_creator?sslmode=disable"
       STRUCTURED_POSTS_ENABLED: "true"
       STRUCTURED_WORKER_URLS: "http://worker:8000"
+      HTTPS_PROXY: "${T18_HTTPS_PROXY:-}"
       ARTIFACT_RECONCILE_ENABLED: "${T18_RECONCILE_ENABLED:-false}"
       ARTIFACT_RECONCILE_CRON: "@every 2s"
   worker:
@@ -27,5 +28,12 @@ services:
     entrypoint: ["python", "/callback_proxy.py"]
     volumes:
       - ./tests/docker_hybrid/callback_proxy.py:/callback_proxy.py:ro
+    networks:
+      - app-net
+  s3-gate:
+    image: content-creator-agent-worker:latest
+    entrypoint: ["python", "/s3_gate.py"]
+    volumes:
+      - ./tests/docker_hybrid/s3_gate.py:/s3_gate.py:ro
     networks:
       - app-net

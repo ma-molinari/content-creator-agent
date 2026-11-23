@@ -58,12 +58,20 @@ def test_verify_checks_old_deletion_and_preserves_recent(monkeypatch):
     monkeypatch.setattr(real_s3, "compose", commands)
     monkeypatch.setattr(real_s3, "sql", lambda query, **kwargs: row if "row_to_json" in query else "1")
     monkeypatch.setattr(real_s3, "missing", lambda *args: True)
+    monkeypatch.setattr(real_s3, "gate_request", lambda *args: '{"connections": 1}')
+    kill = MagicMock()
+    monkeypatch.setattr(real_s3, "run", kill)
 
     real_s3.verify()
 
-    recent = client.put_object.call_args.kwargs["Key"]
+    recent, protected = (call.kwargs["Key"] for call in client.put_object.call_args_list)
     assert recent.startswith(f"slides/{job_id}/t18-recent-probe-")
+    assert protected.startswith(f"slides/{job_id}/t18-referenced-probe-")
     client.head_object.assert_any_call(Bucket="test-bucket", Key=recent)
-    client.delete_object.assert_called_once_with(Bucket="test-bucket", Key=recent)
+    client.head_object.assert_any_call(Bucket="test-bucket", Key=protected)
+    client.delete_object.assert_any_call(Bucket="test-bucket", Key=recent)
+    client.delete_object.assert_any_call(Bucket="test-bucket", Key=protected)
+    assert client.delete_object.call_count == 2
+    kill.assert_called_once_with("docker", "kill", real_s3.PROJECT + "-api-1")
     assert any(call.kwargs.get("reconcile") is True for call in commands.call_args_list)
     commands.assert_any_call("stop")
