@@ -43,7 +43,9 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--api-url", required=True)
     parser.add_argument("--output", required=True)
-    parser.add_argument("--references", nargs="+", type=Path, help="Arquivos PNG autorizados; omitido usa referências sintéticas")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--references", nargs="+", type=Path, help="Arquivos PNG autorizados; omitido usa referências sintéticas")
+    group.add_argument("--no-references", action="store_true", help="Executa um controle sem referências")
     parser.add_argument("--audit", default=AUDIT)
     parser.add_argument("--brand", default=BRAND)
     parser.add_argument("--prompt", default="Crie um carrossel de três slides sobre pausas curtas durante o trabalho.")
@@ -65,7 +67,7 @@ def main() -> None:
     s3 = boto3.client("s3", region_name=region, endpoint_url=f"https://s3.{region}.amazonaws.com",
                       config=Config(connect_timeout=5, read_timeout=10, retries={"max_attempts": 2}),
                       aws_access_key_id=worker["AWS_ACCESS_KEY_ID"], aws_secret_access_key=worker["AWS_SECRET_ACCESS_KEY"])
-    reference_paths = prepare_references(output, args.references)
+    reference_paths = [] if args.no_references else prepare_references(output, args.references)
     reference_ids = []
     active = False
     chat_id = job_id = None
@@ -119,7 +121,7 @@ def main() -> None:
                 (output / f"slide-{index}.jpeg").write_bytes(response.content)
             snapshot = json.loads(s3.get_object(Bucket=bucket, Key=f"slides/{job_id}/document.json")["Body"].read())
             (output / "documento.json").write_text(json.dumps(snapshot, ensure_ascii=False, indent=2) + "\n")
-            print("Carrossel com referências conflitantes gerado e baixado.", flush=True)
+            print("Carrossel gerado e baixado.", flush=True)
         finally:
             if not active:
                 if chat_id:

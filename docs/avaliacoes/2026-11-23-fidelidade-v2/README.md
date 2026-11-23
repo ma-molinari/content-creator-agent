@@ -32,12 +32,11 @@ conflito na direção temporária apenas pelo snapshot final.
 
 ### Referências fornecidas pelo usuário
 
-As duas imagens fornecidas foram examinadas localmente, mas ainda não foram
-enviadas para análise por modelo ou para S3. Elas incluem fotografia, textura de
-papel, recortes, elementos ilustrados e tipografia variada; o catálogo atual de
-fundo sólido, texto, imagem e barras/linhas não representa todos esses elementos
-como objetos editáveis. Não há resultado gerado com essas referências neste
-relatório. Os arquivos originais permanecem fora do repositório.
+As duas imagens fornecidas foram usadas, com autorização, em um ensaio real
+posterior. A [avaliação resumida](referencias-fornecidas.md) registra os resultados;
+originais e imagens geradas permanecem somente no ambiente local. Fotografia,
+textura de papel, recortes, ilustrações e tipografia variada excedem o catálogo de
+objetos editáveis atual.
 
 | Referência | ΔE76 do fundo após ajuste | ΔE76 do título após ajuste | Menor ΔE76 do acento nas decorações |
 | --- | --- | --- | --- |
@@ -85,7 +84,7 @@ de pixels, antialiasing ou acessibilidade em dispositivos.
 
 ## Pendências para aceite
 
-Realizar a revisão humana com marca real autorizada, avaliar a incorporação das
-referências como imagens e acordar metas de qualidade, custo,
+Concluir a revisão humana das amostras com referências autorizadas, decidir a
+política de incorporação das imagens e acordar metas de qualidade, custo,
 latência e falhas com base em medições. Concluir a reconciliação da T18 com S3
 real e ensaiar coleta e rollback no destino antes de ativar a V2 em tráfego.
