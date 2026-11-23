@@ -211,6 +211,8 @@ Emitir apenas eventos agregáveis sem conteúdo com schema/renderer, etapa de ex
 
 ## 12. Questões pendentes para aprovação
 
+O responsável aprovou em 23/11/2026 a [proposta do catálogo V2](../.specs/features/visual-fidelity/catalogo-v2-proposta.md), incluindo medidas, contraste, tratamento de referências conflitantes e cache. As questões correspondentes abaixo ficam resolvidas por essa proposta; os critérios de marca real e de operação permanecem pendentes para o aceite final.
+
 - Quais tamanhos, espaçamentos e combinações de barras/linhas entram no catálogo V2 após a revisão visual?
 - Quais limiares de contraste e como tratar conflitos entre fidelidade e legibilidade?
 - Como resolver referências com paletas ou estruturas conflitantes e quando informar o usuário que um detalhe não é suportado?

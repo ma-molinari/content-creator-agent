@@ -57,9 +57,11 @@ Para o ensaio visual e E2E com serviços externos, seguir os procedimentos opt-i
 
 **Pronto quando:**
 
-- [ ] Existem exemplos revisáveis de barra e linha por largura, espessura, canto, posição e layout, incluindo limites e overflow; os valores de renderização são definidos com o responsável antes do congelamento.
-- [ ] A política de contraste, inclusive base V1 preexistente e mudanças compartilhadas de token, e a regra de referências ambíguas/conflitantes são decididas e registradas. Expiração/limite do cache e os contratos de operações e capacidade são definidos sem inventar metas de produto.
-- [ ] Fixtures/contratos provisórios e decisões pendentes são identificados como tal; a aceitação visual do catálogo é registrada antes de declarar a tarefa concluída.
+- [x] Existem exemplos revisáveis de barra e linha por largura, espessura, canto, posição e layout, incluindo limites e overflow; os valores de renderização são definidos com o responsável antes do congelamento.
+- [x] A política de contraste, inclusive base V1 preexistente e mudanças compartilhadas de token, e a regra de referências ambíguas/conflitantes são decididas e registradas. Expiração/limite do cache e os contratos de operações e capacidade são definidos sem inventar metas de produto.
+- [x] Fixtures/contratos provisórios e decisões pendentes são identificados como tal; a aceitação visual do catálogo é registrada antes de declarar a tarefa concluída.
+
+**Aceite:** responsável aprovou a proposta em 23/11/2026. Ver [catálogo e contratos](catalogo-v2-proposta.md) e [amostras](catalogo-v2-proposta.svg). A validação do renderer real e do overflow permanece nas tarefas posteriores.
 
 **Verificar:** revisar amostras 1080×1350, casos limite e decisões com o responsável. **Commit sugerido:** `docs: definir catálogo de destaques visuais`.
 
