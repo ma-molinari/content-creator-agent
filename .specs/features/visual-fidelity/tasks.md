@@ -121,9 +121,11 @@ Para o ensaio visual e E2E com serviços externos, seguir os procedimentos opt-i
 
 **Pronto quando:**
 
-- [ ] Operações definidas na T01 incluem alteração de token, inserção em posição válida, atualização e remoção de decoração; IDs e referências são validados e o documento inteiro é revalidado antes do retorno.
-- [ ] Token compartilhado altera seus consumidores apenas quando isso corresponde à intenção; cores literais promovidas não mudam implicitamente. Token sem consumidores não pode ser apresentado como mudança visual; alvos ambíguos geram reformulação.
-- [ ] Casos de tipos incorretos, IDs duplicados/inexistentes, limite de 12 elementos, falha parcial e preservação dos campos não envolvidos não publicam resultado; testes também cobrem o limite de interpretação da LLM.
+- [x] Operações definidas na T01 incluem alteração de token, inserção em posição válida, atualização e remoção de decoração; IDs e referências são validados e o documento inteiro é revalidado antes do retorno.
+- [x] Token compartilhado altera seus consumidores apenas quando isso corresponde à intenção; cores literais promovidas não mudam implicitamente. Token sem consumidores não pode ser apresentado como mudança visual; alvos ambíguos geram reformulação.
+- [x] Casos de tipos incorretos, IDs duplicados/inexistentes, limite de 12 elementos, falha parcial e preservação dos campos não envolvidos não publicam resultado; testes também cobrem o limite de interpretação da LLM.
+
+**Validação:** 41 testes de operações, documentos e planner V1 passaram no Docker em 23/11/2026. O aplicador valida operações, não infere intenção; o planner V2 e os casos de interpretação são integrados na T07.
 
 **Verificar:** testes de operações e planner com schema V1/V2. **Commit:** `feat(worker): editar paleta e decorações`.
 
