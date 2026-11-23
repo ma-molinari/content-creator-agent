@@ -1,0 +1,212 @@
+{
+  "schemaVersion": 2,
+  "postType": "carousel",
+  "palette": {
+    "background": "#31124B",
+    "text": "#FFFFFF",
+    "accent": "#D7FF24"
+  },
+  "slides": [
+    {
+      "id": "slide1",
+      "layout": "hero",
+      "background": {
+        "type": "solid",
+        "color": {
+          "token": "background"
+        }
+      },
+      "elements": [
+        {
+          "id": "dec1",
+          "type": "decoration",
+          "kind": "bar",
+          "color": {
+            "token": "accent"
+          },
+          "width": "full",
+          "thickness": "medium",
+          "corner": "rounded"
+        },
+        {
+          "id": "title1",
+          "type": "text",
+          "role": "heading",
+          "content": "Pausas curtas ajudam seu corpo e sua atenção.",
+          "style": {
+            "color": {
+              "token": "text"
+            },
+            "size": "large",
+            "font": "plus_jakarta_sans",
+            "weight": "bold",
+            "alignment": "left"
+          }
+        },
+        {
+          "id": "body1",
+          "type": "text",
+          "role": "body",
+          "content": "Durante o trabalho, parar por 1 a 3 minutos pode reduzir tensão, cansaço visual e sensação de sobrecarga.",
+          "style": {
+            "color": {
+              "token": "text"
+            },
+            "size": "medium",
+            "font": "inter",
+            "weight": "regular",
+            "alignment": "left"
+          }
+        },
+        {
+          "id": "img1",
+          "type": "image",
+          "assetId": "2d268257-e050-41f1-91e5-4ffc324433b8",
+          "fit": "contain"
+        }
+      ]
+    },
+    {
+      "id": "slide2",
+      "layout": "editorial",
+      "background": {
+        "type": "solid",
+        "color": {
+          "token": "background"
+        }
+      },
+      "elements": [
+        {
+          "id": "dec2",
+          "type": "decoration",
+          "kind": "bar",
+          "color": {
+            "token": "accent"
+          },
+          "width": "short",
+          "thickness": "medium",
+          "corner": "rounded"
+        },
+        {
+          "id": "title2",
+          "type": "text",
+          "role": "heading",
+          "content": "3 ideias simples de pausa",
+          "style": {
+            "color": {
+              "token": "text"
+            },
+            "size": "large",
+            "font": "plus_jakarta_sans",
+            "weight": "bold",
+            "alignment": "left"
+          }
+        },
+        {
+          "id": "item21",
+          "type": "text",
+          "role": "body",
+          "content": "• Levante e alongue ombros e pescoço.",
+          "style": {
+            "color": {
+              "token": "text"
+            },
+            "size": "medium",
+            "font": "inter",
+            "weight": "regular",
+            "alignment": "left"
+          }
+        },
+        {
+          "id": "item22",
+          "type": "text",
+          "role": "body",
+          "content": "• Olhe para longe por 20 segundos.",
+          "style": {
+            "color": {
+              "token": "text"
+            },
+            "size": "medium",
+            "font": "inter",
+            "weight": "regular",
+            "alignment": "left"
+          }
+        },
+        {
+          "id": "item23",
+          "type": "text",
+          "role": "body",
+          "content": "• Respire fundo 3 vezes antes de voltar.",
+          "style": {
+            "color": {
+              "token": "text"
+            },
+            "size": "medium",
+            "font": "inter",
+            "weight": "regular",
+            "alignment": "left"
+          }
+        },
+        {
+          "id": "img2",
+          "type": "image",
+          "assetId": "6bd08bf4-4d78-4cc6-bc73-03ced203ad1f",
+          "fit": "contain"
+        }
+      ]
+    },
+    {
+      "id": "slide3",
+      "layout": "quote",
+      "background": {
+        "type": "solid",
+        "color": {
+          "token": "background"
+        }
+      },
+      "elements": [
+        {
+          "id": "dec3",
+          "type": "decoration",
+          "kind": "bar",
+          "color": {
+            "token": "accent"
+          },
+          "width": "medium",
+          "thickness": "medium",
+          "corner": "rounded"
+        },
+        {
+          "id": "quote3",
+          "type": "text",
+          "role": "heading",
+          "content": "Pausa curta não atrapalha o ritmo. Ela ajuda a sustentar o ritmo.",
+          "style": {
+            "color": {
+              "token": "text"
+            },
+            "size": "large",
+            "font": "plus_jakarta_sans",
+            "weight": "bold",
+            "alignment": "center"
+          }
+        },
+        {
+          "id": "cta3",
+          "type": "text",
+          "role": "cta",
+          "content": "Teste hoje: programe uma pausa breve a cada 60–90 minutos.",
+          "style": {
+            "color": {
+              "token": "accent"
+            },
+            "size": "medium",
+            "font": "inter",
+            "weight": "medium",
+            "alignment": "center"
+          }
+        }
+      ]
+    }
+  ]
+}

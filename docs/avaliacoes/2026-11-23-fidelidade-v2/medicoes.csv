@@ -1,0 +1,9 @@
+referencia,amostra,fundo,deltaE_fundo,titulo,deltaE_titulo,menor_deltaE_acento_texto,alinhamento_titulo,layout,contraste_titulo,menor_contraste_texto,assets_incorporados,barras,linhas,destaque_no_inicio,menor_deltaE_acento_decoracao
+roxo,controle-1,#FFF9F0,96.3,#1F2937,84.4,120.0,left,quote,14.02,14.02,0,1,1,True,93.3
+roxo,controle-2,#FFFDF8,96.8,#1F2937,84.4,93.3,center,quote,14.44,5.38,0,1,0,True,93.3
+roxo,roxo-1,#31124f,5.8,#ffffff,0.0,12.2,center,quote,15.79,13.67,0,2,0,True,12.2
+roxo,roxo-2,#31124f,5.8,#ffffff,0.0,84.1,center,quote,15.79,15.79,0,2,0,True,12.2
+claro,controle-1,#FFF9F0,2.4,#1F2937,20.6,94.0,left,quote,14.02,14.02,0,1,1,True,99.7
+claro,controle-2,#FFFDF8,5.2,#1F2937,20.6,94.0,center,quote,14.44,5.38,0,1,0,True,99.7
+claro,claro-1,#F4E8D8,5.0,#163A72,8.4,106.5,center,quote,9.23,9.23,0,2,0,True,5.9
+claro,claro-2,#F4E8D8,5.0,#163A72,8.4,106.5,center,quote,9.23,9.23,0,2,0,True,5.9

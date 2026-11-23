@@ -25,6 +25,16 @@ CASES = {
 }
 
 
+def resolved_color(snapshot: dict, color: object) -> str:
+    if isinstance(color, str):
+        return color
+    if not isinstance(color, dict) or len(color) != 1:
+        raise ValueError('Cor estruturada inválida no snapshot')
+    if 'hex' in color:
+        return color['hex']
+    return snapshot['palette'][color['token']]
+
+
 def make_reference(path: Path, palette: dict[str, str]) -> None:
     image = Image.new('RGB', (1080, 1350), palette['background'])
     draw = ImageDraw.Draw(image)
@@ -123,6 +133,10 @@ def main() -> None:
                     if status['status'] in ('done', 'failed'):
                         terminal, active = True, False
                         if status['status'] == 'failed':
+                            failure_file = output / 'falhas.json'
+                            failures = json.loads(failure_file.read_text()) if failure_file.exists() else []
+                            failures.append({'condition': label, 'sample': number, 'errorCode': status.get('errorCode')})
+                            failure_file.write_text(json.dumps(failures, ensure_ascii=False, indent=2) + '\n')
                             raise RuntimeError(f"Job {label}/{number} falhou: {status.get('errorCode')}")
                         break
                     time.sleep(6)
@@ -142,9 +156,14 @@ def main() -> None:
                 snapshot = json.loads(storage.get_object(Bucket=bucket, Key=f'slides/{job_id}/document.json')['Body'].read())
                 manifest = json.loads(storage.get_object(Bucket=bucket, Key=f'slides/{job_id}/assets.json')['Body'].read())
                 slide = snapshot['slides'][0]
-                styles = [{'role': item['role'], **item['style']} for item in slide['elements'] if item['type'] == 'text']
-                results.append({'condition': label, 'sample': number, 'layout': slide['layout'],
-                                'background': slide['background']['color'], 'textStyles': styles,
+                styles = [{'role': item['role'], **item['style'], 'color': resolved_color(snapshot, item['style']['color'])}
+                          for item in slide['elements'] if item['type'] == 'text']
+                decorations = [{'index': index, 'kind': item['kind'], 'color': resolved_color(snapshot, item['color']),
+                                'width': item['width'], 'thickness': item['thickness'], 'corner': item['corner']}
+                               for index, item in enumerate(slide['elements']) if item['type'] == 'decoration']
+                results.append({'condition': label, 'sample': number, 'layout': slide['layout'], 'schemaVersion': snapshot['schemaVersion'],
+                                'background': resolved_color(snapshot, slide['background']['color']), 'textStyles': styles,
+                                'decorations': decorations,
                                 'embeddedAssetCount': len(manifest)})
                 (output / 'resultados.json').write_text(json.dumps(results, ensure_ascii=False, indent=2) + '\n')
                 print(f'{label} {number}: concluído', flush=True)

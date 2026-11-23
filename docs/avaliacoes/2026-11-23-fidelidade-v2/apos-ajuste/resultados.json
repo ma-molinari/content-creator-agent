@@ -1,0 +1,266 @@
+[
+  {
+    "condition": "controle",
+    "sample": 1,
+    "layout": "hero",
+    "schemaVersion": 2,
+    "background": "#FFFBEF",
+    "textStyles": [
+      {
+        "role": "heading",
+        "color": "#1F2937",
+        "size": "large",
+        "font": "plus_jakarta_sans",
+        "weight": "bold",
+        "alignment": "left"
+      },
+      {
+        "role": "body",
+        "color": "#1F2937",
+        "size": "medium",
+        "font": "inter",
+        "weight": "regular",
+        "alignment": "left"
+      },
+      {
+        "role": "cta",
+        "color": "#0F766E",
+        "size": "small",
+        "font": "plus_jakarta_sans",
+        "weight": "medium",
+        "alignment": "left"
+      }
+    ],
+    "decorations": [
+      {
+        "index": 0,
+        "kind": "bar",
+        "color": "#0F766E",
+        "width": "short",
+        "thickness": "medium",
+        "corner": "rounded"
+      }
+    ],
+    "embeddedAssetCount": 0
+  },
+  {
+    "condition": "controle",
+    "sample": 2,
+    "layout": "hero",
+    "schemaVersion": 2,
+    "background": "#FFF8E7",
+    "textStyles": [
+      {
+        "role": "heading",
+        "color": "#1F2937",
+        "size": "large",
+        "font": "plus_jakarta_sans",
+        "weight": "bold",
+        "alignment": "left"
+      },
+      {
+        "role": "body",
+        "color": "#1F2937",
+        "size": "medium",
+        "font": "inter",
+        "weight": "regular",
+        "alignment": "left"
+      },
+      {
+        "role": "cta",
+        "color": "#0F766E",
+        "size": "small",
+        "font": "plus_jakarta_sans",
+        "weight": "medium",
+        "alignment": "left"
+      }
+    ],
+    "decorations": [
+      {
+        "index": 0,
+        "kind": "line",
+        "color": "#0F766E",
+        "width": "short",
+        "thickness": "medium",
+        "corner": "square"
+      }
+    ],
+    "embeddedAssetCount": 0
+  },
+  {
+    "condition": "roxo",
+    "sample": 1,
+    "layout": "hero",
+    "schemaVersion": 2,
+    "background": "#31124D",
+    "textStyles": [
+      {
+        "role": "heading",
+        "color": "#FFFFFF",
+        "size": "large",
+        "font": "plus_jakarta_sans",
+        "weight": "bold",
+        "alignment": "left"
+      },
+      {
+        "role": "body",
+        "color": "#FFFFFF",
+        "size": "medium",
+        "font": "inter",
+        "weight": "regular",
+        "alignment": "left"
+      }
+    ],
+    "decorations": [
+      {
+        "index": 0,
+        "kind": "bar",
+        "color": "#D9FF27",
+        "width": "full",
+        "thickness": "medium",
+        "corner": "rounded"
+      },
+      {
+        "index": 3,
+        "kind": "bar",
+        "color": "#D9FF27",
+        "width": "full",
+        "thickness": "thin",
+        "corner": "rounded"
+      }
+    ],
+    "embeddedAssetCount": 0
+  },
+  {
+    "condition": "roxo",
+    "sample": 2,
+    "layout": "hero",
+    "schemaVersion": 2,
+    "background": "#31124D",
+    "textStyles": [
+      {
+        "role": "heading",
+        "color": "#FFFFFF",
+        "size": "large",
+        "font": "plus_jakarta_sans",
+        "weight": "bold",
+        "alignment": "left"
+      },
+      {
+        "role": "body",
+        "color": "#FFFFFF",
+        "size": "medium",
+        "font": "inter",
+        "weight": "regular",
+        "alignment": "left"
+      },
+      {
+        "role": "cta",
+        "color": "#D9FF27",
+        "size": "small",
+        "font": "plus_jakarta_sans",
+        "weight": "medium",
+        "alignment": "left"
+      }
+    ],
+    "decorations": [
+      {
+        "index": 0,
+        "kind": "bar",
+        "color": "#D9FF27",
+        "width": "full",
+        "thickness": "medium",
+        "corner": "rounded"
+      },
+      {
+        "index": 4,
+        "kind": "bar",
+        "color": "#D9FF27",
+        "width": "full",
+        "thickness": "medium",
+        "corner": "rounded"
+      }
+    ],
+    "embeddedAssetCount": 0
+  },
+  {
+    "condition": "claro",
+    "sample": 1,
+    "layout": "hero",
+    "schemaVersion": 2,
+    "background": "#F4E7D6",
+    "textStyles": [
+      {
+        "role": "heading",
+        "color": "#1A2A3A",
+        "size": "large",
+        "font": "plus_jakarta_sans",
+        "weight": "bold",
+        "alignment": "left"
+      },
+      {
+        "role": "body",
+        "color": "#1A2A3A",
+        "size": "medium",
+        "font": "inter",
+        "weight": "regular",
+        "alignment": "left"
+      }
+    ],
+    "decorations": [
+      {
+        "index": 0,
+        "kind": "bar",
+        "color": "#C94E1B",
+        "width": "full",
+        "thickness": "medium",
+        "corner": "rounded"
+      }
+    ],
+    "embeddedAssetCount": 1
+  },
+  {
+    "condition": "claro",
+    "sample": 2,
+    "layout": "hero",
+    "schemaVersion": 2,
+    "background": "#F0E4D3",
+    "textStyles": [
+      {
+        "role": "heading",
+        "color": "#1A3A6E",
+        "size": "large",
+        "font": "plus_jakarta_sans",
+        "weight": "bold",
+        "alignment": "left"
+      },
+      {
+        "role": "body",
+        "color": "#1A3A6E",
+        "size": "medium",
+        "font": "inter",
+        "weight": "regular",
+        "alignment": "left"
+      }
+    ],
+    "decorations": [
+      {
+        "index": 0,
+        "kind": "bar",
+        "color": "#FD6927",
+        "width": "full",
+        "thickness": "medium",
+        "corner": "rounded"
+      },
+      {
+        "index": 3,
+        "kind": "bar",
+        "color": "#FD6927",
+        "width": "medium",
+        "thickness": "thin",
+        "corner": "rounded"
+      }
+    ],
+    "embeddedAssetCount": 0
+  }
+]

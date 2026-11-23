@@ -1,0 +1,169 @@
+{
+  "jobs": {
+    "legacy_html": {
+      "done": 0,
+      "failed": 0,
+      "conflict": 0,
+      "total": 0,
+      "duration_p95_ms": null
+    },
+    "structured_v1": {
+      "done": 13,
+      "failed": 2,
+      "conflict": 0,
+      "total": 15,
+      "duration_p95_ms": 43501
+    }
+  },
+  "cleanup": {
+    "done_batches": 0,
+    "failed_batches": 0,
+    "attempted_objects": 0
+  },
+  "watchdog": {
+    "done_runs": 30,
+    "failed_runs": 0,
+    "jobs": 0
+  },
+  "reconcile": {
+    "done_runs": 0,
+    "failed_runs": 0,
+    "inventories": 0,
+    "failed_jobs": 0,
+    "prefixes": 0,
+    "pages": 0,
+    "listed_objects": 0,
+    "reference_queries": 0,
+    "delete_calls": 0,
+    "attempted_objects": 0,
+    "duration_p95_ms": null
+  },
+  "visual_v2": {
+    "visual_direction": {
+      "outcomes": {
+        "success": 8,
+        "failed": 0,
+        "conflict": 0,
+        "unknown": 0,
+        "unavailable": 0
+      },
+      "reasons": {
+        "fetch": 0,
+        "model": 0,
+        "schema": 0,
+        "contrast": 0,
+        "validation": 0,
+        "font": 0,
+        "overflow": 0,
+        "execution": 0
+      },
+      "decorations": 13,
+      "duration_p95_ms": 6173
+    },
+    "structured_validation": {
+      "outcomes": {
+        "success": 9,
+        "failed": 5,
+        "conflict": 0,
+        "unknown": 0,
+        "unavailable": 0
+      },
+      "reasons": {
+        "fetch": 0,
+        "model": 0,
+        "schema": 0,
+        "contrast": 5,
+        "validation": 0,
+        "font": 0,
+        "overflow": 0,
+        "execution": 0
+      },
+      "decorations": 0,
+      "duration_p95_ms": 4
+    },
+    "structured_render": {
+      "outcomes": {
+        "success": 9,
+        "failed": 0,
+        "conflict": 0,
+        "unknown": 0,
+        "unavailable": 0
+      },
+      "reasons": {
+        "fetch": 0,
+        "model": 0,
+        "schema": 0,
+        "contrast": 0,
+        "validation": 0,
+        "font": 0,
+        "overflow": 0,
+        "execution": 0
+      },
+      "decorations": 0,
+      "duration_p95_ms": 1889
+    },
+    "structured_publication": {
+      "outcomes": {
+        "success": 9,
+        "failed": 0,
+        "conflict": 0,
+        "unknown": 0,
+        "unavailable": 0
+      },
+      "reasons": {
+        "fetch": 0,
+        "model": 0,
+        "schema": 0,
+        "contrast": 0,
+        "validation": 0,
+        "font": 0,
+        "overflow": 0,
+        "execution": 0
+      },
+      "decorations": 16,
+      "duration_p95_ms": 43399
+    },
+    "structured_execution": {
+      "outcomes": {
+        "success": 0,
+        "failed": 1,
+        "conflict": 0,
+        "unknown": 0,
+        "unavailable": 0
+      },
+      "reasons": {
+        "fetch": 0,
+        "model": 0,
+        "schema": 0,
+        "contrast": 0,
+        "validation": 0,
+        "font": 0,
+        "overflow": 0,
+        "execution": 1
+      },
+      "decorations": 0,
+      "duration_p95_ms": null
+    },
+    "worker_capability": {
+      "outcomes": {
+        "success": 0,
+        "failed": 0,
+        "conflict": 0,
+        "unknown": 0,
+        "unavailable": 0
+      },
+      "reasons": {
+        "fetch": 0,
+        "model": 0,
+        "schema": 0,
+        "contrast": 0,
+        "validation": 0,
+        "font": 0,
+        "overflow": 0,
+        "execution": 0
+      },
+      "decorations": 0,
+      "duration_p95_ms": null
+    }
+  }
+}

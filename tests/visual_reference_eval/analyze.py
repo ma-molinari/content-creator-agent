@@ -58,16 +58,22 @@ def main() -> None:
     for name, target in CASES.items():
         for condition, number in [('controle', 1), ('controle', 2), (name, 1), (name, 2)]:
             sample = samples[(condition, number)]
-            heading = next(style for style in sample['textStyles'] if style['role'] == 'heading')
+            heading = next((style for style in sample['textStyles'] if style['role'] == 'heading'), None)
             text_colors = [style['color'] for style in sample['textStyles']]
+            decorations = sample.get('decorations', [])
             rows.append({'referencia': name, 'amostra': f'{condition}-{number}', 'fundo': sample['background'],
                          'deltaE_fundo': round(distance(sample['background'], target['background']), 1),
-                         'titulo': heading['color'], 'deltaE_titulo': round(distance(heading['color'], target['heading']), 1),
-                         'menor_deltaE_acento_texto': round(min(distance(color, target['accent']) for color in text_colors), 1),
-                         'alinhamento_titulo': heading['alignment'], 'layout': sample['layout'],
-                         'contraste_titulo': round(contrast(heading['color'], sample['background']), 2),
-                         'menor_contraste_texto': round(min(contrast(style['color'], sample['background']) for style in sample['textStyles']), 2),
-                         'assets_incorporados': sample['embeddedAssetCount']})
+                         'titulo': heading['color'] if heading else None,
+                         'deltaE_titulo': round(distance(heading['color'], target['heading']), 1) if heading else None,
+                         'menor_deltaE_acento_texto': round(min(distance(color, target['accent']) for color in text_colors), 1) if text_colors else None,
+                         'alinhamento_titulo': heading['alignment'] if heading else None, 'layout': sample['layout'],
+                         'contraste_titulo': round(contrast(heading['color'], sample['background']), 2) if heading else None,
+                         'menor_contraste_texto': round(min(contrast(style['color'], sample['background']) for style in sample['textStyles']), 2) if sample['textStyles'] else None,
+                         'assets_incorporados': sample['embeddedAssetCount'],
+                         'barras': sum(item['kind'] == 'bar' for item in decorations),
+                         'linhas': sum(item['kind'] == 'line' for item in decorations),
+                         'destaque_no_inicio': any(item['index'] == 0 for item in decorations),
+                         'menor_deltaE_acento_decoracao': round(min(distance(item['color'], target['accent']) for item in decorations), 1) if decorations else None})
     with (directory / 'medicoes.csv').open('w', newline='', encoding='utf-8') as stream:
         writer = csv.DictWriter(stream, fieldnames=rows[0].keys())
         writer.writeheader()

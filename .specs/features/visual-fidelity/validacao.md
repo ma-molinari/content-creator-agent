@@ -29,12 +29,17 @@ ensaio Docker com LocalStack também verificou emissão e agregação de extraç
 validação, renderização e publicação. A coleta e o custo permanecem por validar
 no ambiente de destino; isso não constitui aceite operacional.
 
-- Ensaio comparativo com LLM e S3 reais para V2, referências ambíguas e carrossel;
-  marca real autorizada e revisão humana de fidelidade/legibilidade.
+- Ensaio sintético com LLM e S3 reais, inclusive carrossel com referências
+  conflitantes, registrado em `docs/avaliacoes/2026-11-23-fidelidade-v2/`.
+  Permanecem pendentes marca real autorizada e revisão humana de fidelidade,
+  legibilidade e incorporação de referências como imagens.
+- Duas referências reais foram fornecidas pelo usuário e avaliadas localmente.
+  O envio delas à OpenAI e ao S3 para gerar amostras depende de autorização
+  explícita para esses serviços; nenhuma foi enviada durante esta execução.
 - Definir metas operacionais e de qualidade com o responsável a partir das medições;
   exercitar coleta, rollout e rollback no ambiente de destino.
-- Concluir T18 híbrida: a reconciliação com S3 real preparada no volume
-  `postmind-t18-real-s3_pgdata` fica elegível em 23/11/2026 após 16h45:29 BRT.
-  Não remover esse volume antes da verificação.
+- Concluir aceite operacional da T18 híbrida. A reconciliação com S3 real passou
+  após a janela de 24 horas, com interrupção e proteção de referências; falta
+  validar coleta, metas e operação no destino.
 - Não habilitar `STRUCTURED_VISUAL_V2_ENABLED` em tráfego antes da conclusão dos
   gates acima. Os resultados com LocalStack não demonstram fidelidade de LLM real.
