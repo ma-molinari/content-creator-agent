@@ -261,12 +261,12 @@ func (s *Service) PostMessageWithOptions(ctx context.Context, userID, chatID uui
 	}
 	var documentKey string
 	if chatRow.PostFormat == db.PostFormatStructuredV1 {
-		documentKey, err = s.repo.CreateStructuredMessageAndJob(ctx, userID, userMsg, job, options.Mode, requestedBase, setTitle, chatAtts)
+		documentKey, err = s.repo.CreateStructuredMessageAndJob(ctx, userID, userMsg, job, options.Mode, requestedBase, setTitle, chatAtts, s.visualV2Enabled, s.visualV2MutationsDisabled, s.visualV2Ready)
 	} else {
 		err = s.repo.CreateUserMessageAndJob(ctx, userMsg, job, setTitle, chatAtts)
 	}
 	if err != nil {
-		if len(attKeys) > 0 && (errors.Is(err, ErrVersionConflict) || errors.Is(err, ErrInvalidStructuredMode)) {
+		if len(attKeys) > 0 && (errors.Is(err, ErrVersionConflict) || errors.Is(err, ErrInvalidStructuredMode) || errors.Is(err, ErrStructuredUnavailable)) {
 			_ = s.store.DeleteMany(context.Background(), attKeys)
 		}
 		return nil, err
@@ -368,6 +368,7 @@ func (s *Service) PostMessageWithOptions(ctx context.Context, userID, chatID uui
 	payload := jobs.DispatchPayload{
 		AuthorizedAssetSources: authorizedSources,
 		PostFormat:             string(job.PostFormat),
+		TargetSchemaVersion:    job.TargetSchemaVersion,
 		GenerationMode:         options.Mode,
 		BaseVersionID:          job.ExpectedVersionID,
 		DocumentS3Key:          documentKey,

@@ -58,7 +58,7 @@ func (r *Repository) GetCurrentVersion(ctx context.Context, userID, chatID uuid.
 }
 
 // CreateStructuredMessageAndJob captures the current base under the chat lock.
-func (r *Repository) CreateStructuredMessageAndJob(ctx context.Context, userID uuid.UUID, content *db.ChatContent, job *db.Job, mode string, requestedBase *uuid.UUID, setTitle *string, attachments []db.ChatContentAttachment) (string, error) {
+func (r *Repository) CreateStructuredMessageAndJob(ctx context.Context, userID uuid.UUID, content *db.ChatContent, job *db.Job, mode string, requestedBase *uuid.UUID, setTitle *string, attachments []db.ChatContentAttachment, v2Enabled, v2MutationsDisabled bool, v2Ready func(context.Context, int) bool) (string, error) {
 	var documentKey string
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		row, err := r.LockOwnedChat(ctx, tx, userID, content.ChatID)
@@ -68,6 +68,7 @@ func (r *Repository) CreateStructuredMessageAndJob(ctx context.Context, userID u
 		if row.PostFormat != db.PostFormatStructuredV1 {
 			return ErrInvalidStructuredMode
 		}
+		targetSchema, readSchema := 1, 0
 		if mode == "edit" {
 			if requestedBase == nil || row.CurrentVersionID == nil || *requestedBase != *row.CurrentVersionID {
 				return ErrVersionConflict
@@ -77,9 +78,18 @@ func (r *Repository) CreateStructuredMessageAndJob(ctx context.Context, userID u
 				return err
 			}
 			documentKey = base.DocumentS3Key
+			readSchema = base.SchemaVersion
+			if readSchema != 1 && readSchema != 2 {
+				return ErrStructuredUnavailable
+			}
+		}
+		if v2Enabled || readSchema == 2 {
+			targetSchema = 2
+			if v2MutationsDisabled || v2Ready == nil || !v2Ready(ctx, readSchema) {
+				return ErrStructuredUnavailable
+			}
 		}
 		job.PostFormat = db.PostFormatStructuredV1
-		targetSchema := 1
 		job.TargetSchemaVersion = &targetSchema
 		job.GenerationMode = &mode
 		job.ExpectedVersionID = row.CurrentVersionID

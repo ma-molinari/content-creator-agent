@@ -62,6 +62,7 @@ func main() {
 	}
 	var worker jobs.WorkerClient
 	var structuredReady func(context.Context) bool
+	var visualV2Ready func(context.Context, int) bool
 	if wURL != "" {
 		pool, err := jobs.NewStructuredWorkerPool(jobs.NewHTTPWorkerClient(wURL, wKey), cfg.StructuredWorkerURLs, wKey)
 		if err != nil {
@@ -69,9 +70,11 @@ func main() {
 		}
 		worker = pool
 		structuredReady = pool.SupportsStructured
+		visualV2Ready = pool.SupportsStructuredV2
 	}
 	chatSvc := chat.NewService(chatRepo, jobsRepo, stor, profileRepo, profileSvc, worker)
 	chatSvc.ConfigureStructured(cfg.StructuredPostsEnabled, structuredReady)
+	chatSvc.ConfigureVisualV2(cfg.StructuredVisualV2Enabled, cfg.StructuredVisualV2MutationsDisabled, visualV2Ready)
 	ch := chat.NewHandler(chatSvc)
 
 	jobsH := jobs.NewHandler(&cfg, gdb, stor)

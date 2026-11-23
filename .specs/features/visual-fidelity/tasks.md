@@ -233,9 +233,11 @@ Para o ensaio visual e E2E com serviços externos, seguir os procedimentos opt-i
 
 **Pronto quando:**
 
-- [ ] Criação estruturada usa V1 com flag V2 desligada e V2 com flag ligada/capacidade; edição V1 é promovida com flag ligada e permanece V1 com flag desligada. Edição de base V2 continua V2 após desligar a flag e exige capacidade V2.
-- [ ] A base e o alvo são capturados atomicamente no aceite e despachados a um dos mesmos destinos diretos verificados; ausência de capacidade antes da mutação bloqueia o job, sem downgrade. Uma alteração de disponibilidade após o probe ainda pode falhar no dispatch e segue a semântica de resultado confirmado ou desconhecido. Nova criação explícita V1 após base V2 é nova raiz, não conversão, e continua sujeita a conflito.
-- [ ] A flag V2 não habilita novos chats estruturados por si; erros para o usuário não expõem conteúdo. É possível bloquear explicitamente mutações V2 em incidente, preservando leitura/download.
+- [x] Criação estruturada usa V1 com flag V2 desligada e V2 com flag ligada/capacidade; edição V1 é promovida com flag ligada e permanece V1 com flag desligada. Edição de base V2 continua V2 após desligar a flag e exige capacidade V2.
+- [x] A base e o alvo são capturados atomicamente no aceite e despachados a um dos mesmos destinos diretos verificados; ausência de capacidade antes da mutação bloqueia o job, sem downgrade. Uma alteração de disponibilidade após o probe ainda pode falhar no dispatch e segue a semântica de resultado confirmado ou desconhecido. Nova criação explícita V1 após base V2 é nova raiz, não conversão, e continua sujeita a conflito.
+- [x] A flag V2 não habilita novos chats estruturados por si; erros para o usuário não expõem conteúdo. É possível bloquear explicitamente mutações V2 em incidente, preservando leitura/download.
+
+**Validação:** suíte unitária e integração Go, matriz transacional e dispatch HTTP em PostgreSQL descartável em 23/11/2026. Flags `STRUCTURED_VISUAL_V2_ENABLED` e `STRUCTURED_VISUAL_V2_MUTATIONS_DISABLED` têm padrão desligado.
 
 **Verificar:** testes de configuração e integração HTTP/PostgreSQL para matriz da seção 7 do TDD e corridas de aceite/conclusão. **Commit:** `feat(api): controlar ativação visual v2`.
 

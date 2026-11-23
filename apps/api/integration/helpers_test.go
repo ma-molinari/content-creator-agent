@@ -111,6 +111,11 @@ func buildEcho(gdb *gorm.DB, cfg *config.Config, worker jobs.WorkerClient, stor 
 	if capable, ok := worker.(interface{ SupportsStructured(context.Context) bool }); ok {
 		chatSvc.ConfigureStructured(cfg.StructuredPostsEnabled, capable.SupportsStructured)
 	}
+	if capable, ok := worker.(interface {
+		SupportsStructuredV2(context.Context, int) bool
+	}); ok {
+		chatSvc.ConfigureVisualV2(cfg.StructuredVisualV2Enabled, cfg.StructuredVisualV2MutationsDisabled, capable.SupportsStructuredV2)
+	}
 	ch := chat.NewHandler(chatSvc)
 
 	jobsH := jobs.NewHandler(cfg, gdb, stor)

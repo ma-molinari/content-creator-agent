@@ -34,6 +34,17 @@ func TestStructuredPostsDisabledByDefault(t *testing.T) {
 	require.True(t, Load().StructuredPostsEnabled)
 }
 
+func TestVisualV2FlagsDefaultOff(t *testing.T) {
+	t.Setenv("STRUCTURED_VISUAL_V2_ENABLED", "")
+	t.Setenv("STRUCTURED_VISUAL_V2_MUTATIONS_DISABLED", "")
+	require.False(t, Load().StructuredVisualV2Enabled)
+	require.False(t, Load().StructuredVisualV2MutationsDisabled)
+	t.Setenv("STRUCTURED_VISUAL_V2_ENABLED", "true")
+	t.Setenv("STRUCTURED_VISUAL_V2_MUTATIONS_DISABLED", "true")
+	require.True(t, Load().StructuredVisualV2Enabled)
+	require.True(t, Load().StructuredVisualV2MutationsDisabled)
+}
+
 func TestStructuredWorkerURLs(t *testing.T) {
 	t.Setenv("STRUCTURED_WORKER_URLS", " http://worker-a:8000, ,http://worker-b:8000 ")
 	require.Equal(t, []string{"http://worker-a:8000", "http://worker-b:8000"}, Load().StructuredWorkerURLs)

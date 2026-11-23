@@ -27,11 +27,13 @@ type Config struct {
 	// StuckJobCron runs stuck-job cleanup (default every 10 minutes UTC). Empty disables the job.
 	StuckJobCron string
 	// StuckJobProcessingMinutes marks processing jobs as failed when UpdatedAt is older than this (default 20).
-	StuckJobProcessingMinutes   int
-	ArtifactReconcileEnabled    bool
-	StructuredPostsEnabled      bool
-	ArtifactReconcileCron       string
-	ArtifactReconcileGraceHours int
+	StuckJobProcessingMinutes           int
+	ArtifactReconcileEnabled            bool
+	StructuredPostsEnabled              bool
+	StructuredVisualV2Enabled           bool
+	StructuredVisualV2MutationsDisabled bool
+	ArtifactReconcileCron               string
+	ArtifactReconcileGraceHours         int
 	// ProfileRefMaxCount caps optional design reference uploads per user (default 8).
 	ProfileRefMaxCount int
 	// ProfileRefMaxBytes is the max size per reference image in bytes (default 5MB).
@@ -91,27 +93,29 @@ func Load() Config {
 		}
 	}
 	return Config{
-		Port:                        port,
-		DatabaseURL:                 os.Getenv("DATABASE_URL"),
-		JWTSecret:                   os.Getenv("JWT_SECRET"),
-		JWTRefreshSecret:            os.Getenv("JWT_REFRESH_SECRET"),
-		CORSAllowedOrigins:          allowed,
-		AWSRegion:                   os.Getenv("AWS_REGION"),
-		AWSAccessKeyID:              os.Getenv("AWS_ACCESS_KEY_ID"),
-		AWSSecretAccessKey:          os.Getenv("AWS_SECRET_ACCESS_KEY"),
-		S3Bucket:                    os.Getenv("AWS_S3_BUCKET"),
-		S3ForcePathStyle:            strings.EqualFold(strings.TrimSpace(os.Getenv("AWS_S3_FORCE_PATH_STYLE")), "true"),
-		S3PublicEndpoint:            strings.TrimSpace(os.Getenv("AWS_S3_PUBLIC_ENDPOINT")),
-		WorkerURL:                   os.Getenv("WORKER_URL"),
-		WorkerAPIKey:                os.Getenv("WORKER_API_KEY"),
-		StructuredWorkerURLs:        structuredURLs,
-		StuckJobCron:                stuckJobCron,
-		StuckJobProcessingMinutes:   stuckJobMinutes,
-		StructuredPostsEnabled:      strings.EqualFold(strings.TrimSpace(os.Getenv("STRUCTURED_POSTS_ENABLED")), "true"),
-		ArtifactReconcileEnabled:    strings.EqualFold(strings.TrimSpace(os.Getenv("ARTIFACT_RECONCILE_ENABLED")), "true"),
-		ArtifactReconcileCron:       artifactCron,
-		ArtifactReconcileGraceHours: artifactGraceHours,
-		ProfileRefMaxCount:          profileRefMax,
-		ProfileRefMaxBytes:          profileRefMaxBytes,
+		Port:                                port,
+		DatabaseURL:                         os.Getenv("DATABASE_URL"),
+		JWTSecret:                           os.Getenv("JWT_SECRET"),
+		JWTRefreshSecret:                    os.Getenv("JWT_REFRESH_SECRET"),
+		CORSAllowedOrigins:                  allowed,
+		AWSRegion:                           os.Getenv("AWS_REGION"),
+		AWSAccessKeyID:                      os.Getenv("AWS_ACCESS_KEY_ID"),
+		AWSSecretAccessKey:                  os.Getenv("AWS_SECRET_ACCESS_KEY"),
+		S3Bucket:                            os.Getenv("AWS_S3_BUCKET"),
+		S3ForcePathStyle:                    strings.EqualFold(strings.TrimSpace(os.Getenv("AWS_S3_FORCE_PATH_STYLE")), "true"),
+		S3PublicEndpoint:                    strings.TrimSpace(os.Getenv("AWS_S3_PUBLIC_ENDPOINT")),
+		WorkerURL:                           os.Getenv("WORKER_URL"),
+		WorkerAPIKey:                        os.Getenv("WORKER_API_KEY"),
+		StructuredWorkerURLs:                structuredURLs,
+		StuckJobCron:                        stuckJobCron,
+		StuckJobProcessingMinutes:           stuckJobMinutes,
+		StructuredPostsEnabled:              strings.EqualFold(strings.TrimSpace(os.Getenv("STRUCTURED_POSTS_ENABLED")), "true"),
+		StructuredVisualV2Enabled:           strings.EqualFold(strings.TrimSpace(os.Getenv("STRUCTURED_VISUAL_V2_ENABLED")), "true"),
+		StructuredVisualV2MutationsDisabled: strings.EqualFold(strings.TrimSpace(os.Getenv("STRUCTURED_VISUAL_V2_MUTATIONS_DISABLED")), "true"),
+		ArtifactReconcileEnabled:            strings.EqualFold(strings.TrimSpace(os.Getenv("ARTIFACT_RECONCILE_ENABLED")), "true"),
+		ArtifactReconcileCron:               artifactCron,
+		ArtifactReconcileGraceHours:         artifactGraceHours,
+		ProfileRefMaxCount:                  profileRefMax,
+		ProfileRefMaxBytes:                  profileRefMaxBytes,
 	}
 }

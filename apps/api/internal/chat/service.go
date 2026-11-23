@@ -44,14 +44,17 @@ const signedURLExpiry = time.Hour
 
 // Service coordinates chat use cases and storage.
 type Service struct {
-	repo              *Repository
-	jobsRepo          *jobs.Repository
-	store             storage.StorageService
-	profileRepo       *profile.Repository
-	profileSvc        *profile.Service
-	worker            jobs.WorkerClient
-	structuredReady   func(context.Context) bool
-	structuredEnabled bool
+	repo                      *Repository
+	jobsRepo                  *jobs.Repository
+	store                     storage.StorageService
+	profileRepo               *profile.Repository
+	profileSvc                *profile.Service
+	worker                    jobs.WorkerClient
+	structuredReady           func(context.Context) bool
+	structuredEnabled         bool
+	visualV2Enabled           bool
+	visualV2MutationsDisabled bool
+	visualV2Ready             func(context.Context, int) bool
 
 	// latestAssistantHTMLKeys defaults to repo.GetLatestAssistantHTMLKeys; tests may replace it to simulate failures.
 	latestAssistantHTMLKeys func(context.Context, uuid.UUID) ([]string, error)
@@ -81,6 +84,11 @@ func (s *Service) ListChats(ctx context.Context, userID uuid.UUID) ([]db.Chat, e
 func (s *Service) ConfigureStructured(enabled bool, ready func(context.Context) bool) {
 	s.structuredEnabled = enabled
 	s.structuredReady = ready
+}
+
+// ConfigureVisualV2 enables selection separately from the structured chat format.
+func (s *Service) ConfigureVisualV2(enabled, mutationsDisabled bool, ready func(context.Context, int) bool) {
+	s.visualV2Enabled, s.visualV2MutationsDisabled, s.visualV2Ready = enabled, mutationsDisabled, ready
 }
 
 func (s *Service) CreateChat(ctx context.Context, userID uuid.UUID, postType string) (*db.Chat, error) {
