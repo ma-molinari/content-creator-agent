@@ -41,7 +41,7 @@ Uma causa estrutural verificável é que o documento atual só aceita texto e im
 - O formato de chat e job é `legacy_html` ou `structured_v1`. Esse discriminador define a rota de processamento; **não é o mesmo campo que `schemaVersion` do snapshot**.
 - O worker valida `PostDocumentV1` com `extra="forbid"`; os elementos são texto/imagem, e o limite atual é 20 slides, 12 elementos por slide e 2 MiB por documento. A edição suporta operações de texto, fundo, estilo, imagem e layout, sem inclusão/exclusão de elementos.
 - A API valida novamente o documento V1, exige `schemaVersion == 1` no callback e verifica imagens autorizadas, manifesto, ownership e prefixo do job. O callback publica a versão transacionalmente após comparar a base esperada com a corrente.
-- `/capabilities` informa `structuredPost.contractVersion: 1`; a API atual exige igualdade com `1` e consulta todos os destinos diretos antes de despachar. Esse sinal, sozinho, **não comprova suporte ao schema V2**.
+- `/capabilities` informa `structuredPost.contractVersion: 1`; a API atual exige igualdade com `1` e consulta todos os destinos diretos antes de despachar. Esse sinal, sozinho, **não comprova suporte ao schema V2**. O endpoint atual `/jobs/structured` aceita o payload V1, e `DispatchPayload` não proíbe campos extras: adicionar apenas um campo de schema não garante que um worker antigo o reconheça.
 - O renderer V1 salva o HTML e o JPEG efetivamente entregues. Sua correção de contraste pode alterar o HTML renderizado sem alterar o snapshot; medições do snapshot, portanto, não são prova do contraste efetivo do JPEG.
 - `STRUCTURED_POSTS_ENABLED` controla a escolha de formato na criação de **novos chats**; desligá-la não converte os estruturados existentes em legados.
 
@@ -59,13 +59,13 @@ Uma causa estrutural verificável é que o documento atual só aceita texto e im
 
 ### 5.1 Direção visual e paleta
 
-A análise das referências produz uma **direção visual estruturada temporária**, sujeita a schema fechado: cores aproximadas para `background`, `text` e `accent`; indicação de ausência/ambiguidade; e uma lista limitada de barras ou linhas identificadas com posição semântica. Cada indicação é classificada como observada ou incerta. Essa classificação é uma saída do modelo, não uma confiança estatística calibrada.
+A análise das referências produz uma **direção visual estruturada temporária**, sujeita a schema fechado: cores aproximadas para `background`, `text` e `accent`; indicação de ausência/ambiguidade; e uma lista limitada de barras ou linhas identificadas com posição semântica. Cada indicação é classificada como observada ou incerta. Essa classificação é uma saída do modelo, não uma confiança estatística calibrada. A V2 considera no máximo oito imagens por análise, alinhada ao limite atual do worker; se o perfil puder armazenar mais por configuração, rejeitar a solicitação com mensagem clara até existir uma seleção explícita, em vez de ignorar imagens silenciosamente.
 
 A imagem segue como referência de estilo; não é obrigatório incorporá-la ao slide. O gerador recebe a direção validada e o perfil, além do pedido e dos IDs autorizados. A paleta efetivamente escolhida vai para o snapshot V2. **Não persistir automaticamente o texto integral extraído da referência**, URLs assinadas ou imagem em logs; a retenção de imagens segue o fluxo de assets autorizado existente.
 
-Quando não houver referências, o gerador poderá escolher cores válidas a partir do perfil e do pedido. Na criação V2 com referências, ou numa edição que peça explicitamente para aplicá-las, se elas não puderem ser analisadas ou a saída permanecer inválida após retentativa limitada, falhar o job com mensagem de nova tentativa; não apresentar como sucesso uma geração que silenciosamente ignorou as referências. Numa edição comum que não peça reaplicar referências, usar a paleta e os elementos do snapshot base; a indisponibilidade de uma referência original não deve impedir uma edição de texto. Ausência/ambiguidade de um detalhe específico não autoriza inventá-lo como observado.
+Quando não houver referências, o gerador poderá escolher cores válidas a partir do perfil e do pedido. Na criação V2 com referências, ou numa edição que peça explicitamente para aplicá-las, se elas não puderem ser analisadas ou a saída permanecer inválida após retentativa limitada, falhar o job com mensagem de nova tentativa; não apresentar como sucesso uma geração que silenciosamente ignorou as referências. Numa edição V2 comum que não peça reaplicar referências, usar a paleta e os elementos do snapshot base; a indisponibilidade de uma referência original, por si só, não deve impedir uma edição de texto. Os assets copiados da versão base ainda precisam existir e ser autorizados. Se a edição solicitar reaplicar referências e não houver nenhuma disponível, falhar com mensagem clara. Se parte das imagens solicitadas falhar, não ocultar a perda como análise completa; sem uma opção explícita de prosseguir parcialmente, falhar o job. Ausência/ambiguidade de um detalhe específico não autoriza inventá-lo como observado.
 
-O cache atual da análise é indexado pelas chaves das imagens, mas o resumo usa também AUDIT/BRAND. Para V2, separar a extração visual independente do perfil da etapa que combina instruções ou invalidar o cache quando qualquer entrada relevante mudar. A chave deve incluir identidade/versão imutável das imagens, versão do prompt/modelo e isolamento por usuário; falhas e saídas incompletas não devem ser cacheadas como sucesso. Limitar retenção e tamanho do cache.
+O cache atual da análise é indexado pelas chaves das imagens, mas o resumo usa também AUDIT/BRAND. Para V2, separar a extração visual independente do perfil da etapa que combina instruções ou invalidar o cache quando qualquer entrada relevante mudar. A chave deve incluir identidade/versão imutável das imagens ou hash dos bytes, sua ordem, versão do schema/prompt/modelo e isolamento por usuário; se a extração continuar dependendo dos textos, incluir também o contexto relevante no cálculo da chave. Falhas e saídas incompletas não devem ser cacheadas como sucesso. Limitar retenção e tamanho do cache.
 
 ### 5.2 Documento V2
 
@@ -92,25 +92,25 @@ Os exemplos abaixo ilustram o contrato a ser formalizado em schemas compartilhad
 - `decoration.kind` admite `bar` ou `line`, somente horizontais. `width`: `short`, `medium` ou `full`; `thickness`: `thin`, `medium` ou `thick`; `corner`: `square` ou `rounded`, sendo `line` apenas `square`. As combinações correspondem a medidas fixas do renderer, não a CSS livre.
 - A ordem em `elements` define a posição no fluxo do layout. Barras e linhas ocupam espaço e não podem sobrepor texto; sem z-index, posição absoluta, conteúdo textual ou URL. São permitidas no máximo quatro decorações por slide, dentro do limite total de 12 elementos. Manter os demais limites V1; validar IDs únicos, tipos, dimensões de canvas, quantidade e autorização dos assets.
 - Os layouts continuam `hero`, `editorial` e `quote`; as opções atuais de texto e imagem permanecem. A paleta é uma orientação explícita: literais são permitidos para preservar versões promovidas e exceções justificadas.
-- Ao converter V1, copiar IDs, ordem, textos, cores, fontes, layout e assets; representar cada cor V1 como literal V2. Inicializar os três tokens de forma determinística a partir das cores disponíveis, mas não vincular automaticamente os elementos existentes a eles. A conversão não acrescenta barras nem altera o original.
+- Ao converter V1, copiar IDs, ordem, textos, cores, fontes, layout e assets; representar cada cor V1 como literal V2. Inicializar `background` com o fundo do primeiro slide e `text` com a cor do primeiro elemento de texto na ordem do documento; se não houver texto, usar `#000000`. Inicializar `accent` com a mesma cor de `text`. Os tokens são apenas valores iniciais: não vincular automaticamente elementos existentes a eles. A conversão não acrescenta barras nem altera o original.
 
 ### 5.3 Edição
 
 Ampliar o contrato de operações para permitir: definir um token da paleta; inserir uma decoração no início ou após um ID existente; alterar cor, largura, espessura, cantos ou tipo de uma decoração; e removê-la. Os nomes e payloads exatos das operações devem constar das fixtures versionadas antes da implementação do planner. IDs são gerados/validados pelo sistema, únicos por slide e preservados enquanto o elemento existir.
 
-O planner recebe a versão de schema alvo e emite somente operações compatíveis. Numa edição que solicite aplicar as referências atuais, também recebe a direção visual validada; numa edição comum, usa o snapshot da base e não reaplica implicitamente o perfil ou as referências atuais. O aplicador valida o conjunto inteiro, a existência e tipo dos alvos, a ordem de inserção, a autorização de imagens, os limites e o documento final. Em falha, nenhuma operação é publicada. Pedidos não representáveis continuam retornando mensagem de reformulação; não há fallback silencioso para HTML legado.
+O planner recebe a versão de schema alvo e emite somente operações compatíveis. Numa edição que solicite aplicar as referências atuais, também recebe a direção visual validada; numa edição comum, usa o snapshot da base e não reaplica implicitamente o perfil ou as referências atuais. O aplicador valida o conjunto inteiro, a existência e tipo dos alvos, a ordem de inserção, a autorização de imagens, os limites e o documento final. Para alterar um campo de estilo, uma operação que substitua o estilo inteiro deve carregar os valores anteriores dos demais campos. A validação garante que campos fora das operações aceitas sejam preservados; não consegue provar sozinha que a LLM interpretou corretamente uma solicitação ambígua. Se uma base V1 já tiver 12 elementos, a promoção não remove conteúdo para abrir espaço: uma inserção que ultrapasse o limite falha claramente, sem nova versão. Em falha, nenhuma operação é publicada. Pedidos não representáveis continuam retornando mensagem de reformulação; não há fallback silencioso para HTML legado.
 
 Exemplos de comportamento:
 
 - “Adicionar uma barra laranja no topo”: inserir uma barra no início, vinculada ao token `accent` quando isso corresponder à paleta definida.
 - “Mudar somente esta linha para azul”: alterar apenas a cor dessa linha, sem atualizar o token compartilhado.
-- “Mudar a cor de destaque do post”: atualizar o token `accent` somente se o efeito em todos os seus consumidores estiver de acordo com o pedido.
+- “Mudar a cor de destaque do post”: atualizar o token `accent` somente se o efeito em todos os seus consumidores estiver de acordo com o pedido. Após promoção de V1, os elementos continuam literais: se o token não tiver consumidores, modificá-lo sozinho não altera o post e não pode ser tratado como sucesso visual; a edição deve alterar ou vincular explicitamente os elementos identificados pelo pedido, sem atingir os demais. Se não for possível determinar os alvos, solicitar reformulação.
 
 ### 5.4 Renderização e validação visual
 
 O renderer V2 resolve tokens antes de gerar HTML/CSS controlado e registra sua própria versão. Validar segurança, fontes, assets, limites e ausência de cortes. Definir e documentar valores fixos de largura, espessura, cantos e espaçamento por enum antes de congelar o catálogo; usar fixtures visuais 1080×1350 com fontes fixadas.
 
-Para V2, o controle de contraste deve ser explícito e verificável: validar as cores resolvidas e, se for necessário corrigi-las, aplicar a decisão ao documento antes de persistir ou falhar com erro recuperável. Não modificar silenciosamente somente o HTML/JPEG de uma forma que contradiga o snapshot. Definir limiares e política de correção com o responsável. V1 mantém seu comportamento atual; os arquivos V1 históricos não são reprocessados.
+Para V2, o controle de contraste deve ser explícito e verificável: validar as cores resolvidas e, se for necessário corrigi-las, aplicar ao documento apenas mudanças autorizadas pelo pedido antes de persistir ou falhar com erro recuperável. Não modificar silenciosamente somente o HTML/JPEG de uma forma que contradiga o snapshot. Se uma correção exigir alterar campos não solicitados, inclusive ao promover uma base V1 com contraste insuficiente, não corrigi-los silenciosamente: rejeitar a edição com mensagem clara. A escolha dos limiares e de uma eventual exceção explícita para problemas preexistentes depende de aprovação antes da implementação. V1 mantém seu comportamento atual; os arquivos V1 históricos não são reprocessados.
 
 ## 6. Fluxos e contratos entre serviços
 
@@ -118,21 +118,23 @@ Para V2, o controle de contraste deve ser explícito e verificável: validar as 
 
 1. A API determina o formato do chat conforme o comportamento existente e, para job estruturado, decide e persiste o schema alvo antes do dispatch.
 2. Com a flag V2 desligada, novas raízes estruturadas usam V1. Com ela ligada e capacidade confirmada, usam V2. A flag V2 não habilita, por si só, novos chats estruturados.
-3. O worker obtém as referências autorizadas, extrai e valida a direção visual, gera documento V2, valida, renderiza e envia snapshot, manifesto e imagens imutáveis ao prefixo do job.
-4. O callback informa schema e renderer efetivos. A API compara o schema com o alvo persistido no job, valida o documento correspondente e publica somente após as verificações transacionais e de base.
+3. Para alvo V1, o worker mantém o pipeline V1 atual. Para alvo V2, obtém as referências autorizadas, extrai e valida a direção visual quando existirem referências, gera o documento V2, valida, renderiza e envia snapshot, manifesto e imagens imutáveis ao prefixo do job.
+4. O callback informa schema e renderer efetivos. Antes da primeira publicação, a API compara o schema com o alvo persistido no job, valida o documento correspondente e publica somente após as verificações transacionais e de base. Uma repetição de callback para job já concluído continua sem criar outra versão ou reprocessar artefatos, preservando a idempotência atual.
 
 ### Edição
 
 1. A API verifica ownership, cliente compatível, base corrente e capacidade de leitura/escrita exigida. Registra `baseVersionId` e schema alvo; a versão alvo é decidida no aceite, não pelo callback.
 2. Para base V1, aplica a política da seção 4. Para base V2, o alvo é V2 mesmo com a flag de novas escritas desligada.
-3. O worker lê o snapshot exato, promove V1 em memória se necessário, planeja e aplica operações, renderiza e envia artefatos a um novo prefixo do job. Analisa as referências atuais para a edição apenas quando o pedido exigir reaplicá-las; a indisponibilidade delas não bloqueia alterações independentes no snapshot.
+3. O worker lê o snapshot exato, promove V1 em memória se necessário, planeja e aplica operações, renderiza e envia artefatos a um novo prefixo do job. No caminho V2, analisa as referências atuais para a edição apenas quando o pedido exigir reaplicá-las; sua indisponibilidade, por si só, não bloqueia alterações independentes no snapshot. A edição com alvo V1 preserva o pipeline atual.
 4. Na conclusão, a API valida documento, assets, alvo e base dentro do fluxo existente. Se a base mudou, retorna conflito e não move o ponteiro corrente. Timeout ou resposta incerta do callback continua sujeito a retentativa idempotente e reconciliação segura.
 
 ### Negociação e dados duráveis
 
-Estender `/capabilities` **de forma aditiva**, preservando `structuredPost.contractVersion: 1` para chamadas existentes. Uma resposta nova deve anunciar separadamente os schemas que lê e escreve e a capacidade de operações gráficas. Ausência dos novos campos significa apenas suporte V1. Antes de criar job V2, a API deve verificar todos os destinos diretos elegíveis e usar os mesmos destinos verificados no dispatch; incompatibilidade ou disponibilidade desconhecida bloqueia a mutação V2, sem fallback silencioso.
+Estender `/capabilities` **de forma aditiva**, preservando `structuredPost.contractVersion: 1` para chamadas existentes. Uma resposta nova deve anunciar separadamente os schemas que lê e escreve e a capacidade de operações gráficas. Ausência dos novos campos significa apenas suporte V1. Antes de criar job V2, a API deve verificar todos os destinos diretos elegíveis e usar os mesmos destinos verificados no dispatch: criação exige escrita V2; edição V1→V2 exige leitura V1 e escrita V2; edição V2→V2 exige leitura e escrita V2. Incompatibilidade ou disponibilidade desconhecida bloqueia a mutação V2, sem fallback silencioso.
 
-Persistir no job o schema alvo e, para edição, a base já armazenada. A migração deve ser aditiva e tratar jobs estruturados anteriores ou em voo sem campo alvo como V1, inclusive em callbacks tardios; jobs legados não precisam de alvo estruturado. Não alterar o snapshot ou os registros existentes. Definir no contrato como o alvo é transmitido ao worker e validá-lo no endpoint de dispatch; um worker V1 não deve aceitar silenciosamente um job destinado a V2.
+Persistir no job o schema alvo e, para edição, a base já armazenada. A migração deve ser aditiva e tratar jobs estruturados anteriores ou em voo sem campo alvo como V1, inclusive em callbacks tardios; jobs legados não precisam de alvo estruturado. Não alterar o snapshot ou os registros existentes.
+
+Criar uma rota dedicada de dispatch V2, por exemplo `/jobs/structured/v2`, que exija explicitamente alvo V2 e verifique modo, base e capacidade. O endpoint V1 existente continua aceitando somente jobs com alvo V1; o worker novo deve rejeitar ali um alvo V2 explícito. A API nova usa a rota V2 exclusivamente para alvos V2, sem fallback para `/jobs/structured`: um worker antigo não possui a rota V2 e deve rejeitar a requisição por rota inexistente. Isso é necessário porque o payload V1 atual ignora campos extras e não pode ser tornado estrito retroativamente. Uma rejeição explícita segue o tratamento de falha de dispatch existente; timeout ou 5xx continua como resultado desconhecido. Capacidade checada e roteamento para os mesmos destinos não eliminam a janela de mudança após a consulta, portanto a rota deve validar novamente o alvo no recebimento.
 
 A API não pode aceitar V2 até que todas as suas réplicas capazes de receber callbacks e todos os workers elegíveis tenham sido atualizados. Ampliar o validador Go e o upload/callback Python, que hoje estão explicitamente fixados em V1. A mudança deve cobrir parsing, limites, versão do renderer, comparação com alvo/base, manifesto e tipos de conteúdo. `post_versions.schema_version` e `renderer_version` já existem, mas as validações atuais precisam ser estendidas.
 
@@ -147,11 +149,13 @@ O frontend continua exibindo JPEGs e histórico sem interpretar o snapshot. Pres
 | Edição de base V1 | Nova versão V1 | Promoção em memória e nova versão V2 |
 | Edição de base V2 | Nova versão V2; exige capacidade V2 | Nova versão V2; exige capacidade V2 |
 
+Uma **nova criação explícita** dentro de um chat estruturado gera uma raiz; com a flag V2 desligada, ela pode gerar V1 mesmo quando a versão corrente anterior for V2. Isso não converte ou sobrescreve o snapshot V2 anterior; a comparação do ponteiro corrente no aceite e no callback continua obrigatória.
+
 1. Entregar schemas/fixtures e suporte de leitura V1/V2, validação de API, renderer e operações; manter escrita V2 desligada.
 2. Implantar e verificar capacidade de **todas** as réplicas de API e dos destinos diretos de worker, inclusive callbacks e jobs em voo. Monitorar incompatibilidades.
 3. Ensaiar criação e edição V2 e promoção V1→V2 em ambiente não produtivo, com S3 real; comparar imagens e histórico. Manter a aceitação operacional da T18 como pré-requisito para tráfego estruturado.
 4. Habilitar escrita V2 gradualmente somente após aceite visual e operacional. Se houver divergências ou falhas relevantes, desligar a flag, drenar jobs e investigar; não excluir nem reverter migrations/snapshots.
-5. Preservar leitores e workers capazes de tratar V2 já publicado. O retorno a binários apenas V1 é inseguro enquanto houver V2: manter compatibilidade ou bloquear edição de V2 e oferecer leitura/download. Nunca rebaixar V2 silenciosamente para V1.
+5. Preservar leitores e workers capazes de tratar V2 já publicado. O retorno a binários apenas V1 é inseguro enquanto houver V2: manter uma API atualizada que identifique e bloqueie a mutação de V2, ou bloquear todas as mutações estruturadas na borda antes de retornar a uma API antiga; preservar leitura/download. A API antiga não deve ser considerada capaz de impor a proteção V2. Nunca rebaixar um snapshot V2 existente silenciosamente para V1.
 
 ## 8. Segurança e privacidade
 
@@ -165,7 +169,7 @@ O frontend continua exibindo JPEGs e histórico sem interpretar o snapshot. Pres
 ### Contrato e renderização
 
 - Fixtures compartilhadas Go/Python aceitam V1 e V2 válidos e rejeitam campos extras, tokens desconhecidos, cores inválidas, IDs duplicados, elementos ou decorações acima dos limites e assets não autorizados.
-- Promoção V1→V2 preserva os campos semânticos e não altera a origem; fixtures demonstram equivalência visual controlada para documentos sem novos elementos. Arquivos históricos continuam iguais byte a byte; **não se promete igualdade de pixels em toda nova renderização**.
+- Promoção V1→V2 preserva os campos semânticos e não altera a origem; fixtures cobrem documentos sem texto, múltiplos slides, cores literais e documentos com 12 elementos. Fixtures demonstram equivalência visual controlada para documentos sem novos elementos. Arquivos históricos continuam iguais byte a byte; **não se promete igualdade de pixels em toda nova renderização**.
 - Renderer V2 cobre barra e linha em cada enum, ordem, dimensões, safe area, contraste conforme política aprovada e ausência de overflow. Verificar o HTML/JPEG efetivo e a consistência com o snapshot.
 
 ### Criação, edição e compatibilidade
@@ -173,7 +177,7 @@ O frontend continua exibindo JPEGs e histórico sem interpretar o snapshot. Pres
 - Criar com e sem referência, com paleta válida, barra/linha e rejeição explícita de referência indisponível ou saída inválida. Verificar que a direção visual observada chega ao gerador, sem vazar conteúdo nos logs.
 - Editar cada propriedade, inserir e remover decoração, alterar token compartilhado e cor local; testar preservação dos elementos não envolvidos, transação atômica e pedido não representável. Com a referência original indisponível, uma edição textual comum deve funcionar; uma edição que peça reaplicá-la deve falhar claramente.
 - Cobrir V1→V2, V2→V2, V1 com flag desligada, nova raiz, bases obsoletas, duas edições concorrentes, callback repetido/resposta perdida, falha de upload e worker incompatível.
-- Testar negociação mista, API antiga/nova, flags desligadas, jobs V1 em voo durante a migração, leitura/download de V1/V2/legado e rollback com V2 já publicado.
+- Testar negociação mista, API antiga/nova, flags desligadas, jobs V1 em voo durante a migração, leitura/download de V1/V2/legado e rollback com V2 já publicado. Confirmar que um alvo V2 nunca é enviado à rota V1, mesmo se um worker antigo anunciar apenas `contractVersion: 1` ou ignorar campos extras, e que a rota V2 recusa alvo inválido. Testar nova raiz V1 após uma versão corrente V2 com a flag desligada, mantendo V2 no histórico e verificando conflito caso o ponteiro mude.
 
 ### Avaliação visual e operacional
 
