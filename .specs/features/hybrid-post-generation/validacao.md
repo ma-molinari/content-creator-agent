@@ -30,9 +30,30 @@ O LocalStack 3.8.1 foi iniciado no Docker com bucket `postmind-local`. Foram ver
 
 - Em stack Docker isolada, com S3 e LLM reais, o proxy de teste descartou a primeira resposta de conclusão após a API retornar sucesso. O worker repetiu o callback e foram verificadas exatamente uma versão para o job e uma resposta versionada no chat.
 - Após excluir o chat descartável, um objeto de teste foi criado no prefixo do job e seu inventário foi mantido no volume Docker isolado `postmind-t18-real-s3_pgdata`. A verificação antecipada confirmou que a rotina não é habilitada antes da janela mínima.
-- A partir de **2026-11-23 19:45:29 UTC** (16:45:29 em São Paulo), executar `python tests/docker_hybrid/real_s3.py verify`. O verificador confere o bucket e a região originais, cria objetos recente e referenciado, interrompe a API durante uma chamada real ao S3 e verifica a retomada, a remoção do objeto antigo e a preservação dos objetos recente e referenciado e do inventário. O ensaio real de 24 horas ainda não foi executado.
+- A preparação determinou a elegibilidade após **2026-11-23 19:45:29 UTC** (16:45:29 em São Paulo). A verificação foi posteriormente executada, conforme o resultado abaixo.
 - Em 2026-11-23, o agregador foi executado sobre os logs preservados do ensaio: identificou um job estruturado concluído em 6.929 ms. É uma única amostra local, sem valor de meta ou validação do coletor operacional.
-- A remoção do volume ou do objeto de teste antes da verificação invalida a preparação. As configurações de produção não foram alteradas. O proxy de interrupção foi validado separadamente com chamadas reais dos clientes Python e Go ao S3; o cenário completo de interrupção e proteção de referências depende da janela de 24 horas.
+- O volume e o objeto de teste foram preservados até a verificação. As configurações de produção não foram alteradas.
+
+## Reconciliação interrompida com S3 real — 2026-11-23
+
+Após a janela real de 24 horas, `python tests/docker_hybrid/real_s3.py verify`
+passou na stack Docker isolada e no bucket configurado. A API foi interrompida
+durante uma chamada ao S3 e reiniciada; a reconciliação removeu o objeto antigo e
+preservou o objeto recente, o objeto com referência ativa e o inventário durável.
+Os dois objetos e a referência temporária criados pelo verificador foram removidos
+ao final. O volume isolado permanece preservado.
+
+O ensaio usou as imagens locais já existentes, sem reconstrução: API
+`sha256:f27ca364adac849f695c7c2707101db46dcd5c5efc32d5d508da81de1111db19`
+e worker `sha256:6fab5787d4b37a2f7d48c3db5e0f7d251ea87da0186cf0c37f11e6a650788651`.
+O commit exato dessas imagens não foi identificado; a evidência não substitui o
+ensaio da versão implantada no ambiente de destino.
+
+O agregador registrou duas execuções concluídas, nenhuma falha, dois inventários,
+dois prefixos, duas páginas, seis objetos listados, 12 consultas de referência,
+três chamadas de exclusão e oito tentativas de objeto; p95 de 1.209 ms. As
+contagens somam execuções e tentativas, não objetos necessariamente distintos ou
+requisições faturadas. A amostra não determina custo ou desempenho em escala.
 
 ## Rollback em Docker com AWS S3 e LLM reais — 2026-11-23
 
@@ -76,7 +97,9 @@ Com PostgreSQL em Docker e armazenamento simulado em memória, o cenário de 205
 
 ## Pendente antes da ativação
 
-- Após a data indicada acima, executar a reconciliação preparada com S3 real, incluindo interrupção, recuperação e proteção de referências; avaliar custo e duração em escala representativa. O callback incerto e o E2E básico passaram com S3 e LLM reais no Docker isolado.
+- Avaliar custo e duração da reconciliação em escala representativa. A execução
+  isolada com S3 real, interrupção, recuperação e proteção de referências passou;
+  o callback incerto e o E2E básico também passaram com S3 e LLM reais.
 - Validar coleta/agregação operacional e acordar metas de latência, custo, falhas, conflitos e qualidade visual com o responsável. As amostras aprovadas não incluem marca real.
 - Ensaiar rollout e rollback no ambiente de destino, mantendo leitores e workers estruturados compatíveis. As flags de criação estruturada e reconciliação seguem desativadas por padrão.
 
@@ -87,7 +110,9 @@ O endpoint simulado não comprova compatibilidade integral com AWS S3, permissõ
 1. Identificar conta, região, bucket e credenciais já disponibilizadas ao ambiente de teste, sem registrá-las neste documento. Confirmar que a API e o worker acessam o mesmo bucket e que não há endpoint de simulador configurado inadvertidamente.
 2. Em ambiente isolado, verificar as permissões necessárias para gravar, ler, listar e excluir objetos de teste. Implantar frontend, API e todos os workers compatíveis, com a reconciliação desativada inicialmente.
 3. O E2E opt-in, o anexo com remoção da origem, as edições concorrentes e a perda da resposta do callback passaram no Docker isolado com S3 e LLM reais; repetir os cenários conforme necessário no ambiente de destino e verificar histórico e downloads.
-4. Preparar artefatos descartáveis que atendam à janela mínima de 24 horas, ensaiar reconciliação, interrupção e nova execução, conferindo proteção de objetos referenciados e coleta de métricas. Não alterar timestamps ou reduzir a janela em um bucket compartilhado.
+4. Repetir no ambiente de destino, se necessário, o ensaio de reconciliação com
+   artefatos descartáveis elegíveis, interrupção e proteção de referências. Não
+   alterar timestamps ou reduzir a janela em um bucket compartilhado.
 5. Medir duração, falhas, conflitos, custo e qualidade visual com uma marca real. Acordar as metas de expansão com o responsável antes de habilitar tráfego no ambiente de destino.
 6. Ensaiar o rollback no ambiente de destino: desligar novas criações estruturadas e confirmar leitura, download e edição de versões existentes com workers compatíveis preservados.
 
