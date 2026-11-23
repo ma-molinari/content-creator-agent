@@ -23,9 +23,21 @@ def _luminance(color: str) -> float:
     return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2]
 
 
+def validate_post_contrast(document: PostDocumentV2) -> None:
+    for slide in document.slides:
+        background = resolve_color(document, slide.background.color)
+        for element in slide.elements:
+            if isinstance(element, TextElementV2):
+                color = resolve_color(document, element.style.color)
+                lighter, darker = sorted((_luminance(color), _luminance(background)), reverse=True)
+                if (lighter + 0.05) / (darker + 0.05) < 4.5:
+                    raise ValueError("text contrast is insufficient")
+
+
 def render_post_v2(document: PostDocumentV2, authorized_assets: AbstractSet[str]) -> list[SlideItem]:
     document = PostDocumentV2.model_validate_json(document.model_dump_json(by_alias=True))
     validate_authorized_assets(document, authorized_assets)
+    validate_post_contrast(document)
     slides: list[SlideItem] = []
     for index, slide in enumerate(document.slides, start=1):
         background = resolve_color(document, slide.background.color)
@@ -33,9 +45,6 @@ def render_post_v2(document: PostDocumentV2, authorized_assets: AbstractSet[str]
         for element in slide.elements:
             if isinstance(element, TextElementV2):
                 color = resolve_color(document, element.style.color)
-                lighter, darker = sorted((_luminance(color), _luminance(background)), reverse=True)
-                if (lighter + 0.05) / (darker + 0.05) < 4.5:
-                    raise ValueError("text contrast is insufficient")
                 style = element.style
                 parts.append(f'<div class="element text {element.role}" style="color:{color};'
                              f'font-family:\'{_FONTS[style.font]}\',sans-serif;font-size:{_SIZES[style.size]};'

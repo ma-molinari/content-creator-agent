@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import AbstractSet, Any
 
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -13,12 +14,14 @@ from app.config import get_settings
 from app.llm_messages import langchain_message_text
 from app.post_document import ImageElement, PostDocumentV1
 from app.post_document_v2 import PostDocumentV2, validate_authorized_assets
+from app.post_renderer_v2 import validate_post_contrast
 from app.visual_direction import VisualDirection
 
 _SYSTEM = """Crie um documento JSON para um post do Instagram seguindo o schema fornecido.
 Use somente os IDs de imagem autorizados. Não produza HTML, CSS ou URLs.
 Responda apenas com JSON válido, sem markdown."""
 _MAX_ATTEMPTS = 3
+logger = logging.getLogger(__name__)
 
 
 class StructuredGenerationError(Exception):
@@ -90,8 +93,14 @@ devem manter contraste mínimo de 4,5:1; prefira combinações de alta legibilid
             if document.post_type != post_type or (requested_slide_count is not None and len(document.slides) != requested_slide_count):
                 raise ValueError("post type or slide count does not match request")
             validate_authorized_assets(document, authorized_assets)
+            validate_post_contrast(document)
             return document
-        except (ValidationError, ValueError):
+        except (ValidationError, ValueError) as exc:
+            if str(exc) == "text contrast is insufficient":
+                logger.info("[metrics] event=structured_validation schema=2 outcome=failed reason=contrast")
             if attempt + 1 < _MAX_ATTEMPTS:
-                payload["retryFeedback"] = "A saída anterior não respeitou o schema ou os requisitos. Corrija e retorne somente JSON válido."
+                payload["retryFeedback"] = (
+                    "A saída anterior não respeitou o contrato ou o contraste mínimo de 4,5:1. "
+                    "Corrija ambos, use corner square em toda linha e retorne somente JSON válido."
+                )
     raise StructuredGenerationError("Não foi possível gerar um post estruturado válido.")

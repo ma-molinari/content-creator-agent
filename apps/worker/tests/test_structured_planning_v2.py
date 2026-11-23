@@ -60,6 +60,17 @@ def test_generation_retries_unauthorized_asset_then_fails(monkeypatch):
     assert json.loads(calls[0][1].content)["visualDirection"] is None
 
 
+def test_generation_retries_low_contrast_with_safe_feedback(monkeypatch):
+    invalid = raw_document()
+    invalid["palette"]["text"] = "#CCCCCC"
+    valid = raw_document()
+    calls = fake(monkeypatch, "app.structured_generation", [json.dumps(invalid), json.dumps(valid)])
+    result = asyncio.run(generate_structured_post_v2(request="Criar", profile_text="", post_type="single", authorized_assets=set()))
+    assert result.palette.text == "#000000"
+    assert len(calls) == 2
+    assert "4,5:1" in json.loads(calls[1][1].content)["retryFeedback"]
+
+
 def test_edit_with_direction_and_ordinary_edit_without_direction(monkeypatch):
     base = PostDocumentV2.model_validate(raw_document())
     operation = {"op": "insert_decoration", "slideId": "s1", "afterElementId": None,
