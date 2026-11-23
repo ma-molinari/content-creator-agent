@@ -84,7 +84,7 @@ de pixels, antialiasing ou acessibilidade em dispositivos.
 
 ## Pendências para aceite
 
-Melhorar a fidelidade visual e impedir a incorporação automática das referências,
-conforme decisão do responsável, e acordar metas de qualidade, custo,
+Melhorar a fidelidade visual após a correção da incorporação automática no fluxo
+estruturado, conforme decisão do responsável, e acordar metas de qualidade, custo,
 latência e falhas com base em medições. Concluir a reconciliação da T18 com S3
 real e ensaiar coleta e rollback no destino antes de ativar a V2 em tráfego.

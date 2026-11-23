@@ -62,6 +62,19 @@ func (p *StructuredWorkerPool) SupportsStructured(ctx context.Context) bool {
 	return true
 }
 
+// SupportsReferencePolicy requires every eligible worker to enforce reference separation.
+func (p *StructuredWorkerPool) SupportsReferencePolicy(ctx context.Context) bool {
+	if len(p.structured) == 0 {
+		return false
+	}
+	for _, worker := range p.structured {
+		if !worker.SupportsReferencePolicy(ctx) {
+			return false
+		}
+	}
+	return true
+}
+
 func (p *StructuredWorkerPool) DispatchJob(ctx context.Context, payload DispatchPayload) error {
 	if payload.PostFormat != "structured_v1" {
 		return p.legacy.DispatchJob(ctx, payload)

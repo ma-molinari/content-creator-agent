@@ -20,7 +20,8 @@ from app.visual_direction import VisualDirection
 _SYSTEM = """Interprete o pedido de edição e retorne somente JSON válido conforme o schema.
 Emita apenas operações necessárias ao pedido. Se ele for ambíguo ou não puder ser
 representado pelas operações disponíveis, retorne status=unsupported e uma lista vazia.
-Não use HTML, CSS ou URLs. Nunca altere a quantidade ou a ordem dos slides."""
+Não use HTML, CSS ou URLs. Nunca altere a quantidade ou a ordem dos slides.
+Para inserir uma imagem autorizada quando solicitada, use insert_image."""
 _MAX_ATTEMPTS = 3
 
 

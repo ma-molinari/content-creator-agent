@@ -86,3 +86,21 @@ func TestV2ProbeRejectsRedirectAndBadResponses(t *testing.T) {
 		server.Close()
 	}
 }
+
+func TestReferencePolicyRequiresEveryWorker(t *testing.T) {
+	var old atomic.Bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if old.Load() {
+			fmt.Fprint(w, `{"structuredPost":{"contractVersion":1}}`)
+		} else {
+			fmt.Fprint(w, `{"structuredPost":{"contractVersion":1,"referencePolicyVersion":1}}`)
+		}
+	}))
+	defer server.Close()
+	pool, err := NewStructuredWorkerPool(&legacyCapture{}, []string{server.URL}, "key")
+	require.NoError(t, err)
+	require.True(t, pool.SupportsReferencePolicy(context.Background()))
+	old.Store(true)
+	require.True(t, pool.SupportsStructured(context.Background()))
+	require.False(t, pool.SupportsReferencePolicy(context.Background()))
+}

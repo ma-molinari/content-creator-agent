@@ -1,5 +1,19 @@
 # Validação de fidelidade visual V2
 
+## Política de referências — 23/11/2026
+
+- O ensaio em Docker com LocalStack verificou criação sem incorporar a referência,
+  inclusão por solicitação explícita e preservação da imagem incorporada após a
+  remoção da referência original e uma edição posterior. A LLM foi simulada.
+- Com S3 e OpenAI reais, uma referência autorizada e carrossel estruturado,
+  os mesmos três cenários passaram; o histórico anterior também foi preservado.
+  As imagens e resultados do ensaio permanecem locais.
+- Em tentativas anteriores, a classificação de reaplicação foi acionada em uma
+  edição apenas textual e a extração visual retornou uma combinação inválida de
+  estado e cor. O primeiro caso foi corrigido e o prompt do segundo foi reforçado;
+  saídas inválidas continuam sendo rejeitadas, e a robustez da extração depende
+  do modelo. Estes testes não constituem aprovação da fidelidade visual.
+
 ## Integração — 23/11/2026
 
 - Suíte Go unitária e integração PostgreSQL completas; seleção transacional V1/V2,
@@ -38,8 +52,10 @@ no ambiente de destino; isso não constitui aceite operacional.
   `docs/avaliacoes/2026-11-23-fidelidade-v2/referencias-fornecidas.md`; originais e
   imagens geradas permanecem locais e não são publicados no repositório.
 - O responsável não aprovou a fidelidade visual e definiu que referências são
-  apenas orientação, salvo pedido explícito para incluí-las. O bloqueio da
-  incorporação automática ainda precisa ser implementado e validado.
+  apenas orientação, salvo pedido explícito para incluí-las. A política foi
+  implementada para o fluxo estruturado V1/V2 com seleção explícita, validação
+  posterior e preservação de imagens herdadas; os demais limites de composição e
+  o aceite visual continuam pendentes.
 - Definir metas operacionais e de qualidade com o responsável a partir das medições;
   exercitar coleta, rollout e rollback no ambiente de destino.
 - Concluir aceite operacional da T18 híbrida. A reconciliação com S3 real passou

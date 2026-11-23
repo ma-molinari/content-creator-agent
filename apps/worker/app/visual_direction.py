@@ -8,6 +8,7 @@ from collections import OrderedDict
 import hashlib
 import json
 import logging
+import re
 from threading import Lock
 from time import monotonic
 from typing import Literal
@@ -33,6 +34,8 @@ _cache_lock = Lock()
 _SYSTEM = """Analise somente as imagens fornecidas, sem inventar elementos não observados.
 Retorne apenas JSON conforme o schema. Use status uncertain para conflitos ou dúvidas,
 absent quando a cor não puder ser identificada, e observed apenas para evidência visual.
+Para cada cor, status observed exige value com hexadecimal RGB de seis dígitos;
+nos estados uncertain e absent, value deve ser null. Informe no máximo oito decorações.
 Não inclua textos das imagens, URLs, HTML nem CSS.
 """
 
@@ -75,6 +78,8 @@ class _ReapplyDecision(_StrictModel):
 
 
 async def requests_reference_reapplication(request: str) -> bool:
+    if not re.search(r"\brefer[êe]ncias?\b", request, re.IGNORECASE):
+        return False
     settings = get_settings()
     llm = ChatOpenAI(api_key=settings.openai_api_key, model=settings.openai_chat_model,
                      max_tokens=100, temperature=0)

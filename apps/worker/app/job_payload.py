@@ -24,6 +24,7 @@ class DispatchPayload(BaseModel):
     message_id: Optional[UUID] = None
     chat_post_type: Optional[str] = None
     authorized_asset_sources: Optional[dict[str, str]] = None
+    reference_asset_sources: Optional[dict[str, str]] = None
     raw_message: str = ""
     audit_text: str = ""
     brand_text: str = ""
@@ -72,6 +73,7 @@ def initial_state(payload: DispatchPayload) -> AgentState:
         "message_id": str(payload.message_id) if payload.message_id else "",
         "chat_post_type": payload.chat_post_type or "",
         "authorized_asset_sources": dict(payload.authorized_asset_sources or {}),
+        "reference_asset_sources": dict(payload.reference_asset_sources) if payload.reference_asset_sources is not None else None,
         "raw_message": payload.raw_message,
         "audit_text": payload.audit_text,
         "brand_text": payload.brand_text,

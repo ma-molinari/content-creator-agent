@@ -51,6 +51,7 @@ type Service struct {
 	profileSvc                *profile.Service
 	worker                    jobs.WorkerClient
 	structuredReady           func(context.Context) bool
+	referencePolicyReady      func(context.Context) bool
 	structuredEnabled         bool
 	visualV2Enabled           bool
 	visualV2MutationsDisabled bool
@@ -84,6 +85,10 @@ func (s *Service) ListChats(ctx context.Context, userID uuid.UUID) ([]db.Chat, e
 func (s *Service) ConfigureStructured(enabled bool, ready func(context.Context) bool) {
 	s.structuredEnabled = enabled
 	s.structuredReady = ready
+}
+
+func (s *Service) ConfigureReferencePolicy(ready func(context.Context) bool) {
+	s.referencePolicyReady = ready
 }
 
 // ConfigureVisualV2 enables selection separately from the structured chat format.

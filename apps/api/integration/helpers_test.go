@@ -111,6 +111,9 @@ func buildEcho(gdb *gorm.DB, cfg *config.Config, worker jobs.WorkerClient, stor 
 	if capable, ok := worker.(interface{ SupportsStructured(context.Context) bool }); ok {
 		chatSvc.ConfigureStructured(cfg.StructuredPostsEnabled, capable.SupportsStructured)
 	}
+	if capable, ok := worker.(interface{ SupportsReferencePolicy(context.Context) bool }); ok {
+		chatSvc.ConfigureReferencePolicy(capable.SupportsReferencePolicy)
+	}
 	if capable, ok := worker.(interface {
 		SupportsStructuredV2(context.Context, int) bool
 	}); ok {

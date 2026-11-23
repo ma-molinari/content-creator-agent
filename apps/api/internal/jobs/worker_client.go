@@ -21,6 +21,7 @@ var ErrDispatchOutcomeUnknown = errors.New("worker dispatch outcome unknown")
 // DispatchPayload is sent to POST {WORKER_URL}/jobs.
 type DispatchPayload struct {
 	AuthorizedAssetSources map[string]string     `json:"authorized_asset_sources,omitempty"`
+	ReferenceAssetSources  map[string]string     `json:"reference_asset_sources"`
 	PostFormat             string                `json:"post_format,omitempty"`
 	TargetSchemaVersion    *int                  `json:"target_schema_version,omitempty"`
 	GenerationMode         string                `json:"generation_mode,omitempty"`
@@ -147,10 +148,11 @@ func (c *HTTPWorkerClient) SupportsStructured(ctx context.Context) bool {
 }
 
 type structuredCapability struct {
-	ContractVersion      int   `json:"contractVersion"`
-	ReadSchemas          []int `json:"readSchemas"`
-	WriteSchemas         []int `json:"writeSchemas"`
-	DecorationOperations bool  `json:"decorationOperations"`
+	ContractVersion        int   `json:"contractVersion"`
+	ReadSchemas            []int `json:"readSchemas"`
+	WriteSchemas           []int `json:"writeSchemas"`
+	DecorationOperations   bool  `json:"decorationOperations"`
+	ReferencePolicyVersion int   `json:"referencePolicyVersion"`
 }
 
 func (c *HTTPWorkerClient) structuredCapability(ctx context.Context) (structuredCapability, bool) {
@@ -194,4 +196,9 @@ func containsSchema(versions []int, wanted int) bool {
 		}
 	}
 	return false
+}
+
+func (c *HTTPWorkerClient) SupportsReferencePolicy(ctx context.Context) bool {
+	capability, ok := c.structuredCapability(ctx)
+	return ok && capability.ContractVersion == 1 && capability.ReferencePolicyVersion == 1
 }

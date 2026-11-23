@@ -22,6 +22,7 @@ from app.state import AgentState
 from app.structured_editing import plan_structured_edit, plan_structured_edit_v2
 from app.structured_generation import generate_structured_post, generate_structured_post_v2
 from app.post_renderer_v2 import RENDERER_VERSION as RENDERER_VERSION_V2
+from app.reference_policy import ReferenceSelectionError, selected_references, validate_reference_usage
 from app.visual_direction import extract_visual_direction, requests_reference_reapplication
 from app.structured_render import render_structured_post
 from app.structured_upload import send_structured_completion, upload_structured_post
@@ -55,6 +56,18 @@ async def structured_pipeline(state: AgentState) -> dict[str, object]:
     started = monotonic()
     v2 = state.get("target_schema_version") == 2
     sources = dict(state.get("authorized_asset_sources") or {})
+    reference_sources = state.get("reference_asset_sources")
+    reference_keys = list(state.get("reference_s3_keys") or [])
+    if reference_sources is None and reference_keys:
+        raise ReferenceSelectionError("Atualize a API e o worker para usar as referências com segurança.")
+    references = dict(reference_sources or {})
+    selected = selected_references(state.get("raw_message") or "", references, reference_keys)
+    for asset_id, key in references.items():
+        if sources.get(asset_id) == key:
+            sources.pop(asset_id)
+    for asset_id in selected:
+        sources.setdefault(asset_id, references[asset_id])
+    base = None
     client = boto3.client("s3", region_name=settings.aws_region,
                           aws_access_key_id=settings.aws_access_key_id,
                           aws_secret_access_key=settings.aws_secret_access_key)
@@ -103,6 +116,7 @@ async def structured_pipeline(state: AgentState) -> dict[str, object]:
                                                   authorized_assets=set(sources), asset_requirements=requirements)
     else:
         raise ValueError("invalid structured generation mode")
+    validate_reference_usage(document, base, set(references), selected)
     _check_required_assets(document, requirements)
     await report_job_progress(state, stage="validating_attachments", progress=80)
     copied = await copy_version_assets(document, job_id=job_id, bucket=settings.aws_s3_bucket,

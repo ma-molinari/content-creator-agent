@@ -41,6 +41,16 @@ def test_all_edit_types(base):
     assert result.slides[0].elements[1].asset_id == "new"
 
 
+def test_insert_image_is_atomic_and_authorized(base):
+    operation = {"op": "insert_image", "slideId": "s1", "afterElementId": "title", "image":
+                 {"id": "ref-image", "type": "image", "assetId": "ref", "fit": "contain"}}
+    result = apply_operations(base, [operation], {"ref"})
+    assert [item.id for item in result.slides[0].elements] == ["title", "ref-image", "image"]
+    assert len(base.slides[0].elements) == 2
+    with pytest.raises(ValueError, match="authorized"):
+        apply_operations(base, [operation], set())
+
+
 @pytest.mark.parametrize("operations", [
     [],
     [{"op": "delete_slide", "slideId": "s1"}],

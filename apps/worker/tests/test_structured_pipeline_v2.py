@@ -82,7 +82,7 @@ def test_v1_to_v2_edit_keeps_original_and_inherited_asset_without_reference_fetc
     monkeypatch.setattr("app.structured_upload.post_complete_callback", callback)
     payload = DispatchPayload(job_id=new_job, user_id=user, chat_id=chat, post_format="structured_v1", target_schema_version=2,
         generation_mode="edit", base_version_id=uuid4(), document_s3_key=key, chat_post_type="single",
-        authorized_asset_sources={"asset1": source}, reference_s3_keys=["unavailable-reference"])
+        authorized_asset_sources={"asset1": source}, reference_s3_keys=["unavailable-reference"], reference_asset_sources={"ref": "unavailable-reference"})
     asyncio.run(build_graph().ainvoke(initial_state(payload)))
     new_prefix = f"slides/{new_job}/"
     result = json.loads(s3.objects[new_prefix + "document.json"][0])
@@ -115,7 +115,7 @@ def test_create_uses_references_and_unknown_callback_is_not_failed(monkeypatch):
     monkeypatch.setattr(mod + "upload_structured_post", AsyncMock(return_value=StructuredUpload("slides/key/document.json", [])))
     monkeypatch.setattr(mod + "send_structured_completion", AsyncMock(side_effect=StructuredCallbackUnknown("unknown")))
     payload = DispatchPayload(job_id=uuid4(), user_id=uuid4(), chat_id=uuid4(), post_format="structured_v1", target_schema_version=2,
-                              generation_mode="create", chat_post_type="single", reference_s3_keys=["reference"])
+                              generation_mode="create", chat_post_type="single", reference_s3_keys=["reference"], reference_asset_sources={"ref": "reference"})
     with pytest.raises(StructuredCallbackUnknown):
         asyncio.run(structured_pipeline(initial_state(payload)))
     assert extract.await_args.kwargs["reference_keys"] == ["reference"]

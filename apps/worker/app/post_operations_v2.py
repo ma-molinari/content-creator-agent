@@ -7,7 +7,7 @@ from typing_extensions import Self
 
 from app.post_document import Color, Identifier, _StrictModel
 from app.post_document_v2 import ColorRef, Decoration, PostDocumentV2, SolidBackgroundV2, TextStyleV2, validate_authorized_assets
-from app.post_operations import SetImage, SetLayout, SetText
+from app.post_operations import InsertImage, SetImage, SetLayout, SetText
 
 
 class SetPaletteColor(_StrictModel):
@@ -69,7 +69,7 @@ class SetTextStyleV2(_StrictModel):
         return self
 
 
-OperationV2 = Annotated[Union[SetText, SetImage, SetLayout, SetBackgroundV2, SetTextStyleV2,
+OperationV2 = Annotated[Union[SetText, SetImage, InsertImage, SetLayout, SetBackgroundV2, SetTextStyleV2,
                               SetPaletteColor, InsertDecoration, UpdateDecoration, RemoveDecoration],
                         Field(discriminator="op")]
 _adapter = TypeAdapter(Annotated[list[OperationV2], Field(min_length=1, max_length=100)])
@@ -91,6 +91,16 @@ def apply_operations_v2(document: PostDocumentV2, raw_operations: list[dict], au
             slide["background"] = operation.background.model_dump(mode="json", by_alias=True)
         elif isinstance(operation, SetLayout):
             slide["layout"] = operation.layout
+        elif isinstance(operation, InsertImage):
+            if operation.image.asset_id not in authorized_assets:
+                raise ValueError("image asset is not authorized")
+            if operation.after_element_id is None:
+                index = 0
+            else:
+                index = next((i + 1 for i, item in enumerate(slide["elements"]) if item["id"] == operation.after_element_id), -1)
+                if index < 0:
+                    raise ValueError("insertion target not found")
+            slide["elements"].insert(index, operation.image.model_dump(mode="json", by_alias=True))
         elif isinstance(operation, InsertDecoration):
             if operation.after_element_id is None:
                 index = 0

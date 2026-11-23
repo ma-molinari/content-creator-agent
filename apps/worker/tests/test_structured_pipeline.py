@@ -13,6 +13,10 @@ from app.job_payload import DispatchPayload, initial_state
 from app.nodes.structured_pipeline import structured_pipeline
 from app.post_document import PostDocumentV1
 from app.structured_upload import StructuredCallbackUnknown, StructuredUpload
+from app.post_document_v2 import promote_v1
+from app.reference_policy import ReferenceSelectionError
+from app.post_operations import apply_operations
+from app.post_operations_v2 import apply_operations_v2
 
 
 def make_document():
@@ -45,6 +49,91 @@ def test_create_runs_all_stages(monkeypatch):
     assert asyncio.run(structured_pipeline(initial_state(payload))) == {}
     assert callback.await_count == 1
     assert callback.await_args.kwargs["assistant_text"] == "Post criado."
+
+
+@pytest.mark.parametrize("target", [1, 2])
+@pytest.mark.parametrize("explicit", [False, True])
+def test_creation_exposes_reference_only_when_explicit(monkeypatch, target, explicit):
+    callback = setup(monkeypatch)
+    mod = "app.nodes.structured_pipeline."
+    raw = make_document().model_dump(mode="json", by_alias=True)
+    if explicit:
+        raw["slides"][0]["elements"].append({"id": "picture", "type": "image", "assetId": "ref-id", "fit": "contain"})
+    output = PostDocumentV1.model_validate(raw)
+    if target == 2:
+        output = promote_v1(output)
+        monkeypatch.setattr(mod + "extract_visual_direction", AsyncMock(return_value=None))
+    generator = AsyncMock(return_value=output)
+    monkeypatch.setattr(mod + ("generate_structured_post_v2" if target == 2 else "generate_structured_post"), generator)
+    payload = DispatchPayload(job_id=uuid4(), user_id=uuid4(), chat_id=uuid4(), post_format="structured_v1",
+        target_schema_version=target, generation_mode="create", chat_post_type="single",
+        raw_message="Inclua a imagem de referência no post" if explicit else "Use a referência como inspiração",
+        reference_s3_keys=["ref-key"], reference_asset_sources={"ref-id": "ref-key"},
+        authorized_asset_sources={"attachment-id": "attachment-key"})
+    asyncio.run(structured_pipeline(initial_state(payload)))
+    assert generator.await_args.kwargs["authorized_assets"] == ({"attachment-id", "ref-id"} if explicit else {"attachment-id"})
+    assert callback.await_count == 1
+
+
+@pytest.mark.parametrize("target", [1, 2])
+def test_creation_rejects_reference_even_if_generator_ignores_allowlist(monkeypatch, target):
+    callback = setup(monkeypatch)
+    mod = "app.nodes.structured_pipeline."
+    raw = make_document().model_dump(mode="json", by_alias=True)
+    raw["slides"][0]["elements"].append({"id": "picture", "type": "image", "assetId": "ref-id", "fit": "contain"})
+    output = PostDocumentV1.model_validate(raw)
+    if target == 2:
+        output = promote_v1(output)
+        monkeypatch.setattr(mod + "extract_visual_direction", AsyncMock(return_value=None))
+    monkeypatch.setattr(mod + ("generate_structured_post_v2" if target == 2 else "generate_structured_post"), AsyncMock(return_value=output))
+    payload = DispatchPayload(job_id=uuid4(), user_id=uuid4(), chat_id=uuid4(), post_format="structured_v1",
+        target_schema_version=target, generation_mode="create", chat_post_type="single", raw_message="Crie um post",
+        reference_s3_keys=["ref-key"], reference_asset_sources={"ref-id": "ref-key"})
+    with pytest.raises(ReferenceSelectionError):
+        asyncio.run(structured_pipeline(initial_state(payload)))
+    assert callback.await_count == 0
+
+
+def test_old_api_with_references_fails_closed(monkeypatch):
+    callback = setup(monkeypatch)
+    payload = DispatchPayload(job_id=uuid4(), user_id=uuid4(), chat_id=uuid4(), post_format="structured_v1",
+        generation_mode="create", chat_post_type="single", reference_s3_keys=["ref-key"],
+        authorized_asset_sources={"ref-id": "ref-key"})
+    with pytest.raises(ReferenceSelectionError, match="Atualize"):
+        asyncio.run(structured_pipeline(initial_state(payload)))
+    assert callback.await_count == 0
+
+
+@pytest.mark.parametrize("target", [1, 2])
+@pytest.mark.parametrize("explicit", [False, True])
+def test_edit_preserves_inherited_image_and_inserts_only_selected_reference(monkeypatch, target, explicit):
+    callback = setup(monkeypatch)
+    mod = "app.nodes.structured_pipeline."
+    raw = make_document().model_dump(mode="json", by_alias=True)
+    raw["slides"][0]["elements"].append({"id": "existing", "type": "image", "assetId": "ref-a", "fit": "contain"})
+    old = PostDocumentV1.model_validate(raw)
+    monkeypatch.setattr(mod + "fetch_bytes_limited", lambda *_args: old.model_dump_json(by_alias=True).encode())
+    monkeypatch.setattr(mod + "requests_reference_reapplication", AsyncMock(return_value=False))
+    async def planner(**kwargs):
+        op = ({"op": "insert_image", "slideId": "s", "afterElementId": "t", "image":
+               {"id": "new", "type": "image", "assetId": "ref-b", "fit": "contain"}} if explicit else
+              {"op": "set_text", "slideId": "s", "elementId": "t", "content": "Editado"})
+        return (apply_operations_v2 if target == 2 else apply_operations)(kwargs["document"], [op], kwargs["authorized_assets"])
+    monkeypatch.setattr(mod + ("plan_structured_edit_v2" if target == 2 else "plan_structured_edit"), planner)
+    payload = DispatchPayload(job_id=uuid4(), user_id=uuid4(), chat_id=uuid4(), post_format="structured_v1",
+        target_schema_version=target, generation_mode="edit", base_version_id=uuid4(),
+        document_s3_key=f"slides/{uuid4()}/document.json", chat_post_type="single",
+        raw_message="Inclua a segunda imagem de referência no post" if explicit else "Mude apenas o texto",
+        reference_s3_keys=["ref-a-key", "ref-b-key"], reference_asset_sources={"ref-a": "ref-a-key", "ref-b": "ref-b-key"},
+        authorized_asset_sources={"ref-a": f"slides/{uuid4()}/assets/ref-a.png"})
+    copied = AsyncMock(return_value=CopiedAssets({}, {}))
+    monkeypatch.setattr(mod + "copy_version_assets", copied)
+    asyncio.run(structured_pipeline(initial_state(payload)))
+    result = copied.await_args.args[0]
+    ids = [item.asset_id for item in result.slides[0].elements if item.type == "image"]
+    assert ids == (["ref-b", "ref-a"] if explicit else ["ref-a"])
+    assert copied.await_args.kwargs["authorized_sources"]["ref-a"] != "ref-a-key"
+    assert callback.await_count == 1
 
 
 def test_edit_reads_authorized_base(monkeypatch):

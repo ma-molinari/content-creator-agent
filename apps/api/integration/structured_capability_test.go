@@ -68,3 +68,33 @@ func TestStructuredCreationNegotiationAndRollback(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, db.PostFormatLegacy, newer.PostFormat)
 }
+
+func TestStructuredDispatchSeparatesVisualReferences(t *testing.T) {
+	env := newTestEnv(t, nil)
+	ctx := context.Background()
+	uid, referenceID := uuid.New(), uuid.New()
+	require.NoError(t, env.DB.Create(&db.User{ID: uid, Email: uuid.NewString() + "@test.invalid", PasswordHash: "hash", SecurityKeyHash: "hash"}).Error)
+	t.Cleanup(func() { env.DB.Delete(&db.User{}, "id = ?", uid) })
+	profiles := profile.NewRepository(env.DB)
+	require.NoError(t, profiles.Upsert(ctx, uid, "audit", "brand"))
+	referenceKey := "users/test/design-refs/reference.png"
+	require.NoError(t, env.DB.Create(&db.UserProfileReference{ID: referenceID, UserID: uid, S3Key: referenceKey}).Error)
+	profileSvc := profile.NewService(profiles, profile.NewReferencesRepository(env.DB), mockStorage{}, 8, 5*1024*1024)
+	worker := &captureStructuredWorker{}
+	svc := chat.NewService(chat.NewRepository(env.DB), jobs.NewRepository(env.DB), mockStorage{}, profiles, profileSvc, worker)
+	svc.ConfigureStructured(true, func(context.Context) bool { return true })
+	created, err := svc.CreateChatWithClient(ctx, uid, "single", true)
+	require.NoError(t, err)
+	svc.ConfigureReferencePolicy(func(context.Context) bool { return false })
+	_, err = svc.PostMessageWithOptions(ctx, uid, created.ID, "Crie usando o estilo das referências", nil, chat.MessageOptions{Mode: "create", ClientSupported: true})
+	require.ErrorIs(t, err, chat.ErrStructuredUnavailable)
+	var count int64
+	require.NoError(t, env.DB.Model(&db.Job{}).Where("chat_id = ?", created.ID).Count(&count).Error)
+	require.Zero(t, count)
+	svc.ConfigureReferencePolicy(func(context.Context) bool { return true })
+	_, err = svc.PostMessageWithOptions(ctx, uid, created.ID, "Crie usando o estilo das referências", nil, chat.MessageOptions{Mode: "create", ClientSupported: true})
+	require.NoError(t, err)
+	require.Equal(t, []string{referenceKey}, worker.payload.ReferenceS3Keys)
+	require.Equal(t, map[string]string{referenceID.String(): referenceKey}, worker.payload.ReferenceAssetSources)
+	require.NotContains(t, worker.payload.AuthorizedAssetSources, referenceID.String())
+}

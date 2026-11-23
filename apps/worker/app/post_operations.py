@@ -6,7 +6,7 @@ from typing import AbstractSet, Annotated, Literal, Union
 
 from pydantic import Field, TypeAdapter
 
-from app.post_document import Identifier, PostDocumentV1, SolidBackground, TextStyle, _StrictModel
+from app.post_document import Identifier, ImageElement, PostDocumentV1, SolidBackground, TextStyle, _StrictModel
 
 
 class SetText(_StrictModel):
@@ -43,7 +43,14 @@ class SetLayout(_StrictModel):
     layout: Literal["hero", "editorial", "quote"]
 
 
-Operation = Annotated[Union[SetText, SetBackground, SetTextStyle, SetImage, SetLayout], Field(discriminator="op")]
+class InsertImage(_StrictModel):
+    op: Literal["insert_image"]
+    slide_id: Identifier = Field(alias="slideId")
+    after_element_id: Identifier | None = Field(alias="afterElementId")
+    image: ImageElement
+
+
+Operation = Annotated[Union[SetText, SetBackground, SetTextStyle, SetImage, SetLayout, InsertImage], Field(discriminator="op")]
 _operations_adapter = TypeAdapter(Annotated[list[Operation], Field(min_length=1, max_length=100)])
 
 
@@ -60,6 +67,16 @@ def apply_operations(document: PostDocumentV1, raw_operations: list[dict], autho
             slide["background"] = operation.background.model_dump(mode="json", by_alias=True)
         elif isinstance(operation, SetLayout):
             slide["layout"] = operation.layout
+        elif isinstance(operation, InsertImage):
+            if operation.image.asset_id not in authorized_assets:
+                raise ValueError("image asset is not authorized")
+            if operation.after_element_id is None:
+                index = 0
+            else:
+                index = next((i + 1 for i, item in enumerate(slide["elements"]) if item["id"] == operation.after_element_id), -1)
+                if index < 0:
+                    raise ValueError("insertion target not found")
+            slide["elements"].insert(index, operation.image.model_dump(mode="json", by_alias=True))
         else:
             element = next((item for item in slide["elements"] if item["id"] == operation.element_id), None)
             if element is None:

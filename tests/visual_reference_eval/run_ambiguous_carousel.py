@@ -49,6 +49,7 @@ def main() -> None:
     parser.add_argument("--audit", default=AUDIT)
     parser.add_argument("--brand", default=BRAND)
     parser.add_argument("--prompt", default="Crie um carrossel de três slides sobre pausas curtas durante o trabalho.")
+    parser.add_argument("--validate-edits", action="store_true", help="Valida orientação, inclusão explícita e preservação na edição")
     args = parser.parse_args()
     parsed = urlparse(args.api_url)
     if parsed.scheme != "http" or parsed.hostname not in ("127.0.0.1", "localhost"):
@@ -71,6 +72,7 @@ def main() -> None:
     reference_ids = []
     active = False
     chat_id = job_id = None
+    job_ids = []
     with httpx.Client(base_url=args.api_url, timeout=30) as client:
         def request(method, path, **kwargs):
             for attempt in range(13):
@@ -98,6 +100,7 @@ def main() -> None:
             job = request("POST", f"/chats/{chat_id}/messages", headers=headers,
                           json={"content": args.prompt, "mode": "create"}).json()
             job_id = str(uuid.UUID(job["jobId"]))
+            job_ids.append(job_id)
             active = True
             for _ in range(100):
                 status = request("GET", f"/chats/{chat_id}/jobs/{job_id}/status", headers=headers).json()
@@ -121,13 +124,56 @@ def main() -> None:
                 (output / f"slide-{index}.jpeg").write_bytes(response.content)
             snapshot = json.loads(s3.get_object(Bucket=bucket, Key=f"slides/{job_id}/document.json")["Body"].read())
             (output / "documento.json").write_text(json.dumps(snapshot, ensure_ascii=False, indent=2) + "\n")
+            if args.validate_edits:
+                if not reference_ids:
+                    raise RuntimeError("O teste de edição exige ao menos uma referência")
+                image_ids = lambda doc: [e["assetId"] for slide in doc["slides"] for e in slide["elements"] if e["type"] == "image"]
+                if image_ids(snapshot):
+                    raise RuntimeError("A criação incorporou uma referência sem solicitação explícita")
+                original_job = job_id
+                original_bytes = s3.get_object(Bucket=bucket, Key=f"slides/{job_id}/document.json")["Body"].read()
+                current = result["currentVersionId"]
+
+                def edit(content):
+                    nonlocal active, job_id, current
+                    response = request("POST", f"/chats/{chat_id}/messages", headers=headers,
+                                       json={"content": content, "mode": "edit", "baseVersionId": current}).json()
+                    job_id = str(uuid.UUID(response["jobId"]))
+                    job_ids.append(job_id)
+                    active = True
+                    for _ in range(100):
+                        status = request("GET", f"/chats/{chat_id}/jobs/{job_id}/status", headers=headers).json()
+                        if status["status"] in ("done", "failed"):
+                            active = False
+                            if status["status"] == "failed":
+                                raise RuntimeError(f"Edição falhou: {status.get('errorCode')}")
+                            break
+                        time.sleep(6)
+                    if active:
+                        raise RuntimeError("Job ainda ativo; preserve a stack e investigue antes de removê-la")
+                    thread = request("GET", f"/chats/{chat_id}", headers=headers).json()
+                    current = thread["currentVersionId"]
+                    return json.loads(s3.get_object(Bucket=bucket, Key=f"slides/{job_id}/document.json")["Body"].read())
+
+                included = edit("Inclua a primeira imagem de referência no primeiro slide.")
+                if reference_ids[0] not in image_ids(included):
+                    raise RuntimeError("A imagem explicitamente solicitada não foi incluída")
+                (output / "documento-inclusao.json").write_text(json.dumps(included, ensure_ascii=False, indent=2) + "\n")
+                request("DELETE", f"/profile/references/{reference_ids.pop(0)}", headers=headers)
+                preserved = edit("Altere apenas o título do primeiro slide para: Aprenda a respeitar seus limites.")
+                if not set(image_ids(included)).issubset(image_ids(preserved)):
+                    raise RuntimeError("A edição não preservou a imagem já incorporada")
+                if s3.get_object(Bucket=bucket, Key=f"slides/{original_job}/document.json")["Body"].read() != original_bytes:
+                    raise RuntimeError("A versão original foi alterada")
+                (output / "documento-edicao.json").write_text(json.dumps(preserved, ensure_ascii=False, indent=2) + "\n")
+                print("Criação sem inclusão automática, inclusão explícita e preservação na edição validadas.", flush=True)
             print("Carrossel gerado e baixado.", flush=True)
         finally:
             if not active:
                 if chat_id:
                     request("DELETE", f"/chats/{chat_id}", headers=headers)
-                if job_id:
-                    objects = [{"Key": item["Key"]} for page in s3.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=f"slides/{job_id}/") for item in page.get("Contents", [])]
+                for completed_job in job_ids:
+                    objects = [{"Key": item["Key"]} for page in s3.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=f"slides/{completed_job}/") for item in page.get("Contents", [])]
                     if objects and s3.delete_objects(Bucket=bucket, Delete={"Objects": objects, "Quiet": True}).get("Errors"):
                         raise RuntimeError("Falha parcial na limpeza dos objetos do ensaio")
                 for reference_id in reference_ids:

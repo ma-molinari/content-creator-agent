@@ -34,6 +34,10 @@
 
 O fluxo `structured_v1` usa snapshots `document.json`, manifesto `assets.json` e cópias de imagens em `slides/{jobId}/assets/`, com escrita condicional. A API valida ownership e artefatos antes de publicar uma versão; a reconciliação de órfãos possui agendamento desativado por padrão. A flag `STRUCTURED_POSTS_ENABLED` controla novos chats estruturados e `STRUCTURED_WORKER_URLS` lista endereços diretos de workers compatíveis. Veja detalhes e limites em `docs/RUNBOOK.md`.
 
+Referências visuais do perfil são enviadas separadamente dos anexos e assets herdados: `reference_s3_keys` fornece a ordem para a análise visual e `reference_asset_sources` associa seus IDs às respectivas chaves. Por padrão elas não são incorporadas ao documento. Para incluir uma referência, o pedido deve identificá-la de forma explícita, por exemplo “Inclua a primeira imagem de referência no post” ou “Inclua ambas as referências”. Com várias referências e sem identificação, o job pede reformulação. O seletor reconhece essas formas conservadoras em português; outras formulações podem precisar ser reformuladas. Edições preservam imagens já existentes na versão base, inclusive após a remoção da referência original.
+
+A API só aceita um job estruturado com referências se todos os workers diretos anunciarem `referencePolicyVersion: 1`. O worker novo rejeita jobs com referências de uma API antiga que não forneça a separação; durante a implantação, mantenha API e workers compatíveis para evitar indisponibilidade temporária. A capacidade não altera o comportamento do fluxo legado HTML.
+
 ## AI / LLM — Slide Generation (Worker)
 
 **Serviço:** OpenAI no worker. `OPENAI_CHAT_MODEL` e `REFERENCE_VISION_MODEL` usam `gpt-5.4` por padrão. No fluxo legado, o grafo analisa referências e anexos, planeja e gera ou edita um pacote JSON com HTML por slide. No fluxo estruturado experimental, gera um documento tipado ou operações de edição. Os prompts ficam em `apps/worker/prompts/`; a implementação está em `apps/worker/app/nodes/` e `graph.py`.

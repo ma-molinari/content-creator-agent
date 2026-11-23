@@ -46,8 +46,9 @@ intermediárias que foram recuperadas por retentativa. O p95 de duração dos jo
 medidos. Falta validar o coletor e o rollout/rollback no ambiente de destino.
 
 O responsável não aprovou a fidelidade visual e decidiu que referências servem
-apenas como orientação, salvo pedido explícito de inclusão. A geração atual ainda
-permite incorporá-las automaticamente; a correção dessa divergência está pendente.
+apenas como orientação, salvo pedido explícito de inclusão. A correção posterior
+separa essas fontes no fluxo estruturado; as imagens deste relatório foram geradas
+antes dela e não devem ser apresentadas como evidência do comportamento corrigido.
 A V2 não deve ser ativada em tráfego
 antes do aceite visual e operacional, da definição de metas e da conclusão da T18
 híbrida. O sucesso dos jobs não demonstra reprodução fiel das referências.

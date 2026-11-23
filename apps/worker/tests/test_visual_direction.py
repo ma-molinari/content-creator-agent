@@ -108,6 +108,11 @@ def test_reference_reapplication_requires_unambiguous_decision(monkeypatch, deci
     monkeypatch.setattr(module, "ChatOpenAI", LLM)
     if expected is None:
         with pytest.raises(module.VisualDirectionError, match="Reformule"):
-            asyncio.run(module.requests_reference_reapplication("pedido ambíguo"))
+            asyncio.run(module.requests_reference_reapplication("referências ambíguas"))
     else:
-        assert asyncio.run(module.requests_reference_reapplication("pedido")) is expected
+        assert asyncio.run(module.requests_reference_reapplication("use as referências")) is expected
+
+
+def test_text_only_edit_does_not_call_reference_classifier(monkeypatch):
+    monkeypatch.setattr(module, "ChatOpenAI", lambda **_kwargs: pytest.fail("unexpected model call"))
+    assert not asyncio.run(module.requests_reference_reapplication("Altere apenas o texto do primeiro slide."))

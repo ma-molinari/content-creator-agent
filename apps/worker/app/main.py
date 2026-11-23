@@ -20,6 +20,7 @@ from app.state import AgentState
 from app.structured_upload import StructuredCallbackUnknown
 from app.structured_editing import StructuredEditingError
 from app.visual_direction import VisualDirectionError
+from app.reference_policy import ReferenceSelectionError
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +82,8 @@ async def _run_job(state: AgentState) -> None:
             return
         if isinstance(exc, StructuredEditingError):
             await report_job_failure(job_uuid, "Não foi possível aplicar a edição. Reformule o pedido.", error_code="EDIT_UNSUPPORTED")
+        elif isinstance(exc, ReferenceSelectionError):
+            await report_job_failure(job_uuid, str(exc), error_code="REFERENCE_SELECTION_REQUIRED")
         elif isinstance(exc, VisualDirectionError):
             await report_job_failure(job_uuid, str(exc), error_code="VISUAL_REFERENCE_ERROR")
         elif state.get("post_format") == "structured_v1":
@@ -145,7 +148,7 @@ def _require_worker_key(raw_key: Optional[str]) -> None:
 @app.get("/capabilities")
 def capabilities(x_worker_api_key: Optional[str] = Header(default=None, alias="X-Worker-API-Key")):
     _require_worker_key(x_worker_api_key)
-    return {"structuredPost": {"contractVersion": 1, "readSchemas": [1, 2], "writeSchemas": [1, 2], "decorationOperations": True}}
+    return {"structuredPost": {"contractVersion": 1, "readSchemas": [1, 2], "writeSchemas": [1, 2], "decorationOperations": True, "referencePolicyVersion": 1}}
 
 
 def _accept_job(payload: DispatchPayload, background_tasks: BackgroundTasks) -> dict[str, object]:

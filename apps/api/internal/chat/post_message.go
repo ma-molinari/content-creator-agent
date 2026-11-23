@@ -229,6 +229,31 @@ func (s *Service) PostMessageWithOptions(ctx context.Context, userID, chatID uui
 			return nil, err
 		}
 	}
+	var referenceSources map[string]string
+	if chatRow.PostFormat == db.PostFormatStructuredV1 {
+		referenceSources = make(map[string]string)
+		if s.profileSvc != nil {
+			referenceSources, err = s.profileSvc.ListReferenceSources(ctx, userID)
+			if err != nil {
+				return nil, err
+			}
+			keys := make(map[string]bool, len(refKeys))
+			for _, key := range refKeys {
+				keys[key] = true
+			}
+			if len(referenceSources) != len(refKeys) {
+				return nil, ErrStructuredUnavailable
+			}
+			for _, key := range referenceSources {
+				if !keys[key] {
+					return nil, ErrStructuredUnavailable
+				}
+			}
+		}
+	}
+	if chatRow.PostFormat == db.PostFormatStructuredV1 && len(refKeys) > 0 && (s.referencePolicyReady == nil || !s.referencePolicyReady(ctx)) {
+		return nil, ErrStructuredUnavailable
+	}
 	userMsg := &db.ChatContent{
 		ID:      uuid.New(),
 		ChatID:  chatID,
@@ -333,17 +358,6 @@ func (s *Service) PostMessageWithOptions(ctx context.Context, userID, chatID uui
 	var authorizedSources map[string]string
 	if job.PostFormat == db.PostFormatStructuredV1 {
 		authorizedSources = make(map[string]string)
-		if s.profileSvc != nil {
-			refs, err := s.profileSvc.ListReferenceSources(ctx, userID)
-			if err != nil {
-				msg := "Não foi possível obter as referências do perfil."
-				_, _ = s.jobsRepo.FailIfActive(ctx, job.ID, msg)
-				return nil, err
-			}
-			for id, key := range refs {
-				authorizedSources[id] = key
-			}
-		}
 		for _, attachment := range knownChatAtts {
 			authorizedSources[attachment.ID.String()] = attachment.S3Key
 		}
@@ -367,6 +381,7 @@ func (s *Service) PostMessageWithOptions(ctx context.Context, userID, chatID uui
 	}
 	payload := jobs.DispatchPayload{
 		AuthorizedAssetSources: authorizedSources,
+		ReferenceAssetSources:  referenceSources,
 		PostFormat:             string(job.PostFormat),
 		TargetSchemaVersion:    job.TargetSchemaVersion,
 		GenerationMode:         options.Mode,

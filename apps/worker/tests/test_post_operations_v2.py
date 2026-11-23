@@ -67,6 +67,15 @@ def test_thirteen_elements_rejected_without_removing_content(base):
     assert len(full.slides[0].elements) == 12
 
 
+def test_insert_image_requires_authorization(base):
+    operation = {"op": "insert_image", "slideId": "s1", "afterElementId": "title", "image":
+                 {"id": "new-image", "type": "image", "assetId": "ref", "fit": "contain"}}
+    result = apply_operations_v2(base, [operation], {"ref"})
+    assert result.slides[0].elements[1].asset_id == "ref"
+    with pytest.raises(ValueError, match="authorized"):
+        apply_operations_v2(base, [operation], set())
+
+
 def test_structurally_valid_operation_cannot_prove_user_intent(base):
     # The planner can still choose a valid operation that misinterprets a request.
     result = apply_operations_v2(base, [{"op": "set_text", "slideId": "s1", "elementId": "title", "content": "Outro texto"}], set())
