@@ -105,9 +105,11 @@ Para o ensaio visual e E2E com serviços externos, seguir os procedimentos opt-i
 
 **Pronto quando:**
 
-- [ ] Tokens e literais são resolvidos; barras/linhas usam somente medidas aprovadas, respeitam ordem, safe area e limites, sem HTML/CSS da LLM nem sobreposição arbitrária.
-- [ ] Contraste segue a política aprovada e não altera campos não autorizados; quando não for possível preservar o pedido, falha claramente antes de publicar. Emitir eventos categorizados de contraste, overflow e renderização, sem conteúdo privado. Renderer V1 mantém seu comportamento e HTML/JPEG antigos não são regravados.
-- [ ] Testes com Chromium/fontes fixadas verificam HTML/JPEG, dimensões, clipping, casos limite, imagem herdada e consistência com snapshot, incluindo V1 promovido sem exigir igualdade universal de pixels.
+- [x] Tokens e literais são resolvidos; barras/linhas usam somente medidas aprovadas, respeitam ordem, safe area e limites, sem HTML/CSS da LLM nem sobreposição arbitrária.
+- [x] Contraste segue a política aprovada e não altera campos não autorizados; quando não for possível preservar o pedido, falha claramente antes de publicar. Emitir eventos categorizados de contraste, overflow e renderização, sem conteúdo privado. Renderer V1 mantém seu comportamento e HTML/JPEG antigos não são regravados.
+- [x] Testes com Chromium/fontes fixadas verificam HTML/JPEG, dimensões, clipping, casos limite, imagem herdada e consistência com snapshot, incluindo V1 promovido sem exigir igualdade universal de pixels.
+
+**Validação:** 46 testes de renderer e Chromium passaram no Docker em 23/11/2026, com fonte local de teste.
 
 **Verificar:** suíte de renderer e testes de browser do worker. **Commit:** `feat(worker): renderizar destaques visuais v2`.
 

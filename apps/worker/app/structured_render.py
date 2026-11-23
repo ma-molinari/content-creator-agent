@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import logging
 from typing import Mapping
 from urllib.parse import urlsplit
 
@@ -11,12 +12,15 @@ from playwright.async_api import Route, async_playwright
 from app.nodes.contrast_fix import _CONTRAST_FIX_JS
 from app.post_document import ImageElement, PostDocumentV1, TextElement
 from app.post_renderer import render_post
+from app.post_document_v2 import PostDocumentV2
+from app.post_renderer_v2 import render_post_v2
 from app.slide_asset_wait import wait_for_slide_images
 from app.slide_design_checks import collect_design_violations
 from app.state import RenderedSlide, SlideItem
 
 _ALLOWED_HOSTS = frozenset({"fonts.googleapis.com", "fonts.gstatic.com"})
 _FONT_NAMES = {"plus_jakarta_sans": "Plus Jakarta Sans", "inter": "Inter"}
+logger = logging.getLogger(__name__)
 
 
 async def _allow_font_route(route: Route) -> None:
@@ -43,9 +47,16 @@ def _image_data_url(data: bytes) -> str:
 
 
 async def render_structured_post(
-    document: PostDocumentV1, authorized_assets: Mapping[str, bytes],
+    document: PostDocumentV1 | PostDocumentV2, authorized_assets: Mapping[str, bytes],
 ) -> tuple[list[SlideItem], list[RenderedSlide]]:
-    slides = render_post(document, set(authorized_assets))
+    is_v2 = isinstance(document, PostDocumentV2)
+    try:
+        slides = render_post_v2(document, set(authorized_assets)) if is_v2 else render_post(document, set(authorized_assets))
+    except ValueError as exc:
+        if is_v2:
+            reason = "contrast" if str(exc) == "text contrast is insufficient" else "validation"
+            logger.info("event=structured_render schema=2 outcome=failed reason=%s", reason)
+        raise
     used_asset_ids = {item.asset_id for slide in document.slides for item in slide.elements if isinstance(item, ImageElement)}
     image_urls = {key: _image_data_url(authorized_assets[key]) + f"#asset-{key}" for key in used_asset_ids}
     fixed_slides: list[SlideItem] = []
@@ -57,6 +68,8 @@ async def render_structured_post(
                 html = slide["html"]
                 violations = collect_design_violations(html)
                 if violations:
+                    if is_v2:
+                        logger.info("event=structured_render schema=2 outcome=failed reason=validation")
                     raise ValueError("structured slide failed static design validation")
                 inline_html = html
                 references: dict[str, str] = {}
@@ -80,27 +93,36 @@ async def render_structured_post(
                         return true;
                     }""", fonts)
                     if not fonts_ok:
+                        if is_v2:
+                            logger.info("event=structured_render schema=2 outcome=failed reason=font")
                         raise ValueError("required font unavailable")
                     await wait_for_slide_images(page)
-                    clipped = await page.evaluate("""() => {
+                    clipped = await page.evaluate("""safeArea => {
                         const main = document.querySelector('main');
                         const bounds = main.getBoundingClientRect();
+                        const style = getComputedStyle(main);
+                        const left = bounds.left + (safeArea ? parseFloat(style.paddingLeft) : 0);
+                        const right = bounds.right - (safeArea ? parseFloat(style.paddingRight) : 0);
+                        const top = bounds.top + (safeArea ? parseFloat(style.paddingTop) : 0);
+                        const bottom = bounds.bottom - (safeArea ? parseFloat(style.paddingBottom) : 0);
                         return [...main.querySelectorAll('.element')].some(el => {
                             const box = el.getBoundingClientRect();
                             const style = getComputedStyle(el);
                             const clipsX = style.overflowX !== 'visible';
                             const clipsY = style.overflowY !== 'visible';
-                            return box.left < bounds.left || box.top < bounds.top ||
-                                box.right > bounds.right || box.bottom > bounds.bottom ||
+                            return box.left < left - 1 || box.top < top - 1 ||
+                                box.right > right + 1 || box.bottom > bottom + 1 ||
                                 (el.scrollWidth > el.clientWidth + 1 &&
-                                    (clipsX || box.left + el.scrollWidth > bounds.right + 1)) ||
+                                    (clipsX || box.left + el.scrollWidth > right + 1)) ||
                                 (el.scrollHeight > el.clientHeight + 1 &&
-                                    (clipsY || box.top + el.scrollHeight > bounds.bottom + 1));
+                                    (clipsY || box.top + el.scrollHeight > bottom + 1));
                         });
-                    }""")
+                    }""", is_v2)
                     if clipped:
+                        if is_v2:
+                            logger.info("event=structured_render schema=2 outcome=failed reason=overflow")
                         raise ValueError("slide content exceeds canvas")
-                    result = await page.evaluate(_CONTRAST_FIX_JS)
+                    result = await page.evaluate(_CONTRAST_FIX_JS) if not is_v2 else None
                     fixed_html = await page.content() if result and result.get("hadViolations") else html
                     for data_url, reference in references.items():
                         fixed_html = fixed_html.replace(data_url, reference)
@@ -111,4 +133,6 @@ async def render_structured_post(
                     await page.close()
         finally:
             await browser.close()
+    if is_v2:
+        logger.info("event=structured_render schema=2 outcome=success slides=%d", len(images))
     return fixed_slides, images
