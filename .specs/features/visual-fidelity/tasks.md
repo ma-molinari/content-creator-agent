@@ -153,9 +153,11 @@ Para o ensaio visual e E2E com serviços externos, seguir os procedimentos opt-i
 
 **Pronto quando:**
 
-- [ ] Geração V2 recebe paleta/direção validada e schema correspondente; V1 continua com contrato atual. A direção é orientação, não promessa de reproduzir literalmente a referência.
-- [ ] Edição V2 recebe a base promovida quando aplicável e as operações da T05; só recebe direção das referências atuais quando o pedido exigir reaplicá-las. Pedido não representável retorna erro de reformulação.
-- [ ] Testes verificam payloads sem segredos, limites, assets, ausência de referência, retentativa limitada e preservação; uma fixture determinística com barra observada gera operação/documento correspondente.
+- [x] Geração V2 recebe paleta/direção validada e schema correspondente; V1 continua com contrato atual. A direção é orientação, não promessa de reproduzir literalmente a referência.
+- [x] Edição V2 recebe a base promovida quando aplicável e as operações da T05; só recebe direção das referências atuais quando o pedido exigir reaplicá-las. Pedido não representável retorna erro de reformulação.
+- [x] Testes verificam payloads sem segredos, limites, assets, ausência de referência, retentativa limitada e preservação; uma fixture determinística com barra observada gera operação/documento correspondente.
+
+**Validação:** 23 testes de geração, edição e operações com LLM simulada passaram no Docker em 23/11/2026.
 
 **Verificar:** testes de geração e edição do worker com LLM simulada. **Commit:** `feat(worker): planejar criação e edição visual v2`.
 

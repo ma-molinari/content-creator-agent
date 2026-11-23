@@ -12,6 +12,8 @@ from pydantic import ValidationError
 from app.config import get_settings
 from app.llm_messages import langchain_message_text
 from app.post_document import ImageElement, PostDocumentV1
+from app.post_document_v2 import PostDocumentV2, validate_authorized_assets
+from app.visual_direction import VisualDirection
 
 _SYSTEM = """Crie um documento JSON para um post do Instagram seguindo o schema fornecido.
 Use somente os IDs de imagem autorizados. Não produza HTML, CSS ou URLs.
@@ -56,6 +58,35 @@ async def generate_structured_post(
             return document
         except (ValidationError, ValueError):
             # Do not send validation details that could include user content back to logs or clients.
+            if attempt + 1 < _MAX_ATTEMPTS:
+                payload["retryFeedback"] = "A saída anterior não respeitou o schema ou os requisitos. Corrija e retorne somente JSON válido."
+    raise StructuredGenerationError("Não foi possível gerar um post estruturado válido.")
+
+
+async def generate_structured_post_v2(
+    *, request: str, profile_text: str, post_type: str, authorized_assets: AbstractSet[str],
+    visual_direction: VisualDirection | None = None, requested_slide_count: int | None = None,
+    asset_requirements: list[dict[str, object]] | None = None,
+) -> PostDocumentV2:
+    settings = get_settings()
+    llm = ChatOpenAI(api_key=settings.openai_api_key, model=settings.openai_chat_model,
+                     max_tokens=settings.generate_slides_max_tokens_cap)
+    payload: dict[str, Any] = {
+        "request": request, "profile": profile_text, "postType": post_type,
+        "requestedSlideCount": requested_slide_count, "authorizedAssetIds": sorted(authorized_assets),
+        "assetRequirements": asset_requirements or [], "schema": PostDocumentV2.model_json_schema(by_alias=True),
+        "visualDirection": visual_direction.model_dump(mode="json") if visual_direction else None,
+    }
+    system = _SYSTEM + "\nA direção visual é orientação aproximada. Não trate detalhes incertos como observados."
+    for attempt in range(_MAX_ATTEMPTS):
+        response = await llm.ainvoke([SystemMessage(content=system), HumanMessage(content=json.dumps(payload, ensure_ascii=False))])
+        try:
+            document = PostDocumentV2.model_validate_json(langchain_message_text(response))
+            if document.post_type != post_type or (requested_slide_count is not None and len(document.slides) != requested_slide_count):
+                raise ValueError("post type or slide count does not match request")
+            validate_authorized_assets(document, authorized_assets)
+            return document
+        except (ValidationError, ValueError):
             if attempt + 1 < _MAX_ATTEMPTS:
                 payload["retryFeedback"] = "A saída anterior não respeitou o schema ou os requisitos. Corrija e retorne somente JSON válido."
     raise StructuredGenerationError("Não foi possível gerar um post estruturado válido.")
