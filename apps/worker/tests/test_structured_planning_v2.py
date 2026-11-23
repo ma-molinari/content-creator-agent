@@ -47,6 +47,7 @@ def test_create_with_observed_bar_and_validated_direction(monkeypatch):
     assert payload["visualDirection"]["decorations"][0]["position"] == "top"
     assert result.slides[0].elements[0].kind == "bar"
     assert "secret-not-in-payload" not in calls[0][1].content
+    assert "corner deve ser square" in calls[0][0].content
 
 
 def test_generation_retries_unauthorized_asset_then_fails(monkeypatch):

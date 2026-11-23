@@ -88,7 +88,7 @@ async def plan_structured_edit_v2(
                "schema": EditPlanV2.model_json_schema(by_alias=True)}
     if visual_direction:
         payload["visualDirection"] = visual_direction.model_dump(mode="json")
-    system = _SYSTEM + "\nAltere tokens compartilhados somente quando o pedido autorizar todos os efeitos. Preserve campos não solicitados. Em set_text_style forneça o estilo completo anterior com apenas as alterações solicitadas."
+    system = _SYSTEM + "\nAltere tokens compartilhados somente quando o pedido autorizar todos os efeitos. Preserve campos não solicitados. Em set_text_style forneça o estilo completo anterior com apenas as alterações solicitadas. Linhas exigem corner square; rounded só é permitido em barras."
     for attempt in range(_MAX_ATTEMPTS):
         response = await llm.ainvoke([SystemMessage(content=system), HumanMessage(content=json.dumps(payload, ensure_ascii=False))])
         try:

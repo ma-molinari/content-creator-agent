@@ -77,7 +77,12 @@ async def generate_structured_post_v2(
         "assetRequirements": asset_requirements or [], "schema": PostDocumentV2.model_json_schema(by_alias=True),
         "visualDirection": visual_direction.model_dump(mode="json") if visual_direction else None,
     }
-    system = _SYSTEM + "\nA direção visual é orientação aproximada. Não trate detalhes incertos como observados."
+    system = _SYSTEM + """
+A direção visual é orientação aproximada. Não trate detalhes incertos como observados.
+Em cada decoração do tipo line, corner deve ser square; rounded é permitido somente em bar.
+Use no máximo quatro decorações e doze elementos por slide. As cores do texto e do fundo
+devem manter contraste mínimo de 4,5:1; prefira combinações de alta legibilidade.
+"""
     for attempt in range(_MAX_ATTEMPTS):
         response = await llm.ainvoke([SystemMessage(content=system), HumanMessage(content=json.dumps(payload, ensure_ascii=False))])
         try:
