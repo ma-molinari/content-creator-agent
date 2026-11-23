@@ -9,7 +9,7 @@ Este plano usa as seções do TDD como identificadores de requisitos, sem criar 
 
 Antes de implementar, leia a seção do TDD indicada, inspecione os arquivos e testes existentes e preserve os formatos `legacy_html` e `structured_v1`. `postFormat` continua identificando a família de fluxo; `schemaVersion` identifica o documento. O TDD é proposta, não comportamento já entregue.
 
-**Decisões e gates:** T01 fecha medidas de barras/linhas, política de contraste, tratamento de referências conflitantes, limite de cache e operação de inserção com o responsável. Protótipos exploratórios fora das tarefas podem ser preparados antes desse fechamento, mas as dependências abaixo bloqueiam o início formal das tarefas dependentes e não permitem congelar contrato/renderer ou ativar V2. A T18 da geração híbrida e o aceite visual e operacional são pré-requisitos de ativação, não de desenvolvimento ou testes isolados. Não inventar metas de negócio nem tratar amostras sintéticas como aceite de marca real.
+**Decisões e gates:** T01 fecha medidas de barras/linhas, política de contraste, tratamento de referências conflitantes, limite de cache e operação de inserção com o responsável. Protótipos exploratórios fora das tarefas podem ser preparados antes desse fechamento, mas as dependências abaixo bloqueiam o início formal das tarefas dependentes e não permitem congelar contrato/renderer ou ativar V2. A T01 deve entregar amostras concretas para revisão antes de solicitar o aceite. A T18 da geração híbrida e o aceite visual e operacional são pré-requisitos de ativação, não de desenvolvimento ou testes isolados. Não inventar metas de negócio nem tratar amostras sintéticas como aceite de marca real.
 
 ## Dependências e execução
 
@@ -28,7 +28,7 @@ T13 → T14
 T18 híbrida + aceite operacional → ativação de V2
 ```
 
-O diagrama é resumido; as listas **Dependências** de cada tarefa são autoritativas. T03, T04, T05, T06 e T09 podem ser preparadas em paralelo após seus respectivos gates, coordenando as fixtures e módulos em comum. T10 não habilita seleção de V2. T08 não anuncia capacidade V2 até T11. T12 só habilita a seleção mediante flag e negociação; a flag permanece desligada por padrão. Uma cadeia longa é T01 → T02 → T05 → T07 → T08 → T11 → T12 → T13 → T14; o diagrama não estima duração.
+O diagrama é resumido; as listas **Dependências** de cada tarefa são autoritativas. Os gates de aceite humano da T01 bloqueiam a conclusão e o início formal das tarefas dependentes, mas um contrato ou protótipo explicitamente provisório pode ser preparado fora delas para tornar a revisão concreta. T03, T04, T05, T06 e T09 podem ser preparadas em paralelo após seus respectivos gates, coordenando as fixtures e módulos em comum. T10 não habilita seleção de V2. T08 não anuncia capacidade V2 até T11. T12 só habilita a seleção mediante flag e negociação; a flag permanece desligada por padrão. Uma cadeia longa é T01 → T02 → T05 → T07 → T08 → T11 → T12 → T13 → T14; o diagrama não estima duração.
 
 ## Comandos-base de validação
 
@@ -66,14 +66,14 @@ Para o ensaio visual e E2E com serviços externos, seguir os procedimentos opt-i
 ### T02 — Documento V2 e promoção determinística [P]
 
 **Objetivo:** definir o contrato Python V2, fixtures compartilhadas e conversão V1→V2 sem mutar a origem.  
-**Contexto:** `apps/worker/app/post_document.py`, `tests/fixtures/structured_documents.json`, `apps/worker/tests/test_contract_parity.py`; TDD §5.2. A promoção mantém cores literais, inicializa tokens conforme o TDD e não cria decorações.  
+**Contexto:** `apps/worker/app/post_document.py`, `tests/fixtures/structured_documents.json`, `apps/worker/tests/test_contract_parity.py`; TDD §5.2. Os consumidores atuais das fixtures validam V1: criar um arquivo V2 separado, por exemplo `tests/fixtures/structured_documents_v2.json`, sem adicionar casos V2 ao conjunto consumido pelo validador V1. A promoção mantém cores literais, inicializa tokens conforme o TDD e não cria decorações.
 **Dependências:** T01. **TDD:** §§4–5.2, 9.
 
 **Pronto quando:**
 
 - [ ] Schema fechado aceita paleta, referência de token ou hexadecimal e `decoration` nos enums; rejeita extras, campos ambíguos, IDs inválidos/duplicados, mais de quatro decorações ou 12 elementos e limites V1 violados. A validação contextual também rejeita assets não autorizados.
 - [ ] Conversão preserva IDs, ordem, conteúdo, estilos e assets, inclusive documentos com múltiplos slides, sem texto ou com 12 elementos; resolve defaults de V1 antes da conversão e inicializa tokens conforme o TDD.
-- [ ] Fixtures compartilhadas têm casos válidos e inválidos V1/V2, sem alterar a aceitação V1. Nenhuma rota de produção passa a gerar V2 nesta tarefa.
+- [ ] Fixtures V2 compartilháveis têm casos válidos e inválidos, enquanto o arquivo e os consumidores V1 continuam passando sem alterações incompatíveis. A T03 conectará o consumidor Go às novas fixtures. Nenhuma rota de produção passa a gerar V2 nesta tarefa.
 
 **Verificar:** testes do schema e fixtures no worker; preparar os casos para a paridade Go da T03. **Commit:** `feat(worker): definir contrato visual v2`.
 
@@ -85,8 +85,8 @@ Para o ensaio visual e E2E com serviços externos, seguir os procedimentos opt-i
 
 **Pronto quando:**
 
-- [ ] Validador V2 rejeita cores/tokens inválidos, objetos com campos extras, enums/combinações inválidos, limites excedidos e IDs de assets inválidos; retorna o conjunto de IDs usados para verificação contextual de manifesto e autorização na publicação.
-- [ ] Go e Python consomem as mesmas fixtures válidas e inválidas, inclusive casos de JSON estrito, e V1 permanece inalterado.
+- [ ] Validador V2 rejeita cores/tokens inválidos, objetos com campos extras, enums/combinações inválidos, limites excedidos e IDs de assets inválidos; retorna o conjunto de IDs para comparar com o manifesto na publicação. Não tratar sintaxe, igualdade de IDs ou prefixo do job como prova da origem autorizada dos bytes.
+- [ ] Go e Python consomem as mesmas fixtures V2 válidas e inválidas, inclusive casos de JSON estrito; os consumidores e fixtures V1 permanecem funcionais.
 - [ ] O validador existe sem permitir publicação V2 por jobs V1 ou callback antigo; a integração com schema alvo fica na T10.
 
 **Verificar:** testes unitários Go e paridade Python com fixtures compartilhadas. **Commit:** `feat(api): validar documento visual v2`.
@@ -100,7 +100,7 @@ Para o ensaio visual e E2E com serviços externos, seguir os procedimentos opt-i
 **Pronto quando:**
 
 - [ ] Tokens e literais são resolvidos; barras/linhas usam somente medidas aprovadas, respeitam ordem, safe area e limites, sem HTML/CSS da LLM nem sobreposição arbitrária.
-- [ ] Contraste segue a política aprovada e não altera campos não autorizados; quando não for possível preservar o pedido, falha claramente antes de publicar. Renderer V1 mantém seu comportamento e HTML/JPEG antigos não são regravados.
+- [ ] Contraste segue a política aprovada e não altera campos não autorizados; quando não for possível preservar o pedido, falha claramente antes de publicar. Emitir eventos categorizados de contraste, overflow e renderização, sem conteúdo privado. Renderer V1 mantém seu comportamento e HTML/JPEG antigos não são regravados.
 - [ ] Testes com Chromium/fontes fixadas verificam HTML/JPEG, dimensões, clipping, casos limite, imagem herdada e consistência com snapshot, incluindo V1 promovido sem exigir igualdade universal de pixels.
 
 **Verificar:** suíte de renderer e testes de browser do worker. **Commit:** `feat(worker): renderizar destaques visuais v2`.
@@ -127,9 +127,9 @@ Para o ensaio visual e E2E com serviços externos, seguir os procedimentos opt-i
 
 **Pronto quando:**
 
-- [ ] A saída tem schema fechado para paleta, barras/linhas e estado observado/incerto; dados inválidos ou referências indisponíveis/parciais seguem a falha clara do TDD, sem tratar confiança do modelo como certeza.
+- [ ] A saída tem schema fechado para paleta, barras/linhas e estado observado/incerto; dados inválidos ou referências indisponíveis/parciais seguem a falha clara do TDD, sem tratar confiança do modelo como certeza. Registrar duração, resultado e motivo categorizado da extração, sem conteúdo privado.
 - [ ] Cache é delimitado e isolado por usuário, identidade/ordem das imagens e versão de schema/prompt/modelo; se usar textos do perfil, inclui esses insumos. Falhas e saídas incompletas não são cacheadas como sucesso.
-- [ ] Sem referências, criação pode usar o perfil; reanálise explícita sem referências falha claramente. Edição V2 independente não depende das referências originais, desde que seus assets herdados existam e sejam autorizados.
+- [ ] Sem referências, criação pode usar o perfil; reanálise explícita sem referências falha claramente. O contrato isolado permite edição V2 independente sem consultar as referências originais; a ligação efetiva do grafo e dos assets herdados é responsabilidade da T08.
 
 **Verificar:** testes de visão simulada, falhas de S3, mais de oito referências, cache/isolamento, alteração de perfil e ausência de conteúdo sensível nos logs. **Commit:** `feat(worker): estruturar direção visual`.
 
@@ -156,8 +156,8 @@ Para o ensaio visual e E2E com serviços externos, seguir os procedimentos opt-i
 **Pronto quando:**
 
 - [ ] Dispatch V2 exige alvo explícito, modo e base coerentes em rota dedicada; o endpoint V1 preserva compatibilidade V1 e o worker novo rejeita alvo V2 explícito nesse endpoint. Não publicar capacidade V2 antes da T11.
-- [ ] O pipeline escolhe V1/V2 por alvo, carrega o snapshot correto, promove quando exigido, copia assets autorizados, usa renderer adequado e publica JSON/manifesto/HTML/JPEG imutáveis com schema e renderer efetivos.
-- [ ] Callback repetido ou resposta incerta segue a política atual de idempotência e reconciliação; falhas de validação ou upload não publicam versão e não excluem artefatos cujo estado seja desconhecido.
+- [ ] O pipeline escolhe V1/V2 por alvo, carrega o snapshot correto, promove quando exigido, copia assets autorizados, usa renderer adequado e publica JSON/manifesto/HTML/JPEG imutáveis com schema e renderer efetivos. Ajustar o grafo: hoje `profile_overview` roda antes da escolha estruturada; edição V2 comum não pode buscar/analisar referências atuais antes de decidir se deve reaplicá-las. V1 conserva o caminho atual.
+- [ ] Callback repetido ou resposta incerta segue a política atual de idempotência e reconciliação; falhas de validação ou upload não publicam versão e não excluem artefatos cujo estado seja desconhecido. Emitir eventos categorizados de execução e quantidade de decorações sem prompts, imagens ou referências.
 
 **Verificar:** testes do payload, rotas, pipeline, upload e callback do worker, com S3/LLM simulados e Chromium quando necessário. **Commit:** `feat(worker): executar pipeline visual v2`.
 
@@ -169,8 +169,8 @@ Para o ensaio visual e E2E com serviços externos, seguir os procedimentos opt-i
 
 **Pronto quando:**
 
-- [ ] Migração aditiva e modelo persistem alvo V1/V2 para jobs estruturados novos; jobs estruturados anteriores ou criados por binários antigos sem alvo são interpretados como V1, inclusive em callback tardio. Jobs legados não exigem alvo estruturado.
-- [ ] Persistência do alvo participa da criação transacional do job; não altera snapshots, versões ou ponteiros existentes e não habilita V2 por si só.
+- [ ] Migração aditiva e modelo suportam alvo V1/V2. O código novo registra alvo V1 nos jobs estruturados existentes; alvo V2 é exercitado em testes, mas sua seleção só chega na T12. Jobs estruturados anteriores ou criados por binários antigos sem alvo são interpretados como V1, inclusive em callback tardio. Jobs legados não exigem alvo estruturado.
+- [ ] Persistência do alvo participa da criação transacional do job; caminhos do código novo registram V1, enquanto inserções sem alvo de binários antigos continuam compatíveis. A seleção V2 fica na T12. Não altera snapshots, versões ou ponteiros existentes e não habilita V2 por si só.
 - [ ] Testes em PostgreSQL cobrem dados pré-migração, jobs antigos em voo, novos alvos e integridade/rollback não destrutivo da aplicação; não propor remover a migration enquanto houver dados V2.
 
 **Verificar:** migrations e testes de repositório/integração com PostgreSQL. **Commit:** `feat(api): persistir schema alvo do job`.
@@ -183,9 +183,9 @@ Para o ensaio visual e E2E com serviços externos, seguir os procedimentos opt-i
 
 **Pronto quando:**
 
-- [ ] Antes da primeira publicação, API exige schema do callback igual ao alvo do job, valida o documento correspondente, renderer, manifesto, assets, propriedade e prefixo; alvo ausente histórico significa V1.
+- [ ] Antes da primeira publicação, API exige schema do callback igual ao alvo do job, valida documento, renderer, correspondência entre IDs e manifesto, existência/prefixo dos objetos e vínculo job/chat; alvo ausente histórico significa V1. A autorização das fontes é verificada no dispatch e no worker; o manifesto sob o prefixo do job, isoladamente, não comprova a origem dos bytes. Se o desenho exigir comprovação independente no callback, persistir e validar autorização/proveniência do job como mudança explícita e compatível, não supor que ela já existe.
 - [ ] Concorrência, condição de base nula, nova raiz, callback repetido/resposta perdida e conflitos preservam a semântica atual. Repetição já concluída não cria versão adicional nem reprocessa artefatos.
-- [ ] Rejeições V2 não movem versão corrente nem removem objetos em resultado incerto; V1 e legado passam regressão. Nenhum novo caminho de seleção V2 é ativado nesta tarefa.
+- [ ] Rejeições V2 não movem versão corrente nem removem objetos em resultado incerto; V1 e legado passam regressão. Os eventos terminais preservam idempotência e informam schema/renderer, resultado e motivo categorizado sem dados privados. Nenhum novo caminho de seleção V2 é ativado nesta tarefa.
 
 **Verificar:** unitários e integração Go/PostgreSQL de conclusão, artefatos e concorrência. **Commit:** `feat(api): publicar versões visuais v2`.
 
@@ -199,7 +199,7 @@ Para o ensaio visual e E2E com serviços externos, seguir os procedimentos opt-i
 
 - [ ] Workers novos anunciam leitura/escrita por versão e operações gráficas sem quebrar consumidores V1; campos ausentes significam somente V1. A API verifica todos os destinos diretos que poderão receber o job.
 - [ ] V2 usa exclusivamente a rota dedicada, mesmo que um worker antigo ignore campos extras; a rota valida alvo e não existe fallback para rota V1. Edição V1→V2 exige leitura V1/escrita V2; V2→V2 exige leitura/escrita V2.
-- [ ] Testes cobrem workers antigos/novos, ausência/erro/redirect, alteração após probe e resultado desconhecido; preservar semântica de rejeição explícita versus timeout/5xx no dispatch.
+- [ ] Testes cobrem workers antigos/novos, ausência/erro/redirect, alteração após probe e resultado desconhecido; preservar semântica de rejeição explícita versus timeout/5xx no dispatch. Disponibilidade e incompatibilidade de capacidade são observáveis sem registrar respostas sensíveis.
 
 **Verificar:** testes de pool, capability, endpoint e dispatch V1/V2. **Commit:** `feat: negociar capacidades visuais v2`.
 
@@ -212,7 +212,7 @@ Para o ensaio visual e E2E com serviços externos, seguir os procedimentos opt-i
 **Pronto quando:**
 
 - [ ] Criação estruturada usa V1 com flag V2 desligada e V2 com flag ligada/capacidade; edição V1 é promovida com flag ligada e permanece V1 com flag desligada. Edição de base V2 continua V2 após desligar a flag e exige capacidade V2.
-- [ ] A base e o alvo são capturados atomicamente no aceite e despachados ao destino verificado; ausência de capacidade bloqueia a mutação, sem downgrade. Nova criação explícita V1 após base V2 é nova raiz, não conversão, e continua sujeita a conflito.
+- [ ] A base e o alvo são capturados atomicamente no aceite e despachados a um dos mesmos destinos diretos verificados; ausência de capacidade antes da mutação bloqueia o job, sem downgrade. Uma alteração de disponibilidade após o probe ainda pode falhar no dispatch e segue a semântica de resultado confirmado ou desconhecido. Nova criação explícita V1 após base V2 é nova raiz, não conversão, e continua sujeita a conflito.
 - [ ] A flag V2 não habilita novos chats estruturados por si; erros para o usuário não expõem conteúdo. É possível bloquear explicitamente mutações V2 em incidente, preservando leitura/download.
 
 **Verificar:** testes de configuração e integração HTTP/PostgreSQL para matriz da seção 7 do TDD e corridas de aceite/conclusão. **Commit:** `feat(api): controlar ativação visual v2`.
@@ -225,7 +225,7 @@ Para o ensaio visual e E2E com serviços externos, seguir os procedimentos opt-i
 
 **Pronto quando:**
 
-- [ ] Integração cobre criação V2, edição V1→V2 e V2→V2, edição textual sem referência original, aplicação explícita de referência indisponível e preservação de snapshots/assets/versões anteriores.
+- [ ] Integração cobre criação V2, edição V1→V2 e V2→V2, edição textual sem referência original, aplicação explícita de referência indisponível e preservação de snapshots/assets/versões anteriores. Exercitar bloqueio de fontes de outro usuário no dispatch/worker e conferir manifesto, existência e prefixo no callback, sem confundir essas garantias com prova independente de proveniência dos bytes.
 - [ ] Duas edições concorrentes, primeira criação com base nula, nova raiz, callbacks fora de ordem/repetidos ou resposta perdida, falha parcial de upload e worker incompatível preservam atomicidade e limpeza segura.
 - [ ] E2E cobre histórico/download V1/V2/legado e rollback após V2 publicado, inclusive cliente existente e bloqueio seguro quando capacidade V2 faltar; não usa API antiga para confiar na proteção V2.
 
@@ -240,7 +240,7 @@ Para o ensaio visual e E2E com serviços externos, seguir os procedimentos opt-i
 **Pronto quando:**
 
 - [ ] Fixture determinística para barra no topo verifica cor/posição resolvidas no HTML/JPEG; amostras com/sem referências incluem os dois exemplos anteriores, referências ambíguas, carrossel e marca real autorizada. Evidências distinguem o snapshot do resultado renderizado.
-- [ ] Responsável revisa fidelidade, contraste e legibilidade; metas de custo, latência, falhas e qualidade são acordadas com base em medições, sem inferência estatística de amostra pequena. Limitações, referência ausente e resultados são documentados.
+- [ ] Responsável revisa fidelidade, contraste e legibilidade; metas de custo, latência, falhas e qualidade são acordadas com base em medições, sem inferência estatística de amostra pequena. Implementar ou adaptar a agregação dos eventos categorizados de extração, validação, renderização, publicação e capacidade; verificar contagens, duração e ausência de conteúdo privado. Limitações, referência ausente e resultados são documentados.
 - [ ] Runbook descreve flags, capacidade V1/V2, métricas, tratamento de órfãos e rollback seguro sem API antiga desprotegida; rollout/rollback e coleta são ensaiados no destino. Não habilitar tráfego antes da T18 e do aceite operacional.
 
 **Verificar:** ensaio visual em Docker e ambiente controlado com S3 real, testes de observabilidade e revisão do responsável. **Commit:** `docs: registrar aceite visual v2`.
