@@ -41,7 +41,7 @@ O LocalStack 3.8.1 foi iniciado no Docker com bucket `postmind-local`. Foram ver
 
 ## Jornada pela interface com AWS S3 e LLM reais — 2026-11-23
 
-- Em stack Docker isolada, a interface apresentou a tela de cadastro e criou uma conta descartável até a confirmação de salvamento da chave de segurança. A aprovação automática recusou a confirmação porque não havia evidência de salvamento; essa etapa do cadastro não foi concluída pela interface.
+- Em stack Docker isolada, o cadastro chegou à confirmação da chave de segurança. Na primeira tentativa, a aprovação automática recusou a confirmação porque não havia evidência de salvamento. Em nova conta descartável, o responsável salvou e confirmou a chave; a interface abriu a tela de login, e o login com a conta recém-criada passou, exibindo o bloqueio esperado até configurar o perfil.
 - Com outra conta sintética criada pela API, passaram o login, o bloqueio antes de configurar o perfil, o preenchimento e salvamento de exemplos de marca e a liberação do chat.
 - A interface criou e editou um post único e um carrossel de três slides; exibiu versões anterior e atual e listou ambos no histórico. O ZIP do carrossel continha três JPEGs de 1080×1350. Na edição, a comparação dos snapshots confirmou alteração apenas no conteúdo do título do primeiro slide; os demais slides permaneceram idênticos.
 - API, worker, frontend e PostgreSQL rodaram em Docker com S3 e LLM reais. Os dados eram sintéticos e os objetos, o ZIP e a stack do teste foram removidos. A aprovação visual com marca real permanece pendente.
