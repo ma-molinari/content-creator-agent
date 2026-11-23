@@ -1,0 +1,9 @@
+referencia,amostra,fundo,deltaE_fundo,titulo,deltaE_titulo,menor_deltaE_acento_texto,alinhamento_titulo,layout,contraste_titulo,menor_contraste_texto,assets_incorporados
+roxo,controle-1,#F4F1EA,93.4,#1F2937,84.4,101.7,center,quote,13.01,4.29,0
+roxo,controle-2,#F4F1EA,93.4,#1F2937,84.4,93.3,center,quote,13.01,4.85,0
+roxo,roxo-1,#2A1041,2.0,#F7F7F4,3.2,12.3,left,editorial,15.67,14.58,0
+roxo,roxo-2,#2B1245,1.1,#F7F7F4,3.2,9.3,left,editorial,15.34,14.35,0
+claro,controle-1,#F4F1EA,4.0,#1F2937,20.6,82.0,center,quote,13.01,4.29,0
+claro,controle-2,#F4F1EA,4.0,#1F2937,20.6,89.6,center,quote,13.01,4.85,0
+claro,claro-1,#F7EEDD,3.7,#173B72,8.0,106.1,center,editorial,9.57,9.57,0
+claro,claro-2,#F7EEDD,3.7,#173B72,8.0,106.1,center,editorial,9.57,9.57,0

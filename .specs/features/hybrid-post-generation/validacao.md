@@ -60,6 +60,12 @@ O LocalStack 3.8.1 foi iniciado no Docker com bucket `postmind-local`. Foram ver
 - O job concluiu, com snapshot e manifesto estruturados no S3 e JPEG disponível em 1080×1350. O manifesto não continha imagens incorporadas neste ensaio: a referência foi usada como contexto textual, e o resultado não comprova reprodução visual exata.
 - Chat, referência e objetos sintéticos foram removidos, assim como a stack descartável. O ambiente de teste do usuário e o volume reservado à reconciliação foram preservados.
 
+## Ensaio comparativo de referências visuais — 2026-11-23
+
+- Foram geradas duas amostras de controle e duas para cada uma de duas referências sintéticas, com mesmo pedido e textos de perfil. O fluxo híbrido usou S3 e LLM reais em Docker isolado.
+- A referência roxa influenciou paleta e alinhamento nas duas amostras. Com a referência clara, fundo e texto azul ficaram próximos, mas o destaque laranja não foi usado. A composição e as barras das referências não foram reproduzidas.
+- Comparativo visual, imagens, medições e limitações estão em `docs/avaliacoes/2026-11-23-referencias-visuais/README.md`. O ensaio não substitui validação com marca real ou define metas de qualidade.
+
 ## Protocolo S3 simulado
 
 A suíte Go completa passou com PostgreSQL em Docker, incluindo o cliente AWS SDK da API contra um endpoint HTTP simulado. O teste percorreu duas páginas, recebeu uma resposta de exclusão parcialmente malsucedida e retomou a limpeza preservando objetos recentes e referenciados. O simulador valida esse contrato específico, sem substituir um teste com AWS S3 real.

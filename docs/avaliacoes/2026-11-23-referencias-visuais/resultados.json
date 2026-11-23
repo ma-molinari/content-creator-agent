@@ -1,0 +1,184 @@
+[
+  {
+    "condition": "controle",
+    "sample": 1,
+    "layout": "quote",
+    "background": "#F4F1EA",
+    "textStyles": [
+      {
+        "role": "heading",
+        "color": "#1F2937",
+        "size": "large",
+        "font": "plus_jakarta_sans",
+        "weight": "bold",
+        "alignment": "center"
+      },
+      {
+        "role": "body",
+        "color": "#374151",
+        "size": "medium",
+        "font": "inter",
+        "weight": "regular",
+        "alignment": "center"
+      },
+      {
+        "role": "cta",
+        "color": "#6B7280",
+        "size": "small",
+        "font": "plus_jakarta_sans",
+        "weight": "medium",
+        "alignment": "center"
+      }
+    ],
+    "embeddedAssetCount": 0
+  },
+  {
+    "condition": "controle",
+    "sample": 2,
+    "layout": "quote",
+    "background": "#F4F1EA",
+    "textStyles": [
+      {
+        "role": "heading",
+        "color": "#1F2937",
+        "size": "large",
+        "font": "plus_jakarta_sans",
+        "weight": "bold",
+        "alignment": "center"
+      },
+      {
+        "role": "body",
+        "color": "#374151",
+        "size": "medium",
+        "font": "inter",
+        "weight": "regular",
+        "alignment": "center"
+      },
+      {
+        "role": "cta",
+        "color": "#0F766E",
+        "size": "small",
+        "font": "plus_jakarta_sans",
+        "weight": "medium",
+        "alignment": "center"
+      }
+    ],
+    "embeddedAssetCount": 0
+  },
+  {
+    "condition": "roxo",
+    "sample": 1,
+    "layout": "editorial",
+    "background": "#2A1041",
+    "textStyles": [
+      {
+        "role": "heading",
+        "color": "#F7F7F4",
+        "size": "large",
+        "font": "plus_jakarta_sans",
+        "weight": "medium",
+        "alignment": "left"
+      },
+      {
+        "role": "body",
+        "color": "#F7F7F4",
+        "size": "medium",
+        "font": "inter",
+        "weight": "regular",
+        "alignment": "left"
+      },
+      {
+        "role": "caption",
+        "color": "#D7FF1F",
+        "size": "small",
+        "font": "inter",
+        "weight": "medium",
+        "alignment": "left"
+      }
+    ],
+    "embeddedAssetCount": 0
+  },
+  {
+    "condition": "roxo",
+    "sample": 2,
+    "layout": "editorial",
+    "background": "#2B1245",
+    "textStyles": [
+      {
+        "role": "heading",
+        "color": "#F7F7F4",
+        "size": "large",
+        "font": "inter",
+        "weight": "medium",
+        "alignment": "left"
+      },
+      {
+        "role": "body",
+        "color": "#F7F7F4",
+        "size": "medium",
+        "font": "inter",
+        "weight": "regular",
+        "alignment": "left"
+      },
+      {
+        "role": "caption",
+        "color": "#D9FF2F",
+        "size": "small",
+        "font": "inter",
+        "weight": "medium",
+        "alignment": "left"
+      }
+    ],
+    "embeddedAssetCount": 0
+  },
+  {
+    "condition": "claro",
+    "sample": 1,
+    "layout": "editorial",
+    "background": "#F7EEDD",
+    "textStyles": [
+      {
+        "role": "heading",
+        "color": "#173B72",
+        "size": "large",
+        "font": "plus_jakarta_sans",
+        "weight": "bold",
+        "alignment": "center"
+      },
+      {
+        "role": "body",
+        "color": "#173B72",
+        "size": "medium",
+        "font": "plus_jakarta_sans",
+        "weight": "medium",
+        "alignment": "center"
+      }
+    ],
+    "embeddedAssetCount": 0
+  },
+  {
+    "condition": "claro",
+    "sample": 2,
+    "layout": "editorial",
+    "background": "#F7EEDD",
+    "textStyles": [
+      {
+        "role": "heading",
+        "color": "#173B72",
+        "size": "large",
+        "font": "plus_jakarta_sans",
+        "weight": "bold",
+        "alignment": "center"
+      },
+      {
+        "role": "body",
+        "color": "#173B72",
+        "size": "medium",
+        "font": "plus_jakarta_sans",
+        "weight": "medium",
+        "alignment": "center"
+      }
+    ],
+    "embeddedAssetCount": 0
+  }
+]
