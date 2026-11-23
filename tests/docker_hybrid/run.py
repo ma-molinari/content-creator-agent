@@ -252,6 +252,12 @@ def main():
                 result = subprocess.run(["docker", "logs", names["api"]], check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 return (result.stdout + result.stderr).splitlines()
             assert summarize(api_logs())["jobs"]["structured_v1"]["done"] >= 1
+            worker_output = subprocess.run(["docker", "logs", names["worker"]], check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            visual_metrics = summarize((worker_output.stdout + worker_output.stderr).splitlines())["visual_v2"]
+            assert visual_metrics["structured_validation"]["outcomes"]["success"] >= 1
+            assert visual_metrics["structured_render"]["outcomes"]["success"] >= 1
+            assert visual_metrics["structured_publication"]["outcomes"]["success"] >= 1
+            assert visual_metrics["visual_direction"]["reasons"]["fetch"] >= 1
             def callback_stats():
                 output = docker("exec", names["proxy"], "python", "-c", "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8081/__rehearsal/stats').read().decode())")
                 return json.loads(output)

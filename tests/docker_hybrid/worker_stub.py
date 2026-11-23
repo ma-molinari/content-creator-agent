@@ -2,6 +2,7 @@
 import asyncio
 import base64
 import importlib
+import logging
 from pathlib import Path
 
 import boto3
@@ -15,6 +16,8 @@ from app.post_document import PostDocumentV1
 from app.post_operations import apply_operations
 from app.post_document_v2 import PostDocumentV2, promote_v1
 from app.post_operations_v2 import apply_operations_v2
+
+logging.basicConfig(level=logging.INFO)
 
 pipeline = importlib.import_module("app.nodes.structured_pipeline")
 render = importlib.import_module("app.structured_render")

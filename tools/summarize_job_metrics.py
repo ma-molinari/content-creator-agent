@@ -7,6 +7,9 @@ import sys
 
 FORMATS = ("legacy_html", "structured_v1")
 OUTCOMES = ("done", "failed", "conflict")
+VISUAL_EVENTS = ("visual_direction", "structured_validation", "structured_render", "structured_publication", "structured_execution", "worker_capability")
+VISUAL_OUTCOMES = ("success", "failed", "conflict", "unknown", "unavailable")
+VISUAL_REASONS = ("fetch", "model", "schema", "contrast", "validation", "font", "overflow", "execution")
 
 
 def summarize(lines):
@@ -15,6 +18,9 @@ def summarize(lines):
     watchdog = {"done_runs": 0, "failed_runs": 0, "jobs": 0}
     reconcile_fields = ("inventories", "failed_jobs", "prefixes", "pages", "listed_objects", "reference_queries", "delete_calls", "attempted_objects")
     reconcile = {"done_runs": 0, "failed_runs": 0, **{name: 0 for name in reconcile_fields}, "durations": []}
+    visual = {name: {"outcomes": {outcome: 0 for outcome in VISUAL_OUTCOMES},
+                     "reasons": {reason: 0 for reason in VISUAL_REASONS}, "durations": [], "decorations": 0}
+              for name in VISUAL_EVENTS}
     for line in lines:
         if "[metrics] " not in line:
             continue
@@ -25,6 +31,24 @@ def summarize(lines):
                 fields[key] = value
         event = fields.get("event")
         outcome = fields.get("outcome")
+        if event in VISUAL_EVENTS and outcome in VISUAL_OUTCOMES:
+            if fields.get("schema", fields.get("schema_version")) != "2":
+                continue
+            try:
+                duration = int(fields["duration_ms"]) if "duration_ms" in fields else None
+                decorations = int(fields.get("decorations", "0"))
+                if (duration is not None and duration < 0) or decorations < 0:
+                    continue
+            except ValueError:
+                continue
+            item = visual[event]
+            item["outcomes"][outcome] += 1
+            if fields.get("reason") in VISUAL_REASONS:
+                item["reasons"][fields["reason"]] += 1
+            item["decorations"] += decorations
+            if duration is not None:
+                item["durations"].append(duration)
+            continue
         if event == "job_terminal" and fields.get("format") in FORMATS and outcome in OUTCOMES:
             try:
                 duration = int(fields["duration_ms"])
@@ -70,7 +94,10 @@ def summarize(lines):
         item["duration_p95_ms"] = durations[math.ceil(len(durations) * 0.95) - 1] if durations else None
     durations = sorted(reconcile.pop("durations"))
     reconcile["duration_p95_ms"] = durations[math.ceil(len(durations) * 0.95) - 1] if durations else None
-    return {"jobs": jobs, "cleanup": cleanup, "watchdog": watchdog, "reconcile": reconcile}
+    for item in visual.values():
+        durations = sorted(item.pop("durations"))
+        item["duration_p95_ms"] = durations[math.ceil(len(durations) * 0.95) - 1] if durations else None
+    return {"jobs": jobs, "cleanup": cleanup, "watchdog": watchdog, "reconcile": reconcile, "visual_v2": visual}
 
 
 if __name__ == "__main__":

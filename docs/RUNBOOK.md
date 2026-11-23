@@ -80,6 +80,25 @@ Não há workflow de CI versionado neste repositório. Consulte `docs/TESTING.md
 
 `STRUCTURED_POSTS_ENABLED` é `false` por padrão. Não habilite a flag em produção antes da validação e aceitação previstas na T18. Quando habilitada, novos chats de clientes compatíveis podem usar o formato estruturado; desabilitar a flag preserva a edição dos chats estruturados existentes.
 
+O schema visual V2 tem controle separado: `STRUCTURED_VISUAL_V2_ENABLED=false` por
+padrão. Não o habilite em tráfego antes da T18, do ensaio de fidelidade com marca
+real e do aceite operacional. Com a flag ligada, novas criações estruturadas e
+edições de bases V1 usam V2 quando todos os destinos anunciam as capacidades
+necessárias. Desligá-la volta novas criações e edições V1 para V1, mas mantém
+edições de bases V2 em V2; não converte versões existentes. A flag não cria chats
+estruturados por si. Para bloquear todas as mutações V2 durante incidente, inclusive
+edições de bases V2, use `STRUCTURED_VISUAL_V2_MUTATIONS_DISABLED=true`; leitura e
+download continuam disponíveis.
+
+Antes de qualquer escrita V2, atualize **todas** as réplicas da API que possam
+receber callbacks e todos os workers elegíveis, aplique as migrations aditivas e
+verifique leitura e escrita V2 em cada destino direto. A rota V2 é
+`/jobs/structured/v2`; não a substitua pela rota V1. Para rollback, desabilite a
+flag, drene os jobs e mantenha a API e os workers novos compatíveis com leitura e
+edição V2. Não volte para uma API antiga que não valida o alvo do callback nem
+remova migrations ou snapshots V2. Se houver jobs ou versões V2, a migration 019
+recusa o rollback destrutivo.
+
 Configure `STRUCTURED_WORKER_URLS` com uma lista separada por vírgulas, contendo um endereço direto e estável para cada réplica elegível; não use endereços balanceados nem redirecionamentos. A API consulta `/capabilities` em todos os destinos antes da mutação e distribui os jobs entre esses mesmos endereços usando `/jobs/structured`. Uma lista vazia ou uma réplica incompatível impede operações estruturadas; mudanças na disponibilidade após a verificação ainda podem causar falha no dispatch. Mantenha a lista atualizada e as réplicas compatíveis durante o rollout. `WORKER_URL` continua responsável pelo tráfego legado. Clientes compatíveis informam `X-Post-Client-Version: 1`. Para editar chats estruturados existentes após desligar a flag, a lista e os workers compatíveis devem permanecer disponíveis.
 
 Os eventos `[metrics] event=job_terminal` incluem IDs do job e chat, etapa, formato, resultado, código e duração em milissegundos; para versões estruturadas concluídas, incluem versões do schema e renderizador; callbacks idempotentes não geram uma segunda contagem. `[metrics] event=artifact_cleanup` informa o resultado e a quantidade tentada por lote, sem nomes de objetos. Tentativas repetidas podem contar novamente o mesmo objeto. Os eventos são logs, não uma série de métricas agregada: falhas confirmadas antes ou durante o dispatch também geram `job_terminal`; o watchdog gera um `job_terminal` por job encerrado, com formato e duração, além de `stuck_job_cleanup` com contagem agregada.
@@ -89,6 +108,21 @@ Para validar uma agregação local dos eventos sem exibir IDs ou conteúdo, a pa
 ```powershell
 docker compose logs --since 24h api | python tools/summarize_job_metrics.py
 ```
+
+Para incluir os eventos V2 emitidos pelo worker na mesma agregação:
+
+```powershell
+docker compose logs --since 24h api worker | python tools/summarize_job_metrics.py
+```
+
+O campo `visual_v2` agrega extração, validação, renderização, publicação,
+execução e disponibilidade de capacidade por resultado e motivo permitido, além
+de p95 para eventos que informam duração e total de decorações reportadas. O
+tempo de publicação mede o pipeline até o callback, não apenas o envio. Eventos
+sem duração não entram no p95; cache, retentativas e múltiplas etapas podem gerar
+mais de um evento por job. A ferramenta descarta campos fora da lista conhecida e
+não agrega prompts, imagens, URLs, IDs ou textos. Ela não mede custo da LLM;
+obtenha esse dado na telemetria autorizada do provedor e valide a coleta no destino.
 
 O resumo conta resultados e calcula p95 de duração por formato, além de contar tentativas de limpeza e execuções do watchdog. Os eventos `artifact_reconcile` também informam inventários, jobs, prefixos, páginas, objetos listados, consultas de referência, chamadas de exclusão e duração por execução. `delete_calls` conta chamadas internas ao armazenamento, não necessariamente requisições faturadas pelo S3. O período deve ser delimitado na origem dos logs. A agregação depende da entrega dos logs e não deduplica entradas repetidas; objetos tentados novamente também são recontados. Ela não substitui a configuração e validação do coletor operacional nem define metas de rollout.
 

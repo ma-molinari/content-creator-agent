@@ -23,6 +23,12 @@
 
 ## Pendente para aceite e ativação
 
+A instrumentação parcial da T14 agrega eventos V2 com lista fechada de resultados
+e motivos. Três testes de agregação e 42 testes do worker/Chromium passaram; o
+ensaio Docker com LocalStack também verificou emissão e agregação de extração,
+validação, renderização e publicação. A coleta e o custo permanecem por validar
+no ambiente de destino; isso não constitui aceite operacional.
+
 - Ensaio comparativo com LLM e S3 reais para V2, referências ambíguas e carrossel;
   marca real autorizada e revisão humana de fidelidade/legibilidade.
 - Definir metas operacionais e de qualidade com o responsável a partir das medições;

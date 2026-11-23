@@ -63,9 +63,12 @@ async def _run_job(state: AgentState) -> None:
         logger.debug("graph_done job_id=%s", jid)
     except StructuredCallbackUnknown:
         logger.warning("structured callback outcome unknown job_id=%s", state.get("job_id"))
+        if state.get("target_schema_version") == 2:
+            logger.info("[metrics] event=structured_publication schema=2 outcome=unknown")
     except Exception as exc:
         if state.get("target_schema_version") == 2:
             logger.error("structured job failed job_id=%s category=%s", state.get("job_id"), type(exc).__name__)
+            logger.info("[metrics] event=structured_execution schema=2 outcome=failed reason=execution")
         else:
             logger.exception("job failed: job_id=%s", state.get("job_id"))
         jid = state.get("job_id")

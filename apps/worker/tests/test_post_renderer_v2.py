@@ -3,6 +3,7 @@
 import asyncio
 import base64
 import os
+import logging
 from pathlib import Path
 
 import pytest
@@ -36,14 +37,17 @@ def test_catalog_dimensions_and_order(width, expected, thickness, height, layout
     assert html.index('class="element decoration"') < html.index('class="element text')
 
 
-def test_low_contrast_rejected_without_mutating_snapshot():
+def test_low_contrast_rejected_without_mutating_snapshot(caplog):
     raw = document().model_dump(mode="json", by_alias=True)
     raw["palette"]["text"] = "#CCCCCC"
     doc = PostDocumentV2.model_validate(raw)
     before = doc.model_dump_json(by_alias=True)
+    caplog.set_level(logging.INFO)
     with pytest.raises(ValueError, match="contrast"):
-        render_post_v2(doc, set())
+        asyncio.run(render_structured_post(doc, {}))
     assert doc.model_dump_json(by_alias=True) == before
+    assert "event=structured_validation" in caplog.text and "reason=contrast" in caplog.text
+    assert "Ideias criativas" not in caplog.text
 
 
 def test_line_with_literal_color_and_square_corner():

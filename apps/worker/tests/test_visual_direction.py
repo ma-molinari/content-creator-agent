@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import logging
 from types import SimpleNamespace
 
 import pytest
@@ -31,6 +32,7 @@ def setup(monkeypatch):
 
 
 def test_cache_is_user_image_order_and_model_scoped(monkeypatch, caplog):
+    caplog.set_level(logging.INFO)
     calls = []
     class LLM:
         def __init__(self, **kwargs): calls.append(kwargs["model"])
@@ -43,6 +45,7 @@ def test_cache_is_user_image_order_and_model_scoped(monkeypatch, caplog):
     run("user-1", ["b", "private-reference-a"])
     assert len(calls) == 3
     assert "private-reference-a" not in caplog.text
+    assert "event=visual_direction" in caplog.text
     assert all("user-1" not in key and "private-reference-a" not in key for key in module._cache)
 
 

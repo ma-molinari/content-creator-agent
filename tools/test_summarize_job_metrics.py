@@ -32,6 +32,31 @@ class MetricsSummaryTest(unittest.TestCase):
     def test_empty_input_has_no_percentile(self):
         self.assertIsNone(summarize([])['jobs']['structured_v1']['duration_p95_ms'])
 
+    def test_visual_events_are_aggregated_without_exposing_content(self):
+        lines = [
+            '[metrics] event=visual_direction schema=2 outcome=success duration_ms=100 decorations=2 prompt=secret',
+            '[metrics] event=visual_direction schema=2 outcome=failed reason=fetch duration_ms=200 image=private',
+            '[metrics] event=structured_validation schema=2 outcome=failed reason=contrast duration_ms=5',
+            '[metrics] event=structured_render schema=2 outcome=failed reason=overflow duration_ms=10',
+            '[metrics] event=structured_publication schema=2 outcome=unknown',
+            '[metrics] event=worker_capability schema_version=2 outcome=unavailable',
+            '[metrics] event=structured_render schema=2 outcome=success duration_ms=-1',
+            '[metrics] event=structured_render schema=1 outcome=success duration_ms=5',
+            '[metrics] event=structured_execution schema=2 outcome=failed reason=secret',
+        ]
+        result = summarize(lines)['visual_v2']
+        self.assertEqual(result['visual_direction']['outcomes']['success'], 1)
+        self.assertEqual(result['visual_direction']['reasons']['fetch'], 1)
+        self.assertEqual(result['visual_direction']['decorations'], 2)
+        self.assertEqual(result['visual_direction']['duration_p95_ms'], 200)
+        self.assertEqual(result['structured_validation']['reasons']['contrast'], 1)
+        self.assertEqual(result['structured_render']['reasons']['overflow'], 1)
+        self.assertEqual(result['structured_render']['outcomes']['success'], 0)
+        self.assertEqual(result['structured_publication']['outcomes']['unknown'], 1)
+        self.assertEqual(result['worker_capability']['outcomes']['unavailable'], 1)
+        self.assertNotIn('secret', str(result))
+        self.assertNotIn('private', str(result))
+
 
 if __name__ == '__main__':
     unittest.main()

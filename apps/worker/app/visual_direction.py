@@ -118,7 +118,7 @@ async def extract_visual_direction(*, user_id: str, reference_keys: list[str], r
                                                        settings.reference_image_max_bytes) for key in reference_keys],
                                    return_exceptions=True)
     if any(isinstance(item, BaseException) for item in fetched):
-        logger.info("event=visual_direction outcome=failed reason=fetch duration_ms=%d", int((monotonic() - started) * 1000))
+        logger.info("[metrics] event=visual_direction schema=2 outcome=failed reason=fetch duration_ms=%d", int((monotonic() - started) * 1000))
         raise VisualDirectionError("Não foi possível carregar todas as referências visuais. Tente novamente.")
     images: list[bytes] = list(fetched)  # type: ignore[assignment]
     cache_key = _key(user_id, settings.reference_vision_model, images)
@@ -130,7 +130,7 @@ async def extract_visual_direction(*, user_id: str, reference_keys: list[str], r
         cached = _cache.get(cache_key)
         if cached and cached[0] > now:
             _cache.move_to_end(cache_key)
-            logger.info("event=visual_direction outcome=success cache=hit duration_ms=%d", int((now - started) * 1000))
+            logger.info("[metrics] event=visual_direction schema=2 outcome=success cache=hit duration_ms=%d", int((now - started) * 1000))
             return VisualDirection.model_validate_json(cached[1])
     blocks: list[dict] = [{"type": "text", "text": json.dumps(VisualDirection.model_json_schema(), ensure_ascii=False)}]
     for key, raw in zip(reference_keys, images):
@@ -144,14 +144,14 @@ async def extract_visual_direction(*, user_id: str, reference_keys: list[str], r
         except (ValidationError, ValueError):
             continue
         except Exception:
-            logger.info("event=visual_direction outcome=failed reason=model duration_ms=%d", int((monotonic() - started) * 1000))
+            logger.info("[metrics] event=visual_direction schema=2 outcome=failed reason=model duration_ms=%d", int((monotonic() - started) * 1000))
             raise VisualDirectionError("Não foi possível analisar as referências visuais. Tente novamente.") from None
         with _cache_lock:
             _cache[cache_key] = (monotonic() + _TTL, direction.model_dump_json())
             _cache.move_to_end(cache_key)
             while len(_cache) > _MAX_CACHE:
                 _cache.popitem(last=False)
-        logger.info("event=visual_direction outcome=success cache=miss duration_ms=%d decorations=%d", int((monotonic() - started) * 1000), len(direction.decorations))
+        logger.info("[metrics] event=visual_direction schema=2 outcome=success cache=miss duration_ms=%d decorations=%d", int((monotonic() - started) * 1000), len(direction.decorations))
         return direction
-    logger.info("event=visual_direction outcome=failed reason=schema duration_ms=%d", int((monotonic() - started) * 1000))
+    logger.info("[metrics] event=visual_direction schema=2 outcome=failed reason=schema duration_ms=%d", int((monotonic() - started) * 1000))
     raise VisualDirectionError("Não foi possível analisar as referências visuais. Tente novamente.")

@@ -7,6 +7,7 @@ import json
 import logging
 import re
 from uuid import UUID
+from time import monotonic
 
 import boto3
 
@@ -51,6 +52,7 @@ async def structured_pipeline(state: AgentState) -> dict[str, object]:
     settings = get_settings()
     job_id = str(state.get("job_id") or "")
     mode = state.get("generation_mode")
+    started = monotonic()
     v2 = state.get("target_schema_version") == 2
     sources = dict(state.get("authorized_asset_sources") or {})
     client = boto3.client("s3", region_name=settings.aws_region,
@@ -118,7 +120,7 @@ async def structured_pipeline(state: AgentState) -> dict[str, object]:
     )
     if v2:
         count = sum(isinstance(element, Decoration) for slide in document.slides for element in slide.elements)
-        logger.info("event=structured_execution schema=2 outcome=%s decorations=%d", "conflict" if status == 409 else "success", count)
+        logger.info("[metrics] event=structured_publication schema=2 outcome=%s decorations=%d duration_ms=%d", "conflict" if status == 409 else "success", count, int((monotonic() - started) * 1000))
     if status == 409:
         logger.info("structured completion conflict job_id=%s", job_id)
     return {}

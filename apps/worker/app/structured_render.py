@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import logging
 from typing import Mapping
+from time import monotonic
 from urllib.parse import urlsplit
 
 from playwright.async_api import Route, async_playwright
@@ -50,13 +51,16 @@ async def render_structured_post(
     document: PostDocumentV1 | PostDocumentV2, authorized_assets: Mapping[str, bytes],
 ) -> tuple[list[SlideItem], list[RenderedSlide]]:
     is_v2 = isinstance(document, PostDocumentV2)
+    started = monotonic()
     try:
         slides = render_post_v2(document, set(authorized_assets)) if is_v2 else render_post(document, set(authorized_assets))
     except ValueError as exc:
         if is_v2:
             reason = "contrast" if str(exc) == "text contrast is insufficient" else "validation"
-            logger.info("event=structured_render schema=2 outcome=failed reason=%s", reason)
+            logger.info("[metrics] event=structured_validation schema=2 outcome=failed reason=%s duration_ms=%d", reason, int((monotonic() - started) * 1000))
         raise
+    if is_v2:
+        logger.info("[metrics] event=structured_validation schema=2 outcome=success duration_ms=%d", int((monotonic() - started) * 1000))
     used_asset_ids = {item.asset_id for slide in document.slides for item in slide.elements if isinstance(item, ImageElement)}
     image_urls = {key: _image_data_url(authorized_assets[key]) + f"#asset-{key}" for key in used_asset_ids}
     fixed_slides: list[SlideItem] = []
@@ -69,7 +73,7 @@ async def render_structured_post(
                 violations = collect_design_violations(html)
                 if violations:
                     if is_v2:
-                        logger.info("event=structured_render schema=2 outcome=failed reason=validation")
+                        logger.info("[metrics] event=structured_render schema=2 outcome=failed reason=validation duration_ms=%d", int((monotonic() - started) * 1000))
                     raise ValueError("structured slide failed static design validation")
                 inline_html = html
                 references: dict[str, str] = {}
@@ -94,7 +98,7 @@ async def render_structured_post(
                     }""", fonts)
                     if not fonts_ok:
                         if is_v2:
-                            logger.info("event=structured_render schema=2 outcome=failed reason=font")
+                            logger.info("[metrics] event=structured_render schema=2 outcome=failed reason=font duration_ms=%d", int((monotonic() - started) * 1000))
                         raise ValueError("required font unavailable")
                     await wait_for_slide_images(page)
                     clipped = await page.evaluate("""safeArea => {
@@ -120,7 +124,7 @@ async def render_structured_post(
                     }""", is_v2)
                     if clipped:
                         if is_v2:
-                            logger.info("event=structured_render schema=2 outcome=failed reason=overflow")
+                            logger.info("[metrics] event=structured_render schema=2 outcome=failed reason=overflow duration_ms=%d", int((monotonic() - started) * 1000))
                         raise ValueError("slide content exceeds canvas")
                     result = await page.evaluate(_CONTRAST_FIX_JS) if not is_v2 else None
                     fixed_html = await page.content() if result and result.get("hadViolations") else html
@@ -134,5 +138,5 @@ async def render_structured_post(
         finally:
             await browser.close()
     if is_v2:
-        logger.info("event=structured_render schema=2 outcome=success slides=%d", len(images))
+        logger.info("[metrics] event=structured_render schema=2 outcome=success slides=%d duration_ms=%d", len(images), int((monotonic() - started) * 1000))
     return fixed_slides, images
