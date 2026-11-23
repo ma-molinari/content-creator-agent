@@ -51,7 +51,14 @@ O LocalStack 3.8.1 foi iniciado no Docker com bucket `postmind-local`. Foram ver
 
 - Na stack de teste de cadastro, foi iniciada a API com o worker e uma conta sintética separada. Uma referência visual sintética foi enviada pela API de perfil, armazenada no S3 e recuperada por URL assinada.
 - Um job de criação no formato legado executou o worker e a LLM reais. Instrumentação temporária limitada à solicitação sintética confirmou uma referência, resumo de visão não vazio e presença desse resumo no contexto enviado ao gerador. O post concluiu e a imagem foi recuperada com dimensões de 1080×1350.
-- A referência e o chat sintéticos foram removidos; a instrumentação foi retirada e o worker normal permaneceu ativo. O teste comprova o caminho do contexto, não a reprodução exata da referência nem a utilização de uma marca real. O fluxo estruturado não foi exercitado neste ensaio.
+- A referência e o chat sintéticos foram removidos; a instrumentação foi retirada e o worker normal permaneceu ativo. O teste comprova o caminho do contexto, não a reprodução exata da referência nem a utilização de uma marca real. O fluxo estruturado foi validado separadamente no ensaio abaixo.
+
+## Referência visual no fluxo híbrido com S3 e LLM reais — 2026-11-23
+
+- Em stack Docker isolada com `structured_v1` habilitado, uma conta e imagem sintéticas foram criadas. A referência foi enviada pela API de perfil, armazenada no S3 e recuperada por URL assinada.
+- Instrumentação temporária restrita à solicitação de teste confirmou que o worker analisou a referência sem usar cache, produziu um resumo não vazio e incluiu esse resumo no payload efetivamente enviado à LLM de geração estruturada. A imagem também constava entre os assets autorizados.
+- O job concluiu, com snapshot e manifesto estruturados no S3 e JPEG disponível em 1080×1350. O manifesto não continha imagens incorporadas neste ensaio: a referência foi usada como contexto textual, e o resultado não comprova reprodução visual exata.
+- Chat, referência e objetos sintéticos foram removidos, assim como a stack descartável. O ambiente de teste do usuário e o volume reservado à reconciliação foram preservados.
 
 ## Protocolo S3 simulado
 
