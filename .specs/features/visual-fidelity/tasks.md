@@ -89,9 +89,11 @@ Para o ensaio visual e E2E com serviços externos, seguir os procedimentos opt-i
 
 **Pronto quando:**
 
-- [ ] Validador V2 rejeita cores/tokens inválidos, objetos com campos extras, enums/combinações inválidos, limites excedidos e IDs de assets inválidos; retorna o conjunto de IDs para comparar com o manifesto na publicação. Não tratar sintaxe, igualdade de IDs ou prefixo do job como prova da origem autorizada dos bytes.
-- [ ] Go e Python consomem as mesmas fixtures V2 válidas e inválidas, inclusive casos de JSON estrito; os consumidores e fixtures V1 permanecem funcionais.
-- [ ] O validador existe sem permitir publicação V2 por jobs V1 ou callback antigo; a integração com schema alvo fica na T10.
+- [x] Validador V2 rejeita cores/tokens inválidos, objetos com campos extras, enums/combinações inválidos, limites excedidos e IDs de assets inválidos; retorna o conjunto de IDs para comparar com o manifesto na publicação. Não tratar sintaxe, igualdade de IDs ou prefixo do job como prova da origem autorizada dos bytes.
+- [x] Go e Python consomem as mesmas fixtures V2 válidas e inválidas, inclusive casos de JSON estrito; os consumidores e fixtures V1 permanecem funcionais.
+- [x] O validador existe sem permitir publicação V2 por jobs V1 ou callback antigo; a integração com schema alvo fica na T10.
+
+**Validação:** fixtures compartilhadas V1/V2 no worker e testes do pacote `internal/jobs` em 23/11/2026.
 
 **Verificar:** testes unitários Go e paridade Python com fixtures compartilhadas. **Commit:** `feat(api): validar documento visual v2`.
 
