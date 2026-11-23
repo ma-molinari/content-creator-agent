@@ -9,6 +9,7 @@ import pytest
 
 from app.immutable_assets import CopiedAssets
 from app.post_document import PostDocumentV1
+from app.post_document_v2 import promote_v1
 from app.structured_upload import StructuredCallbackUnknown, StructuredUpload, StructuredUploadError, send_structured_completion, upload_structured_post
 
 
@@ -42,11 +43,13 @@ def test_upload_returns_callback_keys():
     assert set(client.uploaded) == {prefix + "document.json", prefix + "slide_01.html", prefix + "slide_01.jpeg"}
 
 
-def test_partial_failure_records_all_attempted_keys():
+@pytest.mark.parametrize("version", [1, 2])
+def test_partial_failure_records_all_attempted_keys(version):
     job_id = str(uuid4()); prefix = f"slides/{job_id}/"; client = FakeS3(prefix, fail_at=1)
     slides, images = inputs()
     with pytest.raises(StructuredUploadError) as exc:
-        asyncio.run(upload_structured_post(make_document(), slides, images, CopiedAssets({}, {}), job_id=job_id, bucket="test", client=client))
+        doc = make_document()
+        asyncio.run(upload_structured_post(promote_v1(doc) if version == 2 else doc, slides, images, CopiedAssets({}, {}), job_id=job_id, bucket="test", client=client))
     assert exc.value.attempted_keys == (prefix + "document.json", prefix + "slide_01.html")
 
 

@@ -29,6 +29,13 @@ def docker(*args, check=True):
     return subprocess.run(["docker", *map(str, args)], check=check, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout.strip()
 
 
+def sql(container, query, **params):
+    command = ["docker", "exec", "-i", container, "psql", "-U", "rehearsal", "-d", "rehearsal", "-tA", "-v", "ON_ERROR_STOP=1"]
+    for key, value in params.items():
+        command.extend(["-v", f"{key}={value}"])
+    return subprocess.run(command, input=query, check=True, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).stdout.strip()
+
+
 def wait_until(check, message, timeout=40):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
@@ -74,12 +81,17 @@ def main():
             s3_ip = inspect[0]["NetworkSettings"]["Networks"][network]["IPAddress"]
             common_aws = ["-e", "AWS_REGION=us-east-1", "-e", "AWS_ACCESS_KEY_ID=localtest", "-e", "AWS_SECRET_ACCESS_KEY=localtest", "-e", "AWS_S3_BUCKET=rehearsal", "-e", "AWS_ENDPOINT_URL=http://" + s3_ip + ":" + str(s3_port)]
 
-            def start_api(enabled, reconcile=False):
-                docker("run", "-d", "--rm", "--name", names["api"], "--network", network, "--network-alias", "api", "-p", "127.0.0.1::8080", "-v", f"{binary}:/app/server:ro", "-e", "PORT=8080", "-e", "DATABASE_URL=postgres://rehearsal:rehearsal@postgres:5432/rehearsal?sslmode=disable", "-e", "JWT_SECRET=" + ACCESS_SECRET, "-e", "JWT_REFRESH_SECRET=" + REFRESH_SECRET, "-e", "COOKIE_SECURE=false", "-e", "WORKER_API_KEY=" + KEY, "-e", "WORKER_URL=http://worker:8000", "-e", "STRUCTURED_POSTS_ENABLED=" + str(enabled).lower(), "-e", "STRUCTURED_WORKER_URLS=http://worker:8000", "-e", "ARTIFACT_RECONCILE_ENABLED=" + str(reconcile).lower(), "-e", "ARTIFACT_RECONCILE_CRON=@every 1s", *common_aws, API_IMAGE)
+            def start_api(enabled, reconcile=False, visual_v2=False):
+                docker("run", "-d", "--rm", "--name", names["api"], "--network", network, "--network-alias", "api", "-p", "127.0.0.1::8080", "-v", f"{binary}:/app/server:ro", "-e", "PORT=8080", "-e", "DATABASE_URL=postgres://rehearsal:rehearsal@postgres:5432/rehearsal?sslmode=disable", "-e", "JWT_SECRET=" + ACCESS_SECRET, "-e", "JWT_REFRESH_SECRET=" + REFRESH_SECRET, "-e", "COOKIE_SECURE=false", "-e", "WORKER_API_KEY=" + KEY, "-e", "WORKER_URL=http://worker:8000", "-e", "STRUCTURED_POSTS_ENABLED=" + str(enabled).lower(), "-e", "STRUCTURED_VISUAL_V2_ENABLED=" + str(visual_v2).lower(), "-e", "STRUCTURED_WORKER_URLS=http://worker:8000", "-e", "ARTIFACT_RECONCILE_ENABLED=" + str(reconcile).lower(), "-e", "ARTIFACT_RECONCILE_CRON=@every 1s", *common_aws, API_IMAGE)
                 address = docker("port", names["api"], "8080/tcp").splitlines()[0]
                 url = "http://" + address
                 wait_until(lambda: httpx.get(url + "/health", timeout=2).status_code == 200, "API did not become ready")
                 return url
+
+            def stop_api(force=False):
+                docker("kill" if force else "stop", names["api"])
+                wait_until(lambda: subprocess.run(["docker", "inspect", names["api"]], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode != 0,
+                           "API container was not removed")
 
             api_url = start_api(True)
             docker("run", "-d", "--rm", "--name", names["proxy"], "--network", network, "--network-alias", "callback", "-v", f"{FIXTURES / 'callback_proxy.py'}:/callback_proxy.py:ro", "--entrypoint", "python", WORKER_IMAGE, "/callback_proxy.py")
@@ -90,14 +102,18 @@ def main():
             with httpx.Client(base_url=api_url, timeout=30) as client:
                 credentials = {"email": "rehearsal-" + uuid.uuid4().hex + "@example.com", "password": "password123"}
                 def call(method, path, **kwargs):
-                    response = client.request(method, path, **kwargs)
-                    response.raise_for_status()
-                    return response
-                def wait_job(chat_id, job_id, headers, allow_conflict=False):
+                    for attempt in range(7):
+                        response = client.request(method, path, **kwargs)
+                        if response.status_code != 429 or attempt == 6:
+                            response.raise_for_status()
+                            return response
+                        time.sleep(10)
+                    raise RuntimeError("Limite de requisições persistiu")
+                def wait_job(chat_id, job_id, headers, allow_conflict=False, allow_failure=False):
                     result = {}
                     def terminal():
                         result.update(call("GET", f"/chats/{chat_id}/jobs/{job_id}/status", headers=headers).json())
-                        if result["status"] == "failed" and not (allow_conflict and result.get("errorCode") == "VERSION_CONFLICT"):
+                        if result["status"] == "failed" and not allow_failure and not (allow_conflict and result.get("errorCode") == "VERSION_CONFLICT"):
                             raise RuntimeError("Job failed: " + str(result.get("errorCode")))
                         return result["status"] in ("done", "failed")
                     wait_until(terminal, "Job did not finish", timeout=120)
@@ -152,13 +168,79 @@ def main():
                     blob = call("GET", f"/chats/{chat_id}/contents/{item['id']}/download", headers=headers).content
                     with zipfile.ZipFile(io.BytesIO(blob)) as archive:
                         assert any(name.endswith(".jpg") for name in archive.namelist())
-                docker("stop", names["api"])
+                # Promote the current V1 snapshot and then edit V2 through the actual API and worker.
+                stop_api()
+                client.base_url = httpx.URL(start_api(True, visual_v2=True))
+                job = call("POST", f"/chats/{chat_id}/messages", headers=headers, json={"content": "Altere o título.", "mode": "edit", "baseVersionId": edited["currentVersionId"]}).json()
+                wait_job(chat_id, job["jobId"], headers)
+                promoted = call("GET", f"/chats/{chat_id}", headers=headers).json()["currentVersionId"]
+                assert promoted != edited["currentVersionId"]
+                job = call("POST", f"/chats/{chat_id}/messages", headers=headers, json={"content": "Altere o título novamente.", "mode": "edit", "baseVersionId": promoted}).json()
+                wait_job(chat_id, job["jobId"], headers)
+                v2_current = call("GET", f"/chats/{chat_id}", headers=headers).json()["currentVersionId"]
+                assert v2_current != promoted
+                reference = call("POST", "/profile/references", headers=headers, files={"file": ("reference.png", png, "image/png")}).json()["references"][0]
+                reference_key = sql(names["postgres"], "SELECT s3_key FROM user_profile_references WHERE id = :'ref_id'::uuid", ref_id=reference["id"])
+                docker("exec", names["worker"], "python", "-c", "import boto3,os,sys; boto3.client('s3').delete_object(Bucket=os.environ['AWS_S3_BUCKET'], Key=sys.argv[1])", reference_key)
+                job = call("POST", f"/chats/{chat_id}/messages", headers=headers, json={"content": "Edite sem reaplicar o perfil.", "mode": "edit", "baseVersionId": v2_current}).json()
+                wait_job(chat_id, job["jobId"], headers)
+                v2_current = call("GET", f"/chats/{chat_id}", headers=headers).json()["currentVersionId"]
+                job = call("POST", f"/chats/{chat_id}/messages", headers=headers, json={"content": "Aplicar referências visuais.", "mode": "edit", "baseVersionId": v2_current}).json()
+                failed = wait_job(chat_id, job["jobId"], headers, allow_failure=True)
+                assert failed["status"] == "failed" and failed.get("errorCode") == "VISUAL_REFERENCE_ERROR"
+                assert call("GET", f"/chats/{chat_id}", headers=headers).json()["currentVersionId"] == v2_current
+                call("DELETE", f"/profile/references/{reference['id']}", headers=headers)
+                concurrent = []
+                for number in (1, 2):
+                    job = call("POST", f"/chats/{chat_id}/messages", headers=headers, json={"content": f"concorrente V2 {number}", "mode": "edit", "baseVersionId": v2_current}).json()
+                    concurrent.append(job["jobId"])
+                outcomes = [wait_job(chat_id, job_id, headers, allow_conflict=True) for job_id in concurrent]
+                assert sorted(item["status"] for item in outcomes) == ["done", "failed"]
+                assert next(item for item in outcomes if item["status"] == "failed")["errorCode"] == "VERSION_CONFLICT"
+                v2_current = call("GET", f"/chats/{chat_id}", headers=headers).json()["currentVersionId"]
+                job = call("POST", f"/chats/{chat_id}/messages", headers=headers, json={"content": "Crie um novo post.", "mode": "create"}).json()
+                wait_job(chat_id, job["jobId"], headers)
+                v2_root = call("GET", f"/chats/{chat_id}", headers=headers).json()["currentVersionId"]
+                assert v2_root != v2_current
+                versions = sql(names["postgres"], "SELECT string_agg(schema_version::text, ',' ORDER BY created_at) FROM post_versions WHERE chat_id = :'chat_id'::uuid", chat_id=chat_id)
+                assert versions == "1,1,1,2,2,2,2,2", versions
+                stop_api()
+                client.base_url = httpx.URL(start_api(True))
+                job = call("POST", f"/chats/{chat_id}/messages", headers=headers, json={"content": "Edite após rollback.", "mode": "edit", "baseVersionId": v2_root}).json()
+                wait_job(chat_id, job["jobId"], headers)
+                rolled_back_edit = call("GET", f"/chats/{chat_id}", headers=headers).json()["currentVersionId"]
+                schema = sql(names["postgres"], "SELECT schema_version FROM post_versions WHERE id = :'version_id'::uuid", version_id=rolled_back_edit)
+                assert schema == "2"
+                docker("exec", names["worker"], "touch", "/tmp/visual-v2-incompatible")
+                unavailable = client.post(f"/chats/{chat_id}/messages", headers=headers, json={"content": "Edite sem capacidade.", "mode": "edit", "baseVersionId": rolled_back_edit})
+                assert unavailable.status_code == 503
+                assert call("GET", f"/chats/{chat_id}", headers=headers).json()["currentVersionId"] == rolled_back_edit
+                docker("exec", names["worker"], "rm", "/tmp/visual-v2-incompatible")
+                job = call("POST", f"/chats/{chat_id}/messages", headers=headers, json={"content": "Nova raiz V1.", "mode": "create"}).json()
+                wait_job(chat_id, job["jobId"], headers)
+                new_root = call("GET", f"/chats/{chat_id}", headers=headers).json()["currentVersionId"]
+                root_data = sql(names["postgres"], "SELECT schema_version, parent_version_id IS NULL FROM post_versions WHERE id = :'version_id'::uuid", version_id=new_root)
+                assert root_data == "1|t"
+                for item in call("GET", f"/chats/{chat_id}", headers=headers).json()["contents"]:
+                    if item.get("versionId"):
+                        blob = call("GET", f"/chats/{chat_id}/contents/{item['id']}/download", headers=headers).content
+                        with zipfile.ZipFile(io.BytesIO(blob)) as archive:
+                            assert any(name.endswith(".jpg") for name in archive.namelist())
+                edited = call("GET", f"/chats/{chat_id}", headers=headers).json()
+                stop_api()
                 api_url = start_api(False)
                 client.base_url = httpx.URL(api_url)
                 current = call("GET", f"/chats/{chat_id}", headers=headers).json()["currentVersionId"]
                 assert current == edited["currentVersionId"]
                 legacy = call("POST", "/chats", headers=headers, json={"postType": "single"}).json()
                 assert legacy["postFormat"] == "legacy_html"
+                legacy_headers = {"Authorization": "Bearer " + token}
+                legacy_job = call("POST", f"/chats/{legacy['id']}/messages", headers=legacy_headers, json={"content": "Crie um post legado."}).json()
+                wait_job(legacy["id"], legacy_job["jobId"], legacy_headers)
+                legacy_chat = call("GET", f"/chats/{legacy['id']}", headers=legacy_headers).json()
+                legacy_reply = next(item for item in legacy_chat["contents"] if item.get("role") == "assistant")
+                with zipfile.ZipFile(io.BytesIO(call("GET", f"/chats/{legacy['id']}/contents/{legacy_reply['id']}/download", headers=legacy_headers).content)) as archive:
+                    assert any(name.endswith(".jpg") for name in archive.namelist())
                 job = call("POST", f"/chats/{chat_id}/messages", headers=headers, json={"content": "Altere o título.", "mode": "edit", "baseVersionId": current}).json()
                 wait_job(chat_id, job["jobId"], headers)
                 assert call("GET", f"/chats/{chat_id}", headers=headers).json()["currentVersionId"] != current
@@ -187,7 +269,7 @@ def main():
             def s3_proxy_stats():
                 data = docker("exec", names["s3proxy"], "python", "-c", "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:9000/__rehearsal/stats').read().decode())")
                 return json.loads(data)
-            docker("stop", names["api"])
+            stop_api()
             before_pause = s3_proxy_stats()["forwarded_requests"] if S3_MODE == "localstack" else 0
             docker("pause", names["s3"])
             try:
@@ -196,7 +278,7 @@ def main():
                     wait_until(lambda: s3_proxy_stats()["forwarded_requests"] > before_pause, "Reconciliation did not reach the paused S3", timeout=15)
                 else:
                     time.sleep(3)
-                docker("kill", names["api"])
+                stop_api(force=True)
             finally:
                 docker("unpause", names["s3"], check=False)
             start_api(False, reconcile=True)
@@ -207,6 +289,11 @@ def main():
             if S3_MODE == "localstack":
                 assert s3_proxy_stats()["aged_timestamps"] > 0
             print("Ensaio Docker concluído: segurança, assets, concorrência, callback, rollback e reconciliação (S3=" + S3_MODE + ").")
+        except Exception:
+            for part in ("api", "worker"):
+                result = subprocess.run(["docker", "logs", names[part]], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                print(f"Logs do serviço descartável {part}:\n" + "\n".join((result.stdout + result.stderr).splitlines()[-30:]), file=sys.stderr)
+            raise
         finally:
             for name in reversed(list(names.values())):
                 docker("rm", "-f", name, check=False)

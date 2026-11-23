@@ -249,9 +249,11 @@ Para o ensaio visual e E2E com serviços externos, seguir os procedimentos opt-i
 
 **Pronto quando:**
 
-- [ ] Integração cobre criação V2, edição V1→V2 e V2→V2, edição textual sem referência original, aplicação explícita de referência indisponível e preservação de snapshots/assets/versões anteriores. Exercitar bloqueio de fontes de outro usuário no dispatch/worker e conferir manifesto, existência e prefixo no callback, sem confundir essas garantias com prova independente de proveniência dos bytes.
-- [ ] Duas edições concorrentes, primeira criação com base nula, nova raiz, callbacks fora de ordem/repetidos ou resposta perdida, falha parcial de upload e worker incompatível preservam atomicidade e limpeza segura.
-- [ ] E2E cobre histórico/download V1/V2/legado e rollback após V2 publicado, inclusive cliente existente e bloqueio seguro quando capacidade V2 faltar; não usa API antiga para confiar na proteção V2.
+- [x] Integração cobre criação V2, edição V1→V2 e V2→V2, edição textual sem referência original, aplicação explícita de referência indisponível e preservação de snapshots/assets/versões anteriores. Exercitar bloqueio de fontes de outro usuário no dispatch/worker e conferir manifesto, existência e prefixo no callback, sem confundir essas garantias com prova independente de proveniência dos bytes.
+- [x] Duas edições concorrentes, primeira criação com base nula, nova raiz, callbacks fora de ordem/repetidos ou resposta perdida, falha parcial de upload e worker incompatível preservam atomicidade e limpeza segura.
+- [x] E2E cobre histórico/download V1/V2/legado e rollback após V2 publicado, inclusive cliente existente e bloqueio seguro quando capacidade V2 faltar; não usa API antiga para confiar na proteção V2.
+
+**Validação:** suites Go e worker, testes Chromium e ensaio Docker com LocalStack em 23/11/2026. Detalhes e serviços simulados em [validação](validacao.md).
 
 **Verificar:** suítes Go/PostgreSQL, worker, testes entre processos e Docker; registrar quais serviços foram simulados. **Commit:** `test: cobrir compatibilidade visual v2`.
 

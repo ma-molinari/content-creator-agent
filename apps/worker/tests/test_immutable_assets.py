@@ -8,6 +8,7 @@ import pytest
 
 from app.immutable_assets import AssetCopyError, copy_version_assets
 from app.post_document import PostDocumentV1
+from app.post_document_v2 import promote_v1
 
 
 def document(ids):
@@ -42,19 +43,23 @@ def test_copies_current_and_inherited_assets():
     assert all(client.uploaded[key][1] == "image/png" for key in result.keys.values())
 
 
-def test_rejects_unknown_id_before_any_upload():
+@pytest.mark.parametrize("version", [1, 2])
+def test_rejects_unknown_id_before_any_upload(version):
     client = FakeS3({})
     with pytest.raises(ValueError, match="not authorized"):
-        asyncio.run(copy_version_assets(document(["a"]), job_id=str(uuid4()), bucket="test", authorized_sources={}, client=client))
+        doc = document(["a"])
+        asyncio.run(copy_version_assets(promote_v1(doc) if version == 2 else doc, job_id=str(uuid4()), bucket="test", authorized_sources={}, client=client))
     assert client.uploaded == {}
 
 
-def test_partial_upload_includes_uncertain_key_for_reconciliation():
+@pytest.mark.parametrize("version", [1, 2])
+def test_partial_upload_includes_uncertain_key_for_reconciliation(version):
     png = b"\x89PNG\r\n\x1a\nimage"
     client = FakeS3({"x": png, "y": png}, fail_at=1)
     job_id = str(uuid4())
     with pytest.raises(AssetCopyError) as exc:
-        asyncio.run(copy_version_assets(document(["a", "b"]), job_id=job_id, bucket="test", authorized_sources={"a": "x", "b": "y"}, client=client))
+        doc = document(["a", "b"])
+        asyncio.run(copy_version_assets(promote_v1(doc) if version == 2 else doc, job_id=job_id, bucket="test", authorized_sources={"a": "x", "b": "y"}, client=client))
     assert exc.value.attempted_keys == (f"slides/{job_id}/assets/a.png", f"slides/{job_id}/assets/b.png")
 
 
