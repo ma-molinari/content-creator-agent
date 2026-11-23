@@ -25,6 +25,42 @@ Promessa: cada post ou carrossel deixa uma reflexão prática ou um próximo pas
 
 Evitar: promessas de cura, diagnóstico pela internet, tom sensacionalista ou legendas só pensadas para “viralizar” que desvalorizem o tema. Se for o seu caso, adapte exemplos e linguagem ao seu público e à sua formação.`
 
+const PROFILE_EXAMPLES = [
+  {
+    id: 'bem-estar', label: 'Bem-estar',
+    description: 'Conteúdo educativo e acolhedor sobre hábitos e qualidade de vida.',
+    audit: EXAMPLE_AUDIT_TEXT, brand: EXAMPLE_BRAND_TEXT,
+  },
+  {
+    id: 'educacao', label: 'Educação',
+    description: 'Explicações práticas para aprender uma nova habilidade.',
+    audit: `Meu perfil reúne pessoas que querem aprender habilidades novas para o trabalho ou os estudos.
+
+Posts com exemplos passo a passo geram mais interesse. Quero organizar melhor os carrosséis e tornar assuntos complexos mais fáceis de acompanhar.
+
+Uso linguagem direta, visual limpo e cores contrastantes. Evito excesso de texto e siglas sem explicação.`,
+    brand: `Minha marca ensina conceitos e técnicas de forma acessível, com foco na aplicação prática.
+
+Quero um tom claro, encorajador e objetivo. Cada post deve apresentar uma ideia útil e, quando fizer sentido, um exemplo ou próximo passo.
+
+Evitar afirmações sem contexto, promessas de aprendizado instantâneo e linguagem que desvalorize quem está começando.`,
+  },
+  {
+    id: 'negocio-local', label: 'Negócio local',
+    description: 'Produtos, serviços e novidades para a comunidade.',
+    audit: `Meu perfil conversa com pessoas da comunidade interessadas em conhecer produtos e serviços de um negócio local.
+
+Fotos dos produtos e publicações sobre os bastidores despertam interesse. Quero apresentar melhor os diferenciais e manter uma identidade consistente entre os posts.
+
+Prefiro uma linguagem próxima e cores que representem o negócio. Evito imagens poluídas e informações não confirmadas.`,
+    brand: `Minha marca oferece produtos ou serviços para a comunidade e valoriza atendimento atencioso e informações claras.
+
+Quero uma comunicação amigável, objetiva e convidativa, destacando benefícios reais, novidades e detalhes úteis para o cliente.
+
+Evitar descontos, preços, prazos ou características inventados e comparações que depreciem concorrentes.`,
+  },
+] as const
+
 export default function ProfileSettings() {
   const profile = useProfile()
   const save = useSaveProfile()
@@ -58,13 +94,13 @@ export default function ProfileSettings() {
     [],
   )
 
-  const loadExample = useCallback(() => {
+  const loadExample = useCallback((example: (typeof PROFILE_EXAMPLES)[number]) => {
     const hasContent = auditText.trim() !== '' || brandText.trim() !== ''
-    if (hasContent && !window.confirm('Substituir o texto atual pelos exemplos? Você pode editar depois.')) {
+    if (hasContent && !window.confirm('Substituir os dois textos pelo exemplo selecionado? Você pode editá-los antes de salvar.')) {
       return
     }
-    setAuditDraft(EXAMPLE_AUDIT_TEXT)
-    setBrandDraft(EXAMPLE_BRAND_TEXT)
+    setAuditDraft(example.audit)
+    setBrandDraft(example.brand)
   }, [auditText, brandText])
 
   async function handleSubmit(e: React.FormEvent) {
@@ -153,14 +189,29 @@ export default function ProfileSettings() {
                           Conte quem acompanha seu Instagram, o que já funciona e onde a comunicação precisa melhorar.
                         </p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={loadExample}
-                        className="rounded-[var(--radius-md)] border border-[var(--color-border-subtle)] px-3 py-1.5 text-sm font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-bg-muted)]"
-                      >
-                        Usar exemplo
-                      </button>
+
                     </div>
+                    <details className="rounded-[var(--radius-md)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-app)] p-3">
+                      <summary className="cursor-pointer text-sm font-medium text-[var(--color-brand-primary)] hover:underline">
+                        Escolher um exemplo
+                      </summary>
+                      <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
+                        Escolha um ponto de partida para os dois textos e adapte-o à sua marca antes de salvar.
+                      </p>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                        {PROFILE_EXAMPLES.map((example) => (
+                          <button
+                            key={example.id}
+                            type="button"
+                            onClick={() => loadExample(example)}
+                            className="rounded-[var(--radius-md)] border border-[var(--color-border-subtle)] p-3 text-left hover:bg-[var(--color-bg-muted)] focus-visible:outline-2 focus-visible:outline-[var(--color-focus-ring)]"
+                          >
+                            <span className="block text-sm font-medium text-[var(--color-text-primary)]">{example.label}</span>
+                            <span className="mt-1 block text-xs text-[var(--color-text-secondary)]">{example.description}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </details>
                     <ProfileBrandGuide />
                     <label htmlFor="audit-md" className="block text-sm font-medium text-[var(--color-text-primary)]">
                       Como é o seu perfil hoje?
