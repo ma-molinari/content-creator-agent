@@ -85,6 +85,9 @@ A direção visual é orientação aproximada. Não trate detalhes incertos como
 Em cada decoração do tipo line, corner deve ser square; rounded é permitido somente em bar.
 Use no máximo quatro decorações e doze elementos por slide. As cores do texto e do fundo
 devem manter contraste mínimo de 4,5:1; prefira combinações de alta legibilidade.
+Os layouts hero e editorial iniciam o fluxo na parte superior; quote centraliza o fluxo
+verticalmente. Para um destaque observado no topo, prefira hero ou editorial e coloque
+a decoração no início dos elementos, sem prometer reprodução exata.
 """
     for attempt in range(_MAX_ATTEMPTS):
         response = await llm.ainvoke([SystemMessage(content=system), HumanMessage(content=json.dumps(payload, ensure_ascii=False))])
