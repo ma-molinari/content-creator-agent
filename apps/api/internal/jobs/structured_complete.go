@@ -20,6 +20,10 @@ type boundedDocumentStore interface {
 }
 
 func validateStructuredDocument(ctx context.Context, store storage.StorageService, key string, postType db.PostType, slideCount int) (map[string]struct{}, error) {
+	return validateStructuredDocumentVersion(ctx, store, key, postType, slideCount, 1)
+}
+
+func validateStructuredDocumentVersion(ctx context.Context, store storage.StorageService, key string, postType db.PostType, slideCount, schemaVersion int) (map[string]struct{}, error) {
 	bounded, ok := store.(boundedDocumentStore)
 	if !ok {
 		return nil, gorm.ErrInvalidData
@@ -35,7 +39,14 @@ func validateStructuredDocument(ctx context.Context, store storage.StorageServic
 	if err != nil || mediaType != "application/json" || int64(len(data)) > maxStructuredDocumentBytes {
 		return nil, gorm.ErrInvalidData
 	}
-	return validateDocumentV1(data, postType, slideCount)
+	switch schemaVersion {
+	case 1:
+		return validateDocumentV1(data, postType, slideCount)
+	case 2:
+		return validateDocumentV2(data, postType, slideCount)
+	default:
+		return nil, gorm.ErrInvalidData
+	}
 }
 
 type StructuredArtifact struct {
@@ -87,13 +98,14 @@ func CompleteStructuredReply(ctx context.Context, gdb *gorm.DB, jobID uuid.UUID,
 			return gorm.ErrInvalidData
 		}
 		key := strings.TrimSpace(source.DocumentS3Key)
-		if key != "slides/"+job.ID.String()+"/document.json" || source.SchemaVersion != 1 || strings.TrimSpace(source.RendererVersion) == "" || len(strings.TrimSpace(source.RendererVersion)) > 64 || len(artifacts) == 0 || len(artifacts) > 20 || (chat.PostType == db.PostTypeSingle && len(artifacts) != 1) {
+		target := job.StructuredTargetSchema()
+		if key != "slides/"+job.ID.String()+"/document.json" || (target != 1 && target != 2) || source.SchemaVersion != target || strings.TrimSpace(source.RendererVersion) == "" || len(strings.TrimSpace(source.RendererVersion)) > 64 || len(artifacts) == 0 || len(artifacts) > 20 || (chat.PostType == db.PostTypeSingle && len(artifacts) != 1) {
 			return gorm.ErrInvalidData
 		}
 		if e := validateSlideArtifactKey(job.ID, key); e != nil {
 			return e
 		}
-		usedAssets, e := validateStructuredDocument(ctx, store, key, chat.PostType, len(artifacts))
+		usedAssets, e := validateStructuredDocumentVersion(ctx, store, key, chat.PostType, len(artifacts), target)
 		if e != nil {
 			return e
 		}

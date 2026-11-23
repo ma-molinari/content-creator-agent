@@ -2,7 +2,7 @@
 
 ## Planejamento: fidelidade visual — 2026-11-23
 
-- **Status:** T01 aprovada pelo responsável; T02–T09 validadas em 23/11/2026; implementação das demais tarefas pendente.
+- **Status:** T01 aprovada pelo responsável; T02–T10 validadas em 23/11/2026; implementação das demais tarefas pendente.
 - **Design:** `docs/TDD-FIDELIDADE-VISUAL.md`; **tarefas:** `.specs/features/visual-fidelity/tasks.md`.
 - **Decisão do usuário:** permitir aplicar os novos elementos em posts híbridos V1 e salvar uma nova versão V2, preservando a V1.
 - **Gates:** catálogo de barras/linhas e política de contraste aprovados conforme `.specs/features/visual-fidelity/catalogo-v2-proposta.md`; a T18 híbrida e o aceite operacional permanecem pré-requisitos para ativação, não para desenvolvimento isolado.

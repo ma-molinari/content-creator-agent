@@ -201,9 +201,11 @@ Para o ensaio visual e E2E com serviços externos, seguir os procedimentos opt-i
 
 **Pronto quando:**
 
-- [ ] Antes da primeira publicação, API exige schema do callback igual ao alvo do job, valida documento, renderer, correspondência entre IDs e manifesto, existência/prefixo dos objetos e vínculo job/chat; alvo ausente histórico significa V1. A autorização das fontes é verificada no dispatch e no worker; o manifesto sob o prefixo do job, isoladamente, não comprova a origem dos bytes. Se o desenho exigir comprovação independente no callback, persistir e validar autorização/proveniência do job como mudança explícita e compatível, não supor que ela já existe.
-- [ ] Concorrência, condição de base nula, nova raiz, callback repetido/resposta perdida e conflitos preservam a semântica atual. Repetição já concluída não cria versão adicional nem reprocessa artefatos.
-- [ ] Rejeições V2 não movem versão corrente nem removem objetos em resultado incerto; V1 e legado passam regressão. Os eventos terminais preservam idempotência e informam schema/renderer, resultado e motivo categorizado sem dados privados. Nenhum novo caminho de seleção V2 é ativado nesta tarefa.
+- [x] Antes da primeira publicação, API exige schema do callback igual ao alvo do job, valida documento, renderer, correspondência entre IDs e manifesto, existência/prefixo dos objetos e vínculo job/chat; alvo ausente histórico significa V1. A autorização das fontes é verificada no dispatch e no worker; o manifesto sob o prefixo do job, isoladamente, não comprova a origem dos bytes. Se o desenho exigir comprovação independente no callback, persistir e validar autorização/proveniência do job como mudança explícita e compatível, não supor que ela já existe.
+- [x] Concorrência, condição de base nula, nova raiz, callback repetido/resposta perdida e conflitos preservam a semântica atual. Repetição já concluída não cria versão adicional nem reprocessa artefatos.
+- [x] Rejeições V2 não movem versão corrente nem removem objetos em resultado incerto; V1 e legado passam regressão. Os eventos terminais preservam idempotência e informam schema/renderer, resultado e motivo categorizado sem dados privados. Nenhum novo caminho de seleção V2 é ativado nesta tarefa.
+
+**Validação:** suíte Go unitária e integração completa em PostgreSQL descartável, com casos adicionais V2 de alvo, idempotência e concorrência em 23/11/2026.
 
 **Verificar:** unitários e integração Go/PostgreSQL de conclusão, artefatos e concorrência. **Commit:** `feat(api): publicar versões visuais v2`.
 
