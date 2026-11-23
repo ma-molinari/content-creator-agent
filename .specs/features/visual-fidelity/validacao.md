@@ -37,6 +37,9 @@ no ambiente de destino; isso não constitui aceite operacional.
   carrosséis: controle, cada imagem separada e ambas. Resultados e limitações em
   `docs/avaliacoes/2026-11-23-fidelidade-v2/referencias-fornecidas.md`; originais e
   imagens geradas permanecem locais e não são publicados no repositório.
+- O responsável não aprovou a fidelidade visual e definiu que referências são
+  apenas orientação, salvo pedido explícito para incluí-las. O bloqueio da
+  incorporação automática ainda precisa ser implementado e validado.
 - Definir metas operacionais e de qualidade com o responsável a partir das medições;
   exercitar coleta, rollout e rollback no ambiente de destino.
 - Concluir aceite operacional da T18 híbrida. A reconciliação com S3 real passou

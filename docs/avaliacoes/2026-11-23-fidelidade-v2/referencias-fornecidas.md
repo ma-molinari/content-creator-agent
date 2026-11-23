@@ -45,7 +45,9 @@ intermediárias que foram recuperadas por retentativa. O p95 de duração dos jo
 32.092 ms para esta amostra pequena, sem meta definida. Custos e tokens não foram
 medidos. Falta validar o coletor e o rollout/rollback no ambiente de destino.
 
-A aprovação de fidelidade e a política de inserção automática de referências como
-imagens precisam de decisão do responsável. A V2 não deve ser ativada em tráfego
+O responsável não aprovou a fidelidade visual e decidiu que referências servem
+apenas como orientação, salvo pedido explícito de inclusão. A geração atual ainda
+permite incorporá-las automaticamente; a correção dessa divergência está pendente.
+A V2 não deve ser ativada em tráfego
 antes do aceite visual e operacional, da definição de metas e da conclusão da T18
 híbrida. O sucesso dos jobs não demonstra reprodução fiel das referências.
