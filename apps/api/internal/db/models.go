@@ -116,24 +116,33 @@ const (
 
 // Job tracks async worker runs for a chat message.
 type Job struct {
-	ID                uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	ChatID            uuid.UUID  `gorm:"type:uuid;not null;index"`
-	UserID            uuid.UUID  `gorm:"type:uuid;not null;index"`
-	Status            JobStatus  `gorm:"type:job_status_enum;not null;default:pending"`
-	PostFormat        PostFormat `gorm:"column:post_format;size:32;not null;default:legacy_html"`
-	GenerationMode    *string    `gorm:"column:generation_mode;size:16"`
-	ExpectedVersionID *uuid.UUID `gorm:"column:expected_version_id;type:uuid"`
-	ErrorMsg          *string    `gorm:"type:text"`
-	Stage             string     `gorm:"size:64;not null;default:queued"`
-	Progress          int        `gorm:"not null;default:0"`
-	HeartbeatAt       *time.Time
-	ErrorCode         *string `gorm:"size:64"`
-	WorkerMetadata    *string `gorm:"column:worker_metadata;type:jsonb;<-:update"`
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	ID                  uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	ChatID              uuid.UUID  `gorm:"type:uuid;not null;index"`
+	UserID              uuid.UUID  `gorm:"type:uuid;not null;index"`
+	Status              JobStatus  `gorm:"type:job_status_enum;not null;default:pending"`
+	PostFormat          PostFormat `gorm:"column:post_format;size:32;not null;default:legacy_html"`
+	GenerationMode      *string    `gorm:"column:generation_mode;size:16"`
+	ExpectedVersionID   *uuid.UUID `gorm:"column:expected_version_id;type:uuid"`
+	TargetSchemaVersion *int       `gorm:"column:target_schema_version"`
+	ErrorMsg            *string    `gorm:"type:text"`
+	Stage               string     `gorm:"size:64;not null;default:queued"`
+	Progress            int        `gorm:"not null;default:0"`
+	HeartbeatAt         *time.Time
+	ErrorCode           *string `gorm:"size:64"`
+	WorkerMetadata      *string `gorm:"column:worker_metadata;type:jsonb;<-:update"`
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
 func (Job) TableName() string { return "jobs" }
+
+// StructuredTargetSchema preserves the V1 meaning of jobs created by older binaries.
+func (j Job) StructuredTargetSchema() int {
+	if j.TargetSchemaVersion == nil {
+		return 1
+	}
+	return *j.TargetSchemaVersion
+}
 
 type PostVersion struct {
 	ID                 uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`

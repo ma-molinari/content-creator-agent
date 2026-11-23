@@ -28,6 +28,7 @@ func testJobsDB(t *testing.T) *gorm.DB {
             post_format TEXT NOT NULL DEFAULT 'legacy_html',
             generation_mode TEXT,
             expected_version_id TEXT,
+            target_schema_version INTEGER,
 		error_msg TEXT,
 		stage TEXT NOT NULL DEFAULT 'queued',
 		progress INTEGER NOT NULL DEFAULT 0,

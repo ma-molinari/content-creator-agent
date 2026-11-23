@@ -79,6 +79,8 @@ func (r *Repository) CreateStructuredMessageAndJob(ctx context.Context, userID u
 			documentKey = base.DocumentS3Key
 		}
 		job.PostFormat = db.PostFormatStructuredV1
+		targetSchema := 1
+		job.TargetSchemaVersion = &targetSchema
 		job.GenerationMode = &mode
 		job.ExpectedVersionID = row.CurrentVersionID
 		if err := tx.Create(content).Error; err != nil {

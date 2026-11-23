@@ -185,9 +185,11 @@ Para o ensaio visual e E2E com serviços externos, seguir os procedimentos opt-i
 
 **Pronto quando:**
 
-- [ ] Migração aditiva e modelo suportam alvo V1/V2. O código novo registra alvo V1 nos jobs estruturados existentes; alvo V2 é exercitado em testes, mas sua seleção só chega na T12. Jobs estruturados anteriores ou criados por binários antigos sem alvo são interpretados como V1, inclusive em callback tardio. Jobs legados não exigem alvo estruturado.
-- [ ] Persistência do alvo participa da criação transacional do job; caminhos do código novo registram V1, enquanto inserções sem alvo de binários antigos continuam compatíveis. A seleção V2 fica na T12. Não altera snapshots, versões ou ponteiros existentes e não habilita V2 por si só.
-- [ ] Testes em PostgreSQL cobrem dados pré-migração, jobs antigos em voo, novos alvos e integridade/rollback não destrutivo da aplicação; não propor remover a migration enquanto houver dados V2.
+- [x] Migração aditiva e modelo suportam alvo V1/V2. O código novo registra alvo V1 nos jobs estruturados existentes; alvo V2 é exercitado em testes, mas sua seleção só chega na T12. Jobs estruturados anteriores ou criados por binários antigos sem alvo são interpretados como V1, inclusive em callback tardio. Jobs legados não exigem alvo estruturado.
+- [x] Persistência do alvo participa da criação transacional do job; caminhos do código novo registram V1, enquanto inserções sem alvo de binários antigos continuam compatíveis. A seleção V2 fica na T12. Não altera snapshots, versões ou ponteiros existentes e não habilita V2 por si só.
+- [x] Testes em PostgreSQL cobrem dados pré-migração, jobs antigos em voo, novos alvos e integridade/rollback não destrutivo da aplicação; não propor remover a migration enquanto houver dados V2.
+
+**Validação:** suíte Go unitária completa e testes de migração/ciclo de vida em PostgreSQL descartável em 23/11/2026. O callback passa a comparar o alvo na T10.
 
 **Verificar:** migrations e testes de repositório/integração com PostgreSQL. **Commit:** `feat(api): persistir schema alvo do job`.
 

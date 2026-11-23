@@ -32,6 +32,10 @@ func TestStructuredCreateEditAndOutOfOrderCallbacks(t *testing.T) {
 	create, err := svc.PostMessageWithOptions(ctx, uid, ch.ID, "crie", nil, chat.MessageOptions{Mode: "create", ClientSupported: true})
 	require.NoError(t, err)
 	require.Equal(t, create.JobID, worker.payload.JobID)
+	var createdJob db.Job
+	require.NoError(t, env.DB.First(&createdJob, "id = ?", create.JobID).Error)
+	require.NotNil(t, createdJob.TargetSchemaVersion)
+	require.Equal(t, 1, *createdJob.TargetSchemaVersion)
 	complete := func(jobID uuid.UUID) (bool, bool, error) {
 		prefix := fmt.Sprintf("slides/%s/", jobID)
 		html := prefix + "slide_01.html"
