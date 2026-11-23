@@ -67,6 +67,8 @@ services:
       start_period: 60s
 
   web:
+    environment:
+      API_UPSTREAM: api:8080
     build:
       context: ./apps/web
       dockerfile: Dockerfile

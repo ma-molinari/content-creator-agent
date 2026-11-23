@@ -39,6 +39,14 @@ O LocalStack 3.8.1 foi iniciado no Docker com bucket `postmind-local`. Foram ver
 - Em stack e banco descartáveis separados do ensaio de reconciliação, uma versão estruturada foi criada com S3 e LLM reais. Após desabilitar novas criações estruturadas e recriar a API, um novo chat usou o formato legado; leitura, download e edição do chat estruturado existente continuaram funcionando.
 - Os objetos do ensaio e a stack descartável foram removidos. O teste não substitui o rollout e rollback no ambiente de destino nem a avaliação de qualidade com uma marca real.
 
+## Jornada pela interface com AWS S3 e LLM reais — 2026-11-23
+
+- Em stack Docker isolada, a interface apresentou a tela de cadastro e criou uma conta descartável até a confirmação de salvamento da chave de segurança. A aprovação automática recusou a confirmação porque não havia evidência de salvamento; essa etapa do cadastro não foi concluída pela interface.
+- Com outra conta sintética criada pela API, passaram o login, o bloqueio antes de configurar o perfil, o preenchimento e salvamento de exemplos de marca e a liberação do chat.
+- A interface criou e editou um post único e um carrossel de três slides; exibiu versões anterior e atual e listou ambos no histórico. O ZIP do carrossel continha três JPEGs de 1080×1350. Na edição, a comparação dos snapshots confirmou alteração apenas no conteúdo do título do primeiro slide; os demais slides permaneceram idênticos.
+- API, worker, frontend e PostgreSQL rodaram em Docker com S3 e LLM reais. Os dados eram sintéticos e os objetos, o ZIP e a stack do teste foram removidos. A aprovação visual com marca real permanece pendente.
+- Foi corrigido o proxy Nginx da SPA para aceitar endereço por ambiente: Docker Compose usa `api:8080` e a imagem mantém o padrão anterior do Railway. Os 17 testes do frontend e o build passaram.
+
 ## Protocolo S3 simulado
 
 A suíte Go completa passou com PostgreSQL em Docker, incluindo o cliente AWS SDK da API contra um endpoint HTTP simulado. O teste percorreu duas páginas, recebeu uma resposta de exclusão parcialmente malsucedida e retomou a limpeza preservando objetos recentes e referenciados. O simulador valida esse contrato específico, sem substituir um teste com AWS S3 real.

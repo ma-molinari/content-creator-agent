@@ -155,6 +155,7 @@ The API stores `jobs.stage`, monotonic `jobs.progress`, and `jobs.heartbeat_at`.
 - `worker` — Python uvicorn; starts after api is healthy (60s start period); health check `curl /health`
 **Networking:** bridge network `app-net`; inter-service DNS by service name (`postgres`, `api`, `worker`)
 **Volumes:** named volume `pgdata` for Postgres persistence
+**Frontend proxy:** Nginx uses `API_UPSTREAM` as the API host and port. The image defaults to `api.railway.internal:8080` for the existing Railway deployment; Docker Compose sets it to `api:8080`. The template only substitutes `API_UPSTREAM`, preserving Nginx variables such as `$host`.
 **Production overlay:** `docker-compose.prod.yml` applied on top of base compose for prod deployments
 
 ### S3 local com LocalStack

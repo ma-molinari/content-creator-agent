@@ -11,6 +11,7 @@
 | `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_S3_BUCKET` | API + Worker | Necessários para uploads e ZIP |
 | `COOKIE_SECURE` | API | `true` em HTTPS (override de dev com `false`); ver `docker-compose.prod.yml` |
 | `OPENAI_API_KEY` | Worker | Obrigatória para geração no worker |
+| `API_UPSTREAM` | Web | Host e porta da API no proxy Nginx; Compose usa `api:8080` e a imagem usa por padrão `api.railway.internal:8080` |
 | `STUCK_JOB_CRON` | API | Opcional; cron UTC para marcar jobs em `processing` há muito tempo como falha (padrão `*/10 * * * *`). Ausente ou vazio usa o padrão. |
 | `STUCK_JOB_PROCESSING_MINUTES` | API | Idade mínima do último heartbeat ou `jobs.updated_at` em `processing` para falhar (padrão `20`). Valores baixos podem falhar jobs legítimos lentos. |
 | `ARTIFACT_RECONCILE_ENABLED` | API | Padrão `false`; manter desativado até validar a operação e os limites de reconciliação. |
@@ -45,7 +46,7 @@ O ficheiro `docker-compose.prod.yml` define `restart: unless-stopped` e injeta `
 
 ## Desenvolvimento local (API em Docker)
 
-Se alterar rotas ou handlers Go e a API correr dentro do Compose, reconstrua o serviço `api` antes de esperar novas URLs no navegador (ex.: `docker compose build api` e `docker compose up -d api`). Um binário antigo em `:8080` devolve **404** genérico ao frontend (via Vite proxy) quando a rota ainda não existia na build em execução — por exemplo `GET /chats/:id/contents/:contentId/download`.
+Se alterar rotas ou handlers Go e a API correr dentro do Compose, reconstrua o serviço `api` antes de esperar novas URLs no navegador (ex.: `docker compose build api` e `docker compose up -d api`). Um binário antigo em `:8080` devolve **404** genérico ao frontend (via proxy Nginx no Compose ou Vite no desenvolvimento) quando a rota ainda não existia na build em execução — por exemplo `GET /chats/:id/contents/:contentId/download`.
 
 ## Logs por `job_id`
 
