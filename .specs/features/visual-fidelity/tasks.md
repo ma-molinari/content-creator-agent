@@ -73,9 +73,11 @@ Para o ensaio visual e E2E com serviços externos, seguir os procedimentos opt-i
 
 **Pronto quando:**
 
-- [ ] Schema fechado aceita paleta, referência de token ou hexadecimal e `decoration` nos enums; rejeita extras, campos ambíguos, IDs inválidos/duplicados, mais de quatro decorações ou 12 elementos e limites V1 violados. A validação contextual também rejeita assets não autorizados.
-- [ ] Conversão preserva IDs, ordem, conteúdo, estilos e assets, inclusive documentos com múltiplos slides, sem texto ou com 12 elementos; resolve defaults de V1 antes da conversão e inicializa tokens conforme o TDD.
-- [ ] Fixtures V2 compartilháveis têm casos válidos e inválidos, enquanto o arquivo e os consumidores V1 continuam passando sem alterações incompatíveis. A T03 conectará o consumidor Go às novas fixtures. Nenhuma rota de produção passa a gerar V2 nesta tarefa.
+- [x] Schema fechado aceita paleta, referência de token ou hexadecimal e `decoration` nos enums; rejeita extras, campos ambíguos, IDs inválidos/duplicados, mais de quatro decorações ou 12 elementos e limites V1 violados. A validação contextual também rejeita assets não autorizados.
+- [x] Conversão preserva IDs, ordem, conteúdo, estilos e assets, inclusive documentos com múltiplos slides, sem texto ou com 12 elementos; resolve defaults de V1 antes da conversão e inicializa tokens conforme o TDD.
+- [x] Fixtures V2 compartilháveis têm casos válidos e inválidos, enquanto o arquivo e os consumidores V1 continuam passando sem alterações incompatíveis. A T03 conectará o consumidor Go às novas fixtures. Nenhuma rota de produção passa a gerar V2 nesta tarefa.
+
+**Validação:** 62 testes de contrato e operações V1/V2 passaram no Docker em 23/11/2026.
 
 **Verificar:** testes do schema e fixtures no worker; preparar os casos para a paridade Go da T03. **Commit:** `feat(worker): definir contrato visual v2`.
 
