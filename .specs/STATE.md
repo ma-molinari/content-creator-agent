@@ -1,5 +1,12 @@
 # Estado da Sessão — Post Mind
 
+## Planejamento: fidelidade visual — 2026-11-23
+
+- **Status:** especificação revisada; plano de tarefas proposto, sem implementação iniciada.
+- **Design:** `docs/TDD-FIDELIDADE-VISUAL.md`; **tarefas:** `.specs/features/visual-fidelity/tasks.md`.
+- **Decisão do usuário:** permitir aplicar os novos elementos em posts híbridos V1 e salvar uma nova versão V2, preservando a V1.
+- **Gates:** catálogo de barras/linhas e política de contraste ainda precisam de validação; a T18 híbrida e o aceite operacional permanecem pré-requisitos para ativação, não para desenvolvimento isolado.
+
 ## Planejamento: geração híbrida — 2026-11-18
 
 - **Status:** T01, T02 e T03 concluídas: catálogo inicial V1 aprovado pelo responsável em 2026-11-18, com testes de renderização em Chromium; T04 e T06 implementadas sobre o catálogo V1; T05 concluída com teste entre serviços para edição não suportada; T07 concluída: cópia e releitura de assets herdados validadas entre serviços, inclusive após exclusão da referência original; T08 e T09 concluídas e validadas em PostgreSQL temporário; T15 concluída no catálogo V1, com interface, leitura de versão e testes integrados; T11 concluída e T16 concluída em ambiente simulado: inventário durável e varredura com agendamento desativado, recuperação validada em processo separado com armazenamento local; consultas ao banco e listagem S3 paginadas; recuperação e custo relativo validados em Docker com S3 simulado, com consultas e exclusões agrupadas; inventários retidos indefinidamente, com validação em S3 real pendente; T12 e T13 concluídas no catálogo V1: caminho estruturado conectado, com teste entre API HTTP e worker HTTP, Chromium real e LLM/S3 simulados; reconciliação operacional continua pendente na T16; T10 concluída no catálogo V1, com validação de snapshot/manifesto, contratos compartilhados e testes de concorrência; T14 e T17 concluídas localmente: integração, flag, negociação e agregação dos logs validadas; T18 tem ensaio Docker reproduzível, mas a aceitação com serviços reais continua pendente.
