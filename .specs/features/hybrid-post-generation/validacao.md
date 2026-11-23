@@ -47,6 +47,12 @@ O LocalStack 3.8.1 foi iniciado no Docker com bucket `postmind-local`. Foram ver
 - API, worker, frontend e PostgreSQL rodaram em Docker com S3 e LLM reais. Os dados eram sintéticos e os objetos, o ZIP e a stack do teste foram removidos. A aprovação visual com marca real permanece pendente.
 - Foi corrigido o proxy Nginx da SPA para aceitar endereço por ambiente: Docker Compose usa `api:8080` e a imagem mantém o padrão anterior do Railway. Os 17 testes do frontend e o build passaram.
 
+## Referência visual de perfil com S3 e LLM reais — 2026-11-23
+
+- Na stack de teste de cadastro, foi iniciada a API com o worker e uma conta sintética separada. Uma referência visual sintética foi enviada pela API de perfil, armazenada no S3 e recuperada por URL assinada.
+- Um job de criação no formato legado executou o worker e a LLM reais. Instrumentação temporária limitada à solicitação sintética confirmou uma referência, resumo de visão não vazio e presença desse resumo no contexto enviado ao gerador. O post concluiu e a imagem foi recuperada com dimensões de 1080×1350.
+- A referência e o chat sintéticos foram removidos; a instrumentação foi retirada e o worker normal permaneceu ativo. O teste comprova o caminho do contexto, não a reprodução exata da referência nem a utilização de uma marca real. O fluxo estruturado não foi exercitado neste ensaio.
+
 ## Protocolo S3 simulado
 
 A suíte Go completa passou com PostgreSQL em Docker, incluindo o cliente AWS SDK da API contra um endpoint HTTP simulado. O teste percorreu duas páginas, recebeu uma resposta de exclusão parcialmente malsucedida e retomou a limpeza preservando objetos recentes e referenciados. O simulador valida esse contrato específico, sem substituir um teste com AWS S3 real.
