@@ -75,6 +75,7 @@ class SlidePackage(TypedDict):
 class AgentState(TypedDict):
     authorized_asset_sources: NotRequired[dict[str, str]]
     post_format: NotRequired[str]
+    target_schema_version: NotRequired[int]
     generation_mode: NotRequired[Optional[str]]
     base_version_id: NotRequired[str]
     document_s3_key: NotRequired[str]

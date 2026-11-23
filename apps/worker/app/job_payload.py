@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, field_validator, model_validator
 from typing_extensions import Self
 
 from app.slide_count_inference import infer_requested_slide_count
@@ -14,6 +14,7 @@ from app.state import AgentState
 
 class DispatchPayload(BaseModel):
     post_format: Literal["legacy_html", "structured_v1"] = "legacy_html"
+    target_schema_version: Optional[Literal[1, 2]] = None
     generation_mode: Optional[Literal["create", "edit"]] = None
     base_version_id: Optional[UUID] = None
     document_s3_key: str = ""
@@ -38,6 +39,13 @@ class DispatchPayload(BaseModel):
     requested_slide_count: Optional[int] = None
 
 
+    @field_validator("target_schema_version", mode="before")
+    @classmethod
+    def strict_target_schema(cls, value: object) -> object:
+        if value is not None and type(value) is not int:
+            raise ValueError("target schema must be an integer")
+        return value
+
     @model_validator(mode="after")
     def validate_mode(self) -> Self:
         if self.post_format == "structured_v1":
@@ -55,6 +63,7 @@ def initial_state(payload: DispatchPayload) -> AgentState:
     return {
         "job_id": str(payload.job_id),
         "post_format": payload.post_format,
+        "target_schema_version": payload.target_schema_version or 1,
         "generation_mode": payload.generation_mode,
         "base_version_id": str(payload.base_version_id) if payload.base_version_id else "",
         "document_s3_key": payload.document_s3_key,

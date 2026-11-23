@@ -10,6 +10,7 @@ from uuid import UUID
 from app.api_client import post_complete_callback
 from app.immutable_assets import CopiedAssets, _put_immutable
 from app.post_document import ImageElement, PostDocumentV1
+from app.post_document_v2 import PostDocumentV2
 from app.post_renderer import RENDERER_VERSION
 from app.state import RenderedSlide, SlideItem
 
@@ -35,10 +36,10 @@ class StructuredUpload:
 
 
 async def upload_structured_post(
-    document: PostDocumentV1, slides: list[SlideItem], images: list[RenderedSlide], assets: CopiedAssets,
+    document: PostDocumentV1 | PostDocumentV2, slides: list[SlideItem], images: list[RenderedSlide], assets: CopiedAssets,
     *, job_id: str, bucket: str, client,
 ) -> StructuredUpload:
-    document = PostDocumentV1.model_validate_json(document.model_dump_json(by_alias=True))
+    document = type(document).model_validate_json(document.model_dump_json(by_alias=True))
     prefix = f"slides/{UUID(job_id)}/"
     used = {item.asset_id for slide in document.slides for item in slide.elements if isinstance(item, ImageElement)}
     if set(assets.keys) != used or set(assets.contents) != used:
@@ -77,11 +78,12 @@ async def upload_structured_post(
 
 async def send_structured_completion(
     url: str, *, api_key: str, assistant_text: str, upload: StructuredUpload,
+    schema_version: int = 1, renderer_version: str = RENDERER_VERSION,
 ) -> int:
     payload: Mapping[str, object] = {
         "assistantText": assistant_text,
         "artifacts": upload.artifacts,
-        "structured": {"documentS3Key": upload.document_key, "schemaVersion": 1, "rendererVersion": RENDERER_VERSION},
+        "structured": {"documentS3Key": upload.document_key, "schemaVersion": schema_version, "rendererVersion": renderer_version},
         "error": None,
     }
     # The shared client retries the same payload on transport errors and 5xx.

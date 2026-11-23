@@ -29,6 +29,8 @@ async def profile_overview(state: AgentState) -> dict[str, object]:
             "cache_hit": False,
         },
     }
+    if state.get("target_schema_version") == 2 and state.get("post_format") == "structured_v1":
+        return out
     if not keys:
         return out
     if keys in _REFERENCE_SUMMARY_CACHE:

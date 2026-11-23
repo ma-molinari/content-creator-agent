@@ -19,6 +19,7 @@ from app.job_payload import DispatchPayload, initial_state
 from app.state import AgentState
 from app.structured_upload import StructuredCallbackUnknown
 from app.structured_editing import StructuredEditingError
+from app.visual_direction import VisualDirectionError
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +64,10 @@ async def _run_job(state: AgentState) -> None:
     except StructuredCallbackUnknown:
         logger.warning("structured callback outcome unknown job_id=%s", state.get("job_id"))
     except Exception as exc:
-        logger.exception("job failed: job_id=%s", state.get("job_id"))
+        if state.get("target_schema_version") == 2:
+            logger.error("structured job failed job_id=%s category=%s", state.get("job_id"), type(exc).__name__)
+        else:
+            logger.exception("job failed: job_id=%s", state.get("job_id"))
         jid = state.get("job_id")
         if not jid:
             return
@@ -74,6 +78,8 @@ async def _run_job(state: AgentState) -> None:
             return
         if isinstance(exc, StructuredEditingError):
             await report_job_failure(job_uuid, "Não foi possível aplicar a edição. Reformule o pedido.", error_code="EDIT_UNSUPPORTED")
+        elif isinstance(exc, VisualDirectionError):
+            await report_job_failure(job_uuid, str(exc), error_code="VISUAL_REFERENCE_ERROR")
         elif state.get("post_format") == "structured_v1":
             await report_job_failure(job_uuid, "Não foi possível gerar o post estruturado. Tente novamente.")
         else:
@@ -165,6 +171,20 @@ async def post_structured_jobs(
     x_worker_api_key: Optional[str] = Header(default=None, alias="X-Worker-API-Key"),
 ):
     _require_worker_key(x_worker_api_key)
-    if payload.post_format != "structured_v1":
+    if payload.post_format != "structured_v1" or payload.target_schema_version not in (None, 1):
         raise HTTPException(status_code=400, detail="invalid job format")
+    return _accept_job(payload, background_tasks)
+
+
+@app.post("/jobs/structured/v2", status_code=202)
+async def post_structured_jobs_v2(
+    payload: DispatchPayload,
+    background_tasks: BackgroundTasks,
+    x_worker_api_key: Optional[str] = Header(default=None, alias="X-Worker-API-Key"),
+):
+    _require_worker_key(x_worker_api_key)
+    if payload.post_format != "structured_v1" or payload.target_schema_version != 2:
+        raise HTTPException(status_code=400, detail="invalid job format")
+    if payload.generation_mode == "create" and payload.document_s3_key:
+        raise HTTPException(status_code=400, detail="invalid create base")
     return _accept_job(payload, background_tasks)

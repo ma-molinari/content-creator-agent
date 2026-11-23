@@ -169,9 +169,11 @@ Para o ensaio visual e E2E com serviços externos, seguir os procedimentos opt-i
 
 **Pronto quando:**
 
-- [ ] Dispatch V2 exige alvo explícito, modo e base coerentes em rota dedicada; o endpoint V1 preserva compatibilidade V1 e o worker novo rejeita alvo V2 explícito nesse endpoint. Não publicar capacidade V2 antes da T11.
-- [ ] O pipeline escolhe V1/V2 por alvo, carrega o snapshot correto, promove quando exigido, copia assets autorizados, usa renderer adequado e publica JSON/manifesto/HTML/JPEG imutáveis com schema e renderer efetivos. Ajustar o grafo: hoje `profile_overview` roda antes da escolha estruturada; edição V2 comum não pode buscar/analisar referências atuais antes de decidir se deve reaplicá-las. V1 conserva o caminho atual.
-- [ ] Callback repetido ou resposta incerta segue a política atual de idempotência e reconciliação; falhas de validação ou upload não publicam versão e não excluem artefatos cujo estado seja desconhecido. Emitir eventos categorizados de execução e quantidade de decorações sem prompts, imagens ou referências.
+- [x] Dispatch V2 exige alvo explícito, modo e base coerentes em rota dedicada; o endpoint V1 preserva compatibilidade V1 e o worker novo rejeita alvo V2 explícito nesse endpoint. Não publicar capacidade V2 antes da T11.
+- [x] O pipeline escolhe V1/V2 por alvo, carrega o snapshot correto, promove quando exigido, copia assets autorizados, usa renderer adequado e publica JSON/manifesto/HTML/JPEG imutáveis com schema e renderer efetivos. Ajustar o grafo: hoje `profile_overview` roda antes da escolha estruturada; edição V2 comum não pode buscar/analisar referências atuais antes de decidir se deve reaplicá-las. V1 conserva o caminho atual.
+- [x] Callback repetido ou resposta incerta segue a política atual de idempotência e reconciliação; falhas de validação ou upload não publicam versão e não excluem artefatos cujo estado seja desconhecido. Emitir eventos categorizados de execução e quantidade de decorações sem prompts, imagens ou referências.
+
+**Validação:** 28 testes de rotas, pipeline, persistência e referências com S3/LLM simulados passaram no Docker em 23/11/2026; Chromium foi validado na T04. A classificação de intenção de reaplicar referências usa LLM e rejeita respostas incertas.
 
 **Verificar:** testes do payload, rotas, pipeline, upload e callback do worker, com S3/LLM simulados e Chromium quando necessário. **Commit:** `feat(worker): executar pipeline visual v2`.
 

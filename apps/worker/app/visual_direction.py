@@ -70,6 +70,29 @@ class VisualDirectionError(Exception):
     """A complete, valid reference analysis could not be produced."""
 
 
+class _ReapplyDecision(_StrictModel):
+    decision: Literal["yes", "no", "uncertain"]
+
+
+async def requests_reference_reapplication(request: str) -> bool:
+    settings = get_settings()
+    llm = ChatOpenAI(api_key=settings.openai_api_key, model=settings.openai_chat_model,
+                     max_tokens=100, temperature=0)
+    system = ("Determine se a edição pede explicitamente reaplicar as referências visuais atuais. "
+              "Retorne somente JSON com decision: yes, no ou uncertain. "
+              "Pedido de não usar referências é no; em dúvida retorne uncertain.")
+    for _ in range(_MAX_ATTEMPTS):
+        try:
+            response = await llm.ainvoke([SystemMessage(content=system), HumanMessage(content=request)])
+            decision = _ReapplyDecision.model_validate_json(langchain_message_text(response)).decision
+            if decision == "uncertain":
+                raise VisualDirectionError("Não foi possível identificar se deseja reaplicar as referências. Reformule o pedido.")
+            return decision == "yes"
+        except (ValidationError, ValueError):
+            continue
+    raise VisualDirectionError("Não foi possível identificar se deseja reaplicar as referências. Reformule o pedido.")
+
+
 def _key(user_id: str, model: str, images: list[bytes]) -> str:
     digest = hashlib.sha256()
     for value in [user_id.encode(), model.encode(), _VERSION.encode(), *images]:

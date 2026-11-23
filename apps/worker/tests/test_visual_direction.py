@@ -21,7 +21,7 @@ def setup(monkeypatch):
     module._cache.clear()
     settings = SimpleNamespace(aws_region="region", aws_access_key_id="key", aws_secret_access_key="secret",
                                aws_s3_bucket="bucket", reference_image_max_bytes=1024,
-                               reference_vision_model="vision-model", openai_api_key="key")
+                               reference_vision_model="vision-model", openai_api_key="key", openai_chat_model="chat-model")
     monkeypatch.setattr(module, "get_settings", lambda: settings)
     monkeypatch.setattr(module.boto3, "client", lambda *args, **kwargs: object())
     monkeypatch.setattr(module, "fetch_bytes_limited", lambda _client, _bucket, key, _limit: key.encode())
@@ -95,3 +95,16 @@ def test_ambiguous_color_must_not_claim_an_observed_value():
     data["palette"]["text"]["value"] = "#FFFFFF"
     with pytest.raises(ValueError):
         module.VisualDirection.model_validate(data)
+
+
+@pytest.mark.parametrize("decision,expected", [("yes", True), ("no", False), ("uncertain", None)])
+def test_reference_reapplication_requires_unambiguous_decision(monkeypatch, decision, expected):
+    class LLM:
+        def __init__(self, **_kwargs): pass
+        async def ainvoke(self, _messages): return SimpleNamespace(content=json.dumps({"decision": decision}))
+    monkeypatch.setattr(module, "ChatOpenAI", LLM)
+    if expected is None:
+        with pytest.raises(module.VisualDirectionError, match="Reformule"):
+            asyncio.run(module.requests_reference_reapplication("pedido ambíguo"))
+    else:
+        assert asyncio.run(module.requests_reference_reapplication("pedido")) is expected

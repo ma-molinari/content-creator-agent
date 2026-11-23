@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import re
 from uuid import UUID
@@ -14,10 +15,13 @@ from app.immutable_assets import copy_version_assets
 from app.job_progress import report_job_progress
 from app.nodes.attachment_analyze import attachment_analyze
 from app.post_document import ImageElement, PostDocumentV1
+from app.post_document_v2 import PostDocumentV2, Decoration, promote_v1
 from app.s3_image_utils import fetch_bytes_limited
 from app.state import AgentState
-from app.structured_editing import plan_structured_edit
-from app.structured_generation import generate_structured_post
+from app.structured_editing import plan_structured_edit, plan_structured_edit_v2
+from app.structured_generation import generate_structured_post, generate_structured_post_v2
+from app.post_renderer_v2 import RENDERER_VERSION as RENDERER_VERSION_V2
+from app.visual_direction import extract_visual_direction, requests_reference_reapplication
 from app.structured_render import render_structured_post
 from app.structured_upload import send_structured_completion, upload_structured_post
 
@@ -31,7 +35,7 @@ def _check_base_key(key: str) -> None:
     UUID(match.group(1))
 
 
-def _check_required_assets(document: PostDocumentV1, requirements: list[dict[str, object]]) -> None:
+def _check_required_assets(document: PostDocumentV1 | PostDocumentV2, requirements: list[dict[str, object]]) -> None:
     for item in requirements:
         number = item.get("required_slide_number")
         if isinstance(number, int) and number > 0:
@@ -47,6 +51,7 @@ async def structured_pipeline(state: AgentState) -> dict[str, object]:
     settings = get_settings()
     job_id = str(state.get("job_id") or "")
     mode = state.get("generation_mode")
+    v2 = state.get("target_schema_version") == 2
     sources = dict(state.get("authorized_asset_sources") or {})
     client = boto3.client("s3", region_name=settings.aws_region,
                           aws_access_key_id=settings.aws_access_key_id,
@@ -59,7 +64,14 @@ async def structured_pipeline(state: AgentState) -> dict[str, object]:
         for item in (analyzed.get("attachment_plan") or [])
     ]
     await report_job_progress(state, stage="generating_slides", progress=55)
-    if mode == "create":
+    if mode == "create" and v2:
+        direction = await extract_visual_direction(user_id=str(state.get("user_id") or ""), reference_keys=list(state.get("reference_s3_keys") or []))
+        document = await generate_structured_post_v2(
+            request=state.get("raw_message") or "", profile_text=state.get("profile_text") or "",
+            post_type=state.get("chat_post_type") or "", authorized_assets=set(sources), visual_direction=direction,
+            requested_slide_count=state.get("requested_slide_count"), asset_requirements=requirements,
+        )
+    elif mode == "create":
         document = await generate_structured_post(
             request=state.get("raw_message") or "", profile_text=state.get("profile_text") or "",
             post_type=state.get("chat_post_type") or "", authorized_assets=set(sources),
@@ -69,11 +81,24 @@ async def structured_pipeline(state: AgentState) -> dict[str, object]:
         key = state.get("document_s3_key") or ""
         _check_base_key(key)
         raw = await asyncio.to_thread(fetch_bytes_limited, client, settings.aws_s3_bucket, key, 2 * 1024 * 1024)
-        base = PostDocumentV1.model_validate_json(raw)
+        if v2:
+            schema = json.loads(raw).get("schemaVersion")
+            if type(schema) is not int or schema not in (1, 2):
+                raise ValueError("invalid base schema")
+            base = promote_v1(PostDocumentV1.model_validate_json(raw)) if schema == 1 else PostDocumentV2.model_validate_json(raw)
+        else:
+            base = PostDocumentV1.model_validate_json(raw)
         if base.post_type != state.get("chat_post_type"):
             raise ValueError("base post type does not match chat")
-        document = await plan_structured_edit(request=state.get("raw_message") or "", document=base,
-                                              authorized_assets=set(sources), asset_requirements=requirements)
+        if v2:
+            reapply = await requests_reference_reapplication(state.get("raw_message") or "")
+            direction = await extract_visual_direction(user_id=str(state.get("user_id") or ""),
+                reference_keys=list(state.get("reference_s3_keys") or []), reapply=True) if reapply else None
+            document = await plan_structured_edit_v2(request=state.get("raw_message") or "", document=base,
+                authorized_assets=set(sources), asset_requirements=requirements, reapply_references=reapply, visual_direction=direction)
+        else:
+            document = await plan_structured_edit(request=state.get("raw_message") or "", document=base,
+                                                  authorized_assets=set(sources), asset_requirements=requirements)
     else:
         raise ValueError("invalid structured generation mode")
     _check_required_assets(document, requirements)
@@ -86,10 +111,14 @@ async def structured_pipeline(state: AgentState) -> dict[str, object]:
     uploaded = await upload_structured_post(document, slides, images, copied, job_id=job_id,
                                             bucket=settings.aws_s3_bucket, client=client)
     await report_job_progress(state, stage="finalizing", progress=98)
+    completion_kwargs = {"schema_version": 2, "renderer_version": RENDERER_VERSION_V2} if v2 else {}
     status = await send_structured_completion(
         f"{settings.go_api_url.rstrip('/')}/internal/jobs/{job_id}/complete", api_key=settings.worker_api_key,
-        assistant_text="Post atualizado." if mode == "edit" else "Post criado.", upload=uploaded,
+        assistant_text="Post atualizado." if mode == "edit" else "Post criado.", upload=uploaded, **completion_kwargs,
     )
+    if v2:
+        count = sum(isinstance(element, Decoration) for slide in document.slides for element in slide.elements)
+        logger.info("event=structured_execution schema=2 outcome=%s decorations=%d", "conflict" if status == 409 else "success", count)
     if status == 409:
         logger.info("structured completion conflict job_id=%s", job_id)
     return {}

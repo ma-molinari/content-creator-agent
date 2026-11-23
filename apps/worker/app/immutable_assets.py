@@ -11,6 +11,7 @@ from uuid import UUID
 from botocore.exceptions import ClientError
 
 from app.post_document import ImageElement, PostDocumentV1
+from app.post_document_v2 import PostDocumentV2
 
 _MAX_BYTES = 5 * 1024 * 1024
 
@@ -66,11 +67,11 @@ def _put_immutable(client, bucket: str, key: str, data: bytes, content_type: str
 
 
 async def copy_version_assets(
-    document: PostDocumentV1, *, job_id: str, bucket: str,
+    document: PostDocumentV1 | PostDocumentV2, *, job_id: str, bucket: str,
     authorized_sources: Mapping[str, str], client,
 ) -> CopiedAssets:
     """The source mapping must be supplied by the API after ownership validation."""
-    document = PostDocumentV1.model_validate_json(document.model_dump_json(by_alias=True))
+    document = type(document).model_validate_json(document.model_dump_json(by_alias=True))
     job_uuid = UUID(job_id)
     used_ids = sorted({item.asset_id for slide in document.slides for item in slide.elements if isinstance(item, ImageElement)})
     if any(asset_id not in authorized_sources or not authorized_sources[asset_id] for asset_id in used_ids):
