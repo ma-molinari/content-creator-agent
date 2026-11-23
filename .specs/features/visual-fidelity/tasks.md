@@ -137,9 +137,11 @@ Para o ensaio visual e E2E com serviços externos, seguir os procedimentos opt-i
 
 **Pronto quando:**
 
-- [ ] A saída tem schema fechado para paleta, barras/linhas e estado observado/incerto; dados inválidos ou referências indisponíveis/parciais seguem a falha clara do TDD, sem tratar confiança do modelo como certeza. Registrar duração, resultado e motivo categorizado da extração, sem conteúdo privado.
-- [ ] Cache é delimitado e isolado por usuário, identidade/ordem das imagens e versão de schema/prompt/modelo; se usar textos do perfil, inclui esses insumos. Falhas e saídas incompletas não são cacheadas como sucesso.
-- [ ] Sem referências, criação pode usar o perfil; reanálise explícita sem referências falha claramente. O contrato isolado permite edição V2 independente sem consultar as referências originais; a ligação efetiva do grafo e dos assets herdados é responsabilidade da T08.
+- [x] A saída tem schema fechado para paleta, barras/linhas e estado observado/incerto; dados inválidos ou referências indisponíveis/parciais seguem a falha clara do TDD, sem tratar confiança do modelo como certeza. Registrar duração, resultado e motivo categorizado da extração, sem conteúdo privado.
+- [x] Cache é delimitado e isolado por usuário, identidade/ordem das imagens e versão de schema/prompt/modelo; se usar textos do perfil, inclui esses insumos. Falhas e saídas incompletas não são cacheadas como sucesso.
+- [x] Sem referências, criação pode usar o perfil; reanálise explícita sem referências falha claramente. O contrato isolado permite edição V2 independente sem consultar as referências originais; a ligação efetiva do grafo e dos assets herdados é responsabilidade da T08.
+
+**Validação:** sete testes de extração simulada, leitura de referências e cache passaram no Docker em 23/11/2026. A extração V2 não usa AUDIT/BRAND; estes permanecem entrada independente do gerador.
 
 **Verificar:** testes de visão simulada, falhas de S3, mais de oito referências, cache/isolamento, alteração de perfil e ausência de conteúdo sensível nos logs. **Commit:** `feat(worker): estruturar direção visual`.
 
