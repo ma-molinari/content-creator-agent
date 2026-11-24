@@ -117,6 +117,11 @@ def main():
                 _, unavailable, unavailable_doc = run_job("Crie com serviço fora", "create")
                 assert unavailable_doc["slides"][0]["background"]["type"] == "solid"
                 assert any("criado sem imagem" in message["content"] for message in unavailable["contents"])
+                _, contrast_edit, contrast_doc = run_job("Altere o fundo azul", "edit", unavailable["currentVersionId"])
+                assert contrast_doc["slides"][0]["background"]["color"]["hex"] == "#003366"
+                assert contrast_doc["slides"][0]["elements"][0]["style"]["color"]["hex"] == "#FFFFFF"
+                assert contrast_edit["currentVersionId"] != unavailable["currentVersionId"]
+                assert unavailable_doc["slides"][0]["background"]["color"] == {"token": "background"}
                 print("V3: busca genérica, fallback, edição e histórico validados com LocalStack e Openverse simulado.")
         except Exception:
             for part in ("api", "worker"):

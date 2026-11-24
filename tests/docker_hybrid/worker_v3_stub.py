@@ -13,6 +13,7 @@ from app.post_operations_v3 import apply_operations_v3
 from app.stock_planning import StockPlan
 from app.stock_selection import PhotoChoice
 from app.stock_selection import select_stock_image
+from app.structured_editing_v3 import _adjust_edited_contrast
 
 pipeline = importlib.import_module("app.nodes.structured_pipeline_v3")
 stock = importlib.import_module("app.stock_pipeline")
@@ -52,6 +53,9 @@ async def plan(*, request, mode, slide_count):
 
 
 async def edit(*, request, document, authorized_assets, image_action):
+    if "fundo azul" in request.lower():
+        edited = apply_operations_v3(document, [{"op": "set_background", "slideId": "slide", "background": {"type": "solid", "color": {"hex": "#003366"}}}], authorized_assets)
+        return _adjust_edited_contrast(document, edited)
     if "título" in request.lower():
         title = "Alteração que não deve ser publicada" if "indisponível" in request.lower() else "Título editado"
         return apply_operations_v3(document, [{"op": "set_text", "slideId": "slide", "elementId": "title", "content": title}], authorized_assets)

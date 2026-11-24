@@ -72,6 +72,12 @@ e não garante que o assunto ficará livre. Na edição de V3 anterior sem caixa
 worker analisa a imagem existente e salva a caixa apenas na nova versão. Esse
 processo envolve uma chamada adicional ao modelo de visão e pode falhar.
 
+Em edições V3, quando um slide com fundo sólido alterado tiver texto com contraste
+inferior a 4,5:1, o worker mantém o fundo e ajusta apenas a cor desses textos para
+preto ou branco, conforme o melhor contraste. Textos já legíveis e slides não
+alterados são preservados; a correção fica apenas na nova versão. Fundos com foto
+continuam sujeitos à validação do painel translúcido descrita acima.
+
 A flag é desligada por padrão. Não habilite antes de validar o acesso real ao
 Openverse, os limites de uso e a qualidade visual no ambiente de destino. API e
 workers devem suportar V3 antes do rollout; versões V3 existentes nunca são
