@@ -50,6 +50,13 @@ os créditos e links da fonte e da licença. O Openverse não verifica a precis�
 das licenças, que devem ser conferidas na origem. A consulta enviada ao provedor é
 gerada pelo modelo a partir do pedido e pode não excluir todos os dados pessoais.
 
+Para escolher a imagem, o worker baixa até dez candidatos em lotes de cinco e
+envia cada lote disponível ao modelo de visão configurado em `REFERENCE_VISION_MODEL`.
+O modelo seleciona uma fotografia relacionada ao tema ou rejeita o lote; se não
+houver candidata adequada, o job falha sem publicar uma versão parcial. Essa
+análise adicional envia imagens públicas ao provedor de IA e aumenta o custo e a
+latência; a pertinência não é garantida. Os JPEGs anteriores não são alterados.
+
 A flag é desligada por padrão. Não habilite antes de validar o acesso real ao
 Openverse, os limites de uso e a qualidade visual no ambiente de destino. API e
 workers devem suportar V3 antes do rollout; versões V3 existentes nunca são

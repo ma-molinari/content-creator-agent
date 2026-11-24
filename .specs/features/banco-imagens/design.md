@@ -21,6 +21,9 @@ e bloqueia rollback enquanto existirem jobs ou versões V3.
   V3 promovem versões antigas e publicam assets e créditos de forma imutável.
 - A busca recebe uma consulta gerada pelo modelo a partir do pedido; o prompt pede
   que ela não contenha dados pessoais, mas isso não é uma garantia automática.
+  O worker avalia até dez candidatos públicos em lotes de cinco pelo modelo de
+  visão, priorizando fotos pertinentes e falhando quando nenhuma é selecionada.
+  Essa etapa adiciona custo e latência e não garante relevância.
 - Créditos e links são exibidos no conteúdo do assistente. O Openverse não garante
   a precisão das licenças; o usuário deve conferir a origem antes de usar a imagem.
 - O fluxo Docker com provedor simulado cobriu criação, edição, histórico e conflito;
