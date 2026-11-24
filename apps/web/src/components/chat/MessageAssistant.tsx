@@ -26,6 +26,7 @@ export function MessageAssistant({ message, isLatestVersion }: Props) {
   const files = hasImages ? imagesToFileListItems(message.images) : []
   const [downloading, setDownloading] = useState(false)
   const [downloadError, setDownloadError] = useState<string | null>(null)
+  const contentParts = message.content.split(/(https:\/\/[^\s;]+)/g)
 
   const time = new Date(message.createdAt).toLocaleTimeString('pt-BR', {
     hour: '2-digit',
@@ -52,7 +53,11 @@ export function MessageAssistant({ message, isLatestVersion }: Props) {
       <div className="max-w-[85%]">
         <div className="rounded-[var(--radius-lg)] rounded-tl-[var(--radius-sm)] border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] px-4 py-3">
           <p className="whitespace-pre-wrap break-words text-sm text-[var(--color-text-primary)]">
-            {message.content}
+            {contentParts.map((part, index) => part.startsWith('https://') ? (
+              <a key={index} href={part} target="_blank" rel="noopener noreferrer" className="text-[var(--color-brand-primary)] underline">
+                {part}
+              </a>
+            ) : part)}
           </p>
 
           {files.length > 0 && (
