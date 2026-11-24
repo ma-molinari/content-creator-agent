@@ -121,6 +121,9 @@ async def _run_job_safe(state: AgentState) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logging.basicConfig(level=logging.INFO)
+    # HTTP client request logs contain full URLs, including user-derived search terms.
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
     logger.info("Worker starting up")
     yield
     # Brief grace window so accepted background jobs can finish during shutdown.

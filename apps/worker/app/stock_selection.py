@@ -3,9 +3,11 @@
 import asyncio
 import base64
 import json
+import logging
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 from uuid import uuid4
+from time import monotonic
 
 import httpx
 from bs4 import BeautifulSoup
@@ -22,6 +24,7 @@ from app.post_document_v3 import FocalBox, ImageCreditV3
 
 _MAX_CANDIDATES = 5
 _UNSUPPORTED_EXTENSIONS = (".svg", ".gif", ".tif", ".tiff", ".pdf")
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -128,22 +131,35 @@ async def _choose_photo(query: str, images: list[tuple[ImageCandidate, bytes]]) 
 
 async def select_stock_image(query: str, *, client: httpx.AsyncClient,
                              exclude_sources: frozenset[str] = frozenset()) -> SelectedStockImage:
-    candidates = await search_images(query, client=client)
+    started = monotonic()
+    try:
+        candidates = await search_images(query, client=client)
+    except ImageSearchError:
+        logger.info("[metrics] event=stock_selection outcome=failed reason=search duration_ms=%d", int((monotonic() - started) * 1000))
+        raise
     candidates = [item for item in candidates if item.source_url not in exclude_sources
                   and not urlsplit(item.image_url).path.lower().endswith(_UNSUPPORTED_EXTENSIONS)]
     candidates.sort(key=lambda item: item.category != "photograph")
     # Limit concurrency and each vision payload to five images of at most 5 MiB each.
     chosen = None
+    downloaded_any = False
     for offset in range(0, len(candidates), _MAX_CANDIDATES):
         batch = candidates[offset:offset + _MAX_CANDIDATES]
         downloaded = await asyncio.gather(*(download_image(item, client=client) for item in batch), return_exceptions=True)
         images = [(candidate, data) for candidate, data in zip(batch, downloaded) if isinstance(data, bytes)]
         if images:
-            choice = await _choose_photo(query, images)
+            downloaded_any = True
+            try:
+                choice = await _choose_photo(query, images)
+            except ImageSearchError:
+                logger.info("[metrics] event=stock_selection outcome=failed reason=vision duration_ms=%d", int((monotonic() - started) * 1000))
+                raise
             if choice is not None:
                 chosen = (*images[choice.index], choice.focal_box)
                 break
     if chosen is None:
+        reason = "download" if candidates and not downloaded_any else "no_candidate"
+        logger.info("[metrics] event=stock_selection outcome=failed reason=%s duration_ms=%d", reason, int((monotonic() - started) * 1000))
         raise ImageSearchError("Não foi encontrada uma fotografia adequada para esse tema.")
     candidate, content, focal_box = chosen
     creator = _plain_credit(candidate.creator)
@@ -151,4 +167,5 @@ async def select_stock_image(query: str, *, client: httpx.AsyncClient,
         "title": _plain_credit(candidate.title), "creator": creator or None,
         "sourceUrl": candidate.source_url, "license": candidate.license, "licenseUrl": candidate.license_url,
     })
+    logger.info("[metrics] event=stock_selection outcome=success reason=ok duration_ms=%d", int((monotonic() - started) * 1000))
     return SelectedStockImage(asset_id="stock_" + uuid4().hex, content=content, credit=credit, focal_box=focal_box)

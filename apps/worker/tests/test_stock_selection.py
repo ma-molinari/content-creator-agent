@@ -1,5 +1,6 @@
 import httpx
 import pytest
+import logging
 from unittest.mock import AsyncMock
 from types import SimpleNamespace
 from langchain_core.messages import AIMessage
@@ -91,3 +92,44 @@ async def test_selection_tries_next_batch_when_first_is_not_relevant(monkeypatch
         selected = await select_stock_image("café", client=client)
     assert selected.credit.source_url == "https://commons.wikimedia.org/5"
     assert choose.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_selection_metrics_report_outcomes_without_private_data(monkeypatch, caplog):
+    caplog.set_level(logging.INFO, logger="app.stock_selection")
+    choose = AsyncMock(return_value=choice())
+    monkeypatch.setattr("app.stock_selection._choose_photo", choose)
+    async with httpx.AsyncClient(transport=httpx.MockTransport(response)) as client:
+        await select_stock_image("consulta-privada-sentinela", client=client)
+        choose.return_value = None
+        with pytest.raises(ImageSearchError):
+            await select_stock_image("consulta-privada-sentinela", client=client)
+        choose.side_effect = ImageSearchError("erro-privado-sentinela")
+        with pytest.raises(ImageSearchError):
+            await select_stock_image("consulta-privada-sentinela", client=client)
+    messages = [record.getMessage() for record in caplog.records if record.name == "app.stock_selection"]
+    assert len(messages) == 3
+    assert "event=stock_selection outcome=success reason=ok" in messages[0]
+    assert "event=stock_selection outcome=failed reason=no_candidate" in messages[1]
+    assert "event=stock_selection outcome=failed reason=vision" in messages[2]
+    assert all("sentinela" not in message and "http" not in message and "Praia" not in message for message in messages)
+
+
+@pytest.mark.asyncio
+async def test_selection_metrics_distinguish_search_and_download_failure(caplog):
+    caplog.set_level(logging.INFO, logger="app.stock_selection")
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _: httpx.Response(503))) as client:
+        with pytest.raises(ImageSearchError):
+            await select_stock_image("sentinela", client=client)
+
+    def download_fails(request):
+        return response(request) if request.url.host == "api.openverse.org" else httpx.Response(503)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(download_fails)) as client:
+        with pytest.raises(ImageSearchError):
+            await select_stock_image("sentinela", client=client)
+    messages = [record.getMessage() for record in caplog.records if record.name == "app.stock_selection"]
+    assert len(messages) == 2
+    assert "outcome=failed reason=search" in messages[0]
+    assert "outcome=failed reason=download" in messages[1]
+    assert all("sentinela" not in message and "http" not in message for message in messages)

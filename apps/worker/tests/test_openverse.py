@@ -1,5 +1,8 @@
 import httpx
 import pytest
+import logging
+from io import StringIO
+from unittest.mock import AsyncMock
 
 from app.openverse import ImageCandidate, ImageSearchError, download_image, search_images
 
@@ -66,3 +69,67 @@ async def test_download_rejects_redirect_and_oversized_image():
         async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _: response)) as client:
             with pytest.raises(ImageSearchError):
                 await download_image(candidate, client=client)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("response", "reason"), [
+    (httpx.Response(429), "rate_limit"),
+    (httpx.Response(503), "upstream"),
+    (httpx.Response(200, json={"results": "invalid"}), "invalid_response"),
+])
+async def test_search_metrics_are_categorized_without_query(caplog, response, reason):
+    caplog.set_level(logging.INFO, logger="app.openverse")
+    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _: response)) as client:
+        with pytest.raises(ImageSearchError):
+            await search_images("consulta-privada-sentinela", client=client)
+    messages = [record.getMessage() for record in caplog.records if record.name == "app.openverse"]
+    assert len(messages) == 1
+    assert f"event=stock_search outcome=failed reason={reason}" in messages[0]
+    assert "sentinela" not in messages[0]
+    assert "http" not in messages[0]
+
+
+@pytest.mark.asyncio
+async def test_search_metrics_categorize_timeout(caplog):
+    caplog.set_level(logging.INFO, logger="app.openverse")
+    client = AsyncMock()
+    client.get.side_effect = httpx.ReadTimeout("consulta-privada-sentinela")
+    with pytest.raises(ImageSearchError):
+        await search_images("consulta-privada-sentinela", client=client)
+    messages = [record.getMessage() for record in caplog.records if record.name == "app.openverse"]
+    assert len(messages) == 1
+    assert "event=stock_search outcome=failed reason=timeout" in messages[0]
+    assert "sentinela" not in messages[0]
+
+
+@pytest.mark.asyncio
+async def test_worker_lifespan_suppresses_httpx_url_logs(monkeypatch, caplog):
+    from app.main import app, lifespan
+    caplog.set_level(logging.INFO)
+    httpx_logger = logging.getLogger("httpx")
+    httpcore_logger = logging.getLogger("httpcore")
+    old_levels = httpx_logger.level, httpcore_logger.level
+    sink = StringIO()
+    handler = logging.StreamHandler(sink)
+    httpx_logger.addHandler(handler)
+    monkeypatch.setattr("app.main.asyncio.sleep", AsyncMock())
+    try:
+        httpx_logger.setLevel(logging.INFO)
+        async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _: httpx.Response(200, json={"results": []}))) as client:
+            await search_images("consulta-privada-sentinela", client=client)
+        assert "consulta-privada-sentinela" in caplog.text
+        assert "consulta-privada-sentinela" in sink.getvalue()
+        caplog.clear()
+        sink.seek(0)
+        sink.truncate()
+        async with lifespan(app):
+            async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _: httpx.Response(200, json={"results": []}))) as client:
+                await search_images("consulta-privada-sentinela", client=client)
+        assert "event=stock_search outcome=success reason=ok" in caplog.text
+        assert "consulta-privada-sentinela" not in caplog.text
+        assert "api.openverse.org" not in caplog.text
+        assert "consulta-privada-sentinela" not in sink.getvalue()
+    finally:
+        httpx_logger.removeHandler(handler)
+        httpx_logger.setLevel(old_levels[0])
+        httpcore_logger.setLevel(old_levels[1])

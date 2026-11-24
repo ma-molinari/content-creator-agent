@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
+from time import monotonic
 from urllib.parse import urlsplit
 
 import httpx
@@ -11,6 +13,7 @@ import httpx
 _SEARCH_URL = "https://api.openverse.org/v1/images/"
 _MAX_IMAGE_BYTES = 5 * 1024 * 1024
 _USER_AGENT = "PostMind/1.0 (https://github.com/ma-molinari/content-creator-agent)"
+logger = logging.getLogger(__name__)
 
 
 class ImageSearchError(Exception):
@@ -61,6 +64,7 @@ async def search_images(query: str, *, client: httpx.AsyncClient, limit: int = 1
     query = query.strip()
     if not query or len(query) > 300 or not 1 <= limit <= 20:
         raise ValueError("invalid image search parameters")
+    started = monotonic()
     try:
         response = await client.get(_SEARCH_URL, params={"q": query, "license": "cc0", "source": "wikimedia", "page_size": limit},
                                     headers={"User-Agent": _USER_AGENT}, timeout=10.0, follow_redirects=False)
@@ -88,8 +92,18 @@ async def search_images(query: str, *, client: httpx.AsyncClient, limit: int = 1
                 creator_url=_https_url(item.get("creator_url")), license="cc0", license_url=license_url,
                 category=item.get("category") if isinstance(item.get("category"), str) else None,
             ))
+        logger.info("[metrics] event=stock_search outcome=success reason=ok duration_ms=%d", int((monotonic() - started) * 1000))
         return candidates
     except (httpx.HTTPError, ValueError) as exc:
+        if isinstance(exc, httpx.TimeoutException):
+            reason = "timeout"
+        elif isinstance(exc, httpx.HTTPStatusError):
+            reason = "rate_limit" if exc.response.status_code == 429 else "upstream"
+        elif isinstance(exc, httpx.HTTPError):
+            reason = "network"
+        else:
+            reason = "invalid_response"
+        logger.info("[metrics] event=stock_search outcome=failed reason=%s duration_ms=%d", reason, int((monotonic() - started) * 1000))
         raise ImageSearchError("Não foi possível buscar imagens no momento.") from exc
 
 
