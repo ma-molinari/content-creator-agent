@@ -184,6 +184,12 @@ chat; o Openverse não garante a exatidão desses dados. O ensaio
 `python tests/docker_hybrid/run_v3.py` usa LocalStack, Chromium, LLM e Openverse
 simulados e não comprova disponibilidade ou licença no serviço real.
 
+Se não houver fotografia adequada, o worker tenta até duas buscas mais genéricas.
+Na criação sem pedido explícito de fotografia, a ausência de candidata ou uma falha
+ao obter a imagem permite criar o post com fundo sólido e informar o usuário. Em
+pedidos explícitos e na edição, a falha encerra o job sem publicar alterações.
+As buscas adicionais podem aumentar o tempo e o número de requisições ao provedor.
+
 O worker registra `[metrics] event=stock_search` e `event=stock_selection` com
 resultado, motivo e duração, sem termos de busca ou URLs. Para agregá-los junto
 às métricas da API, execute da raiz do projeto:

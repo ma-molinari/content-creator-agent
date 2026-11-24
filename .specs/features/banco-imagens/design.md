@@ -23,7 +23,10 @@ e bloqueia rollback enquanto existirem jobs ou versões V3.
 - A busca recebe uma consulta gerada pelo modelo a partir do pedido; o prompt pede
   que ela não contenha dados pessoais, mas isso não é uma garantia automática.
   O worker avalia até dez candidatos públicos em lotes de cinco pelo modelo de
-  visão, priorizando fotos pertinentes e falhando quando nenhuma é selecionada.
+  visão, priorizando fotos pertinentes. Na ausência de candidata, tenta até duas
+  buscas mais genéricas avaliadas contra o tema original. Em criação com foto
+  opcional, ausência de candidata ou falha ao obter imagem gera post com fundo
+  sólido e aviso; em edição ou pedido explícito, a operação falha sem nova versão.
   Essa etapa adiciona custo e latência e não garante relevância.
 - Créditos e links são exibidos no conteúdo do assistente. O Openverse não garante
   a precisão das licenças; o usuário deve conferir a origem antes de usar a imagem.

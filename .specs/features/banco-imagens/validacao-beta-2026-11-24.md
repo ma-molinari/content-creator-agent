@@ -109,3 +109,20 @@ Os chats dos ensaios foram removidos; uma segunda conta sintética permanece no 
   exclusão antecipada nem ativação da reconciliação no bucket real neste ensaio.
 - A entrega e retenção dos logs, metas de falha/duração/custo e ativação segura
   da reconciliação no ambiente de destino ainda precisam de definição operacional.
+
+## Busca genérica e fallback
+
+- O worker tenta até duas consultas alternativas quando a seleção não encontra
+  candidata, mantendo a avaliação de pertinência ao tema original. Na criação sem
+  pedido explícito de foto, ausência de candidata ou falha ao obter imagem resulta
+  em fundo sólido e aviso; na edição ou com foto obrigatória, o job falha sem
+  publicar uma versão parcial. A classificação de intenção depende do modelo e
+  também é protegida por detecção conservadora de termos explícitos.
+- A suíte do worker no Docker passou com 360 testes e um ignorado. O ensaio V3
+  com LocalStack e Openverse simulado cobre busca alternativa, ausência de
+  candidata, indisponibilidade do serviço e preservação da versão na edição.
+- Uma reprodução isolada do pedido sobre software engineers com Openverse, OpenAI
+  e S3 reais gerou três slides com fundo sólido após ausência de candidata e falha
+  do provedor na busca seguinte. A amostra está em
+  `.local/openverse-real-20261124/fallback-software-2/`; o resultado não garante
+  disponibilidade futura nem qualidade de todas as consultas.

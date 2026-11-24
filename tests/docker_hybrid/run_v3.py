@@ -97,7 +97,7 @@ def main():
                 stale = client.post(f"/chats/{chat_id}/messages", headers=headers, json={"content": "Editar", "mode": "edit", "baseVersionId": first["currentVersionId"]})
                 assert stale.status_code == 409
                 assert final["currentVersionId"] != first["currentVersionId"]
-                failure_job = call("POST", f"/chats/{chat_id}/messages", headers=headers, json={"content": "Troque a imagem indisponível", "mode": "edit", "baseVersionId": final["currentVersionId"]}).json()["jobId"]
+                failure_job = call("POST", f"/chats/{chat_id}/messages", headers=headers, json={"content": "Troque a imagem indisponível e altere o título", "mode": "edit", "baseVersionId": final["currentVersionId"]}).json()["jobId"]
                 failure = {}
                 def failed():
                     failure.update(call("GET", f"/chats/{chat_id}/jobs/{failure_job}/status", headers=headers).json())
@@ -105,7 +105,19 @@ def main():
                 wait_until(failed, "Job com provedor indisponível não concluiu", timeout=120)
                 assert failure["status"] == "failed" and failure.get("errorCode") == "IMAGE_SEARCH_FAILED"
                 assert call("GET", f"/chats/{chat_id}", headers=headers).json()["currentVersionId"] == final["currentVersionId"]
-                print("V3: criação, edição, troca, créditos, histórico, conflito e falha do provedor validados com LocalStack e Openverse simulado.")
+                chat_id = call("POST", "/chats", headers=headers, json={"postType": "single"}).json()["id"]
+                _, generic, generic_doc = run_job("Crie com busca genérica", "create")
+                assert generic_doc["slides"][0]["background"]["type"] == "image"
+                assert generic_doc["credits"]
+                chat_id = call("POST", "/chats", headers=headers, json={"postType": "single"}).json()["id"]
+                _, fallback, fallback_doc = run_job("Crie sem candidata", "create")
+                assert fallback_doc["slides"][0]["background"]["type"] == "solid"
+                assert any("criado sem imagem" in message["content"] for message in fallback["contents"])
+                chat_id = call("POST", "/chats", headers=headers, json={"postType": "single"}).json()["id"]
+                _, unavailable, unavailable_doc = run_job("Crie com serviço fora", "create")
+                assert unavailable_doc["slides"][0]["background"]["type"] == "solid"
+                assert any("criado sem imagem" in message["content"] for message in unavailable["contents"])
+                print("V3: busca genérica, fallback, edição e histórico validados com LocalStack e Openverse simulado.")
         except Exception:
             for part in ("api", "worker"):
                 result = subprocess.run(["docker", "logs", names[part]], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)

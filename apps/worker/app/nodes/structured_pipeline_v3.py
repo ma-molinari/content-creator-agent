@@ -64,7 +64,7 @@ async def structured_pipeline_v3(state: AgentState) -> dict[str, object]:
         document = await plan_content_edit_v3(request=request, document=document, authorized_assets=set(sources),
                                               image_action=plan.action == "replace")
     async with httpx.AsyncClient() as http:
-        document, selected = await apply_stock_image(document, request=request, mode=mode,
+        document, selected, image_fallback = await apply_stock_image(document, request=request, mode=mode,
                                                       authorized_assets=set(sources), client=http, plan=plan)
     missing = {slide.background.asset_id for slide in document.slides
                if isinstance(slide.background, ImageBackgroundV3) and slide.background.focal_box is None}
@@ -97,6 +97,8 @@ async def structured_pipeline_v3(state: AgentState) -> dict[str, object]:
                                              bucket=settings.aws_s3_bucket, client=client)
     await report_job_progress(state, stage="finalizing", progress=98)
     text = "Post atualizado." if mode == "edit" else "Post criado."
+    if image_fallback:
+        text += " Não foi possível obter uma fotografia adequada, então o post foi criado sem imagem de fundo."
     if document.credits:
         text += "\n\nImagens: " + "; ".join(f"{c.title or 'Imagem'} — {c.creator or 'autoria não informada'} — {c.source_url} — {c.license_url}" for c in document.credits.values())
         text += "\nConfira as informações de licença na página de origem."

@@ -40,3 +40,16 @@ async def test_multiple_image_request_is_rejected_without_partial_output(monkeyp
     monkeypatch.setattr("app.stock_planning.get_settings", lambda: SimpleNamespace(openai_api_key="test", openai_chat_model="test"))
     with pytest.raises(StockPlanningError, match="uma imagem por vez"):
         await plan_stock_action(request="Coloque fotos em todos os slides", mode="create", slide_count=3)
+
+
+@pytest.mark.asyncio
+async def test_explicit_photo_is_required_even_if_model_calls_it_optional(monkeypatch):
+    class FakeLLM:
+        def __init__(self, **kwargs): pass
+        async def ainvoke(self, messages):
+            return AIMessage(content=json.dumps({"action": "replace", "query": "coffee", "fallback_queries": ["coffee cup"], "image_required": False, "slide_number": 1}))
+    monkeypatch.setattr("app.stock_planning.ChatOpenAI", FakeLLM)
+    monkeypatch.setattr("app.stock_planning.get_settings", lambda: SimpleNamespace(openai_api_key="test", openai_chat_model="test"))
+    plan = await plan_stock_action(request="Crie um post com foto de café", mode="create", slide_count=1)
+    assert plan.image_required is True
+    assert plan.fallback_queries == ["coffee cup"]

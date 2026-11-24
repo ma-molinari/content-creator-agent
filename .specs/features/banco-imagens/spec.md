@@ -13,6 +13,11 @@ deve preservar a origem e permitir verificar a licença da obra antes do uso.
 
 - **IMG-01:** Ao criar um post com imagens, buscar imagens pertinentes ao conteúdo
   e permitir sua utilização em slides ou como fundo.
+- **IMG-06:** Quando a busca não encontrar candidata, tentar até duas consultas
+  visuais mais genéricas e manter a avaliação de relevância no tema original. Na
+  criação sem foto explicitamente solicitada, ausência de candidata ou falha para
+  obter a imagem permite criar o post com fundo sólido e informar o usuário. Para
+  pedidos explícitos e edições, falhar sem publicar uma versão parcial.
 - **IMG-02:** Ao editar um post, permitir substituir uma imagem sem modificar as
   demais; preservar a versão anterior e seus assets.
 - **IMG-03:** Guardar origem, licença aplicável e dados de atribuição, quando

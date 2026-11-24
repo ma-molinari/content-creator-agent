@@ -27,6 +27,10 @@ _UNSUPPORTED_EXTENSIONS = (".svg", ".gif", ".tif", ".tiff", ".pdf")
 logger = logging.getLogger(__name__)
 
 
+class NoSuitableImageError(ImageSearchError):
+    """The search completed without a suitable photograph."""
+
+
 @dataclass(frozen=True)
 class SelectedStockImage:
     asset_id: str
@@ -130,7 +134,8 @@ async def _choose_photo(query: str, images: list[tuple[ImageCandidate, bytes]]) 
 
 
 async def select_stock_image(query: str, *, client: httpx.AsyncClient,
-                             exclude_sources: frozenset[str] = frozenset()) -> SelectedStockImage:
+                             exclude_sources: frozenset[str] = frozenset(),
+                             relevance_query: str | None = None) -> SelectedStockImage:
     started = monotonic()
     try:
         candidates = await search_images(query, client=client)
@@ -150,7 +155,7 @@ async def select_stock_image(query: str, *, client: httpx.AsyncClient,
         if images:
             downloaded_any = True
             try:
-                choice = await _choose_photo(query, images)
+                choice = await _choose_photo(relevance_query or query, images)
             except ImageSearchError:
                 logger.info("[metrics] event=stock_selection outcome=failed reason=vision duration_ms=%d", int((monotonic() - started) * 1000))
                 raise
@@ -160,7 +165,9 @@ async def select_stock_image(query: str, *, client: httpx.AsyncClient,
     if chosen is None:
         reason = "download" if candidates and not downloaded_any else "no_candidate"
         logger.info("[metrics] event=stock_selection outcome=failed reason=%s duration_ms=%d", reason, int((monotonic() - started) * 1000))
-        raise ImageSearchError("Não foi encontrada uma fotografia adequada para esse tema.")
+        if reason == "download":
+            raise ImageSearchError("Não foi possível carregar as fotografias encontradas.")
+        raise NoSuitableImageError("Não foi encontrada uma fotografia adequada para esse tema.")
     candidate, content, focal_box = chosen
     creator = _plain_credit(candidate.creator)
     credit = ImageCreditV3.model_validate({

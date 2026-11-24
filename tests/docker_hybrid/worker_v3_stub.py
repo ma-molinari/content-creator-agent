@@ -42,19 +42,28 @@ async def generate(**kwargs):
 async def plan(*, request, mode, slide_count):
     if mode == "edit" and "troque" not in request.lower():
         return StockPlan(action="none", query=None, slide_number=None)
+    if "busca genérica" in request.lower():
+        return StockPlan(action="replace", query="indisponivel", fallback_queries=["primeira"], image_required=False, slide_number=1)
+    if "sem candidata" in request.lower():
+        return StockPlan(action="replace", query="indisponivel", fallback_queries=["indisponivel2"], image_required=False, slide_number=1)
+    if "serviço fora" in request.lower():
+        return StockPlan(action="replace", query="servico", image_required=False, slide_number=1)
     return StockPlan(action="replace", query="indisponivel" if "indisponível" in request.lower() else "segunda" if mode == "edit" else "primeira", slide_number=1)
 
 
 async def edit(*, request, document, authorized_assets, image_action):
     if "título" in request.lower():
-        return apply_operations_v3(document, [{"op": "set_text", "slideId": "slide", "elementId": "title", "content": "Título editado"}], authorized_assets)
+        title = "Alteração que não deve ser publicada" if "indisponível" in request.lower() else "Título editado"
+        return apply_operations_v3(document, [{"op": "set_text", "slideId": "slide", "elementId": "title", "content": title}], authorized_assets)
     return document
 
 
 def provider(request):
     if request.url.host == "api.openverse.org":
         query = request.url.params["q"]
-        if query == "indisponivel":
+        if query == "servico":
+            return httpx.Response(503)
+        if query.startswith("indisponivel"):
             return httpx.Response(200, json={"results": []})
         photo = {"id": query, "title": "Foto " + query, "creator": "Pessoa autora", "license": "cc0",
                  "url": "https://upload.wikimedia.org/wikipedia/" + query + ".png",
@@ -65,9 +74,9 @@ def provider(request):
     return httpx.Response(200, content=png)
 
 
-async def select(query, *, client, exclude_sources=frozenset()):
+async def select(query, *, client, exclude_sources=frozenset(), relevance_query=None):
     async with httpx.AsyncClient(transport=httpx.MockTransport(provider)) as simulated:
-        return await select_stock_image(query, client=simulated, exclude_sources=exclude_sources)
+        return await select_stock_image(query, client=simulated, exclude_sources=exclude_sources, relevance_query=relevance_query)
 
 
 async def analyze(_state):

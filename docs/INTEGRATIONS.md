@@ -52,8 +52,14 @@ gerada pelo modelo a partir do pedido e pode não excluir todos os dados pessoai
 
 Para escolher a imagem, o worker baixa até dez candidatos em lotes de cinco e
 envia cada lote disponível ao modelo de visão configurado em `REFERENCE_VISION_MODEL`.
-O modelo seleciona uma fotografia relacionada ao tema ou rejeita o lote; se não
-houver candidata adequada, o job falha sem publicar uma versão parcial. Essa
+O modelo seleciona uma fotografia relacionada ao tema ou rejeita o lote. Se não
+houver candidata adequada, o worker tenta até duas consultas visuais mais genéricas,
+mantendo a avaliação de relevância no tema original. Na criação, quando a fotografia
+não foi pedida explicitamente, a ausência de candidata ou uma falha ao obter a
+fotografia permite publicar com fundo
+sólido e uma mensagem explicativa. Em pedidos explícitos de fotografia e em edições,
+o job falha sem publicar uma versão parcial. Falhas de serviço, download ou visão
+geram fallback somente quando a fotografia é opcional; não geram novas buscas. Essa
 análise adicional envia imagens públicas ao provedor de IA e aumenta o custo e a
 latência; a pertinência não é garantida. Os JPEGs anteriores não são alterados.
 
