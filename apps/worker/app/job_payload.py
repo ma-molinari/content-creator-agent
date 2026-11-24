@@ -14,7 +14,7 @@ from app.state import AgentState
 
 class DispatchPayload(BaseModel):
     post_format: Literal["legacy_html", "structured_v1"] = "legacy_html"
-    target_schema_version: Optional[Literal[1, 2]] = None
+    target_schema_version: Optional[Literal[1, 2, 3]] = None
     generation_mode: Optional[Literal["create", "edit"]] = None
     base_version_id: Optional[UUID] = None
     document_s3_key: str = ""

@@ -49,6 +49,9 @@ def _check_required_assets(document: PostDocumentV1 | PostDocumentV2, requiremen
 
 
 async def structured_pipeline(state: AgentState) -> dict[str, object]:
+    if state.get("target_schema_version") == 3:
+        from app.nodes.structured_pipeline_v3 import structured_pipeline_v3
+        return await structured_pipeline_v3(state)
     logger.info("node=structured_pipeline job_id=%s", state.get("job_id"))
     settings = get_settings()
     job_id = str(state.get("job_id") or "")

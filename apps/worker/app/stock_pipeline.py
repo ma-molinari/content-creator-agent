@@ -6,13 +6,14 @@ import httpx
 
 from app.post_document_v3 import PostDocumentV3
 from app.stock_edits import set_stock_background
-from app.stock_planning import plan_stock_action
+from app.stock_planning import StockPlan, plan_stock_action
 from app.stock_selection import select_stock_image
 
 
 async def apply_stock_image(document: PostDocumentV3, *, request: str, mode: Literal["create", "edit"],
-                            authorized_assets: AbstractSet[str], client: httpx.AsyncClient) -> tuple[PostDocumentV3, dict[str, bytes]]:
-    plan = await plan_stock_action(request=request, mode=mode, slide_count=len(document.slides))
+                            authorized_assets: AbstractSet[str], client: httpx.AsyncClient,
+                            plan: StockPlan | None = None) -> tuple[PostDocumentV3, dict[str, bytes]]:
+    plan = plan or await plan_stock_action(request=request, mode=mode, slide_count=len(document.slides))
     if plan.action == "none":
         return document, {}
     slide = document.slides[plan.slide_number - 1]

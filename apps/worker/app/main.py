@@ -16,6 +16,7 @@ from fastapi import BackgroundTasks, FastAPI, Header, HTTPException
 
 from app.graph import graph
 from app.job_payload import DispatchPayload, initial_state
+from app.openverse import ImageSearchError
 from app.state import AgentState
 from app.structured_upload import StructuredCallbackUnknown
 from app.structured_editing import StructuredEditingError
@@ -67,9 +68,9 @@ async def _run_job(state: AgentState) -> None:
         if state.get("target_schema_version") == 2:
             logger.info("[metrics] event=structured_publication schema=2 outcome=unknown")
     except Exception as exc:
-        if state.get("target_schema_version") == 2:
+        if state.get("target_schema_version") in (2, 3):
             logger.error("structured job failed job_id=%s category=%s", state.get("job_id"), type(exc).__name__)
-            logger.info("[metrics] event=structured_execution schema=2 outcome=failed reason=execution")
+            logger.info("[metrics] event=structured_execution schema=%s outcome=failed reason=execution", state.get("target_schema_version"))
         else:
             logger.exception("job failed: job_id=%s", state.get("job_id"))
         jid = state.get("job_id")
@@ -82,6 +83,8 @@ async def _run_job(state: AgentState) -> None:
             return
         if isinstance(exc, StructuredEditingError):
             await report_job_failure(job_uuid, "Não foi possível aplicar a edição. Reformule o pedido.", error_code="EDIT_UNSUPPORTED")
+        elif isinstance(exc, ImageSearchError):
+            await report_job_failure(job_uuid, str(exc), error_code="IMAGE_SEARCH_FAILED")
         elif isinstance(exc, ReferenceSelectionError):
             await report_job_failure(job_uuid, str(exc), error_code="REFERENCE_SELECTION_REQUIRED")
         elif isinstance(exc, VisualDirectionError):
@@ -190,6 +193,20 @@ async def post_structured_jobs_v2(
 ):
     _require_worker_key(x_worker_api_key)
     if payload.post_format != "structured_v1" or payload.target_schema_version != 2:
+        raise HTTPException(status_code=400, detail="invalid job format")
+    if payload.generation_mode == "create" and payload.document_s3_key:
+        raise HTTPException(status_code=400, detail="invalid create base")
+    return _accept_job(payload, background_tasks)
+
+
+@app.post("/jobs/structured/v3", status_code=202)
+async def post_structured_jobs_v3(
+    payload: DispatchPayload,
+    background_tasks: BackgroundTasks,
+    x_worker_api_key: Optional[str] = Header(default=None, alias="X-Worker-API-Key"),
+):
+    _require_worker_key(x_worker_api_key)
+    if payload.post_format != "structured_v1" or payload.target_schema_version != 3:
         raise HTTPException(status_code=400, detail="invalid job format")
     if payload.generation_mode == "create" and payload.document_s3_key:
         raise HTTPException(status_code=400, detail="invalid create base")
