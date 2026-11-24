@@ -77,3 +77,29 @@ def test_chromium_renders_v3_background(monkeypatch):
     slides, images = asyncio.run(render_structured_post(PostDocumentV3.model_validate(v3_document()), {"photo": png}))
     assert images[0]["jpeg_bytes"].startswith(b"\xff\xd8\xff")
     assert 'src="attachment://photo"' in slides[0]["html"]
+
+    async def measure_card():
+        from playwright.async_api import async_playwright
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch(args=["--disable-background-networking", "--disable-extensions", "--no-default-browser-check"])
+            try:
+                page = await browser.new_page(viewport={"width": 1080, "height": 1350})
+                await page.route("**/*", local_font_only)
+                html = slides[0]["html"].replace("attachment://photo", "data:image/png;base64," + base64.b64encode(png).decode())
+                await page.set_content(html, wait_until="load")
+                return await page.evaluate("""() => {
+                    const main = document.querySelector('main');
+                    const box = main.getBoundingClientRect();
+                    return {height: box.height, width: box.width, background: getComputedStyle(main).backgroundColor};
+                }""")
+            finally:
+                await browser.close()
+
+    card = asyncio.run(measure_card())
+    assert card["width"] * card["height"] < 1080 * 1350 * 0.5
+    assert card["background"] == "rgb(255, 255, 255)"
+
+    long_doc = v3_document()
+    long_doc["slides"][0]["elements"][0]["content"] = "Conteúdo longo " * 120
+    with pytest.raises(ValueError, match="exceeds canvas"):
+        asyncio.run(render_structured_post(PostDocumentV3.model_validate(long_doc), {"photo": png}))

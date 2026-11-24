@@ -133,12 +133,12 @@ async def render_structured_post(
                                 (el.scrollHeight > el.clientHeight + 1 &&
                                     (clipsY || box.top + el.scrollHeight > bottom + 1));
                         });
-                    }""", is_v2)
+                    }""", is_v2 or is_v3)
                     if clipped:
                         if is_v2:
                             logger.info("[metrics] event=structured_render schema=2 outcome=failed reason=overflow duration_ms=%d", int((monotonic() - started) * 1000))
                         raise ValueError("slide content exceeds canvas")
-                    result = await page.evaluate(_CONTRAST_FIX_JS) if not is_v2 else None
+                    result = await page.evaluate(_CONTRAST_FIX_JS) if not (is_v2 or is_v3) else None
                     fixed_html = await page.content() if result and result.get("hadViolations") else html
                     for data_url, reference in references.items():
                         fixed_html = fixed_html.replace(data_url, reference)

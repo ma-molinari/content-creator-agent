@@ -9,7 +9,7 @@ from app.post_renderer_v2 import render_post_v2
 from app.state import SlideItem
 
 
-RENDERER_VERSION = "3.0.0"
+RENDERER_VERSION = "3.1.0"
 
 
 def render_post_v3(document: PostDocumentV3, authorized_assets: AbstractSet[str]) -> list[SlideItem]:
@@ -28,8 +28,10 @@ def render_post_v3(document: PostDocumentV3, authorized_assets: AbstractSet[str]
         asset = escape(slide.background.asset_id, quote=True)
         html = slides[index]["html"]
         styles = ("body{position:relative;} .photo-background{position:absolute;inset:0;width:100%;height:100%;"
-                  "object-fit:cover;} main{position:relative;margin:96px;width:888px;height:1158px;"
-                  f"background:{document.palette.background};padding:64px;}}")
+                  "object-fit:cover;} main.hero,main.editorial,main.quote{position:relative;margin:96px;"
+                  "width:888px;height:auto;min-height:0;max-height:1158px;overflow:hidden;"
+                  f"background:{document.palette.background};padding:64px;}} "
+                  "main .image{flex:none;min-height:200px;max-height:400px;}")
         html = html.replace("</style>", styles + "</style>", 1)
         html = html.replace("<body>", f'<body><img class="photo-background" src="attachment://{asset}" alt="" />', 1)
         slides[index] = {**slides[index], "html": html}
