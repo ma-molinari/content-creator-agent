@@ -160,3 +160,22 @@ arquivos cadastrados no prefixo de referência do próprio usuário e apaga o ob
 antes da linha. Se interrompido, pode ser executado novamente. Assets copiados para
 `slides/` não são removidos. A verificação de jobs não substitui parar as instâncias
 antigas: elas poderiam iniciar um job usando referências durante a limpeza.
+
+# Imagens do Openverse
+
+A integração V3 é experimental e permanece desativada por padrão. Após validar
+acesso ao Openverse e ao Wikimedia Commons, licenças e qualidade visual no ambiente
+de destino, configure `STRUCTURED_POSTS_ENABLED=true`, `STRUCTURED_WORKER_URLS`
+com os endereços diretos e `STRUCTURED_STOCK_IMAGES_ENABLED=true` na API. Todos
+os workers selecionáveis devem anunciar leitura e escrita V3. Atualize os workers
+antes da API; se algum não for compatível, a criação/edição V3 falha antes de
+criar o job. A flag desligada impede novas raízes V3, mas uma versão V3 existente
+continua exigindo worker V3 para edição, sem downgrade automático.
+
+O fluxo permite adicionar ou trocar uma imagem de fundo por solicitação; pedidos
+para várias imagens de uma vez devem ser divididos. A busca é anônima, restrita a
+resultados CC0 do Wikimedia no Openverse e sujeita a disponibilidade e limites dos
+serviços. Os créditos e a licença informada são preservados na versão e exibidos no
+chat; o Openverse não garante a exatidão desses dados. O ensaio
+`python tests/docker_hybrid/run_v3.py` usa LocalStack, Chromium, LLM e Openverse
+simulados e não comprova disponibilidade ou licença no serviço real.

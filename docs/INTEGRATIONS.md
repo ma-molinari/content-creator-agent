@@ -34,13 +34,30 @@
 
 O fluxo `structured_v1` usa snapshots `document.json`, manifesto `assets.json` e cópias de imagens em `slides/{jobId}/assets/`, com escrita condicional. A API valida ownership e artefatos antes de publicar uma versão; a reconciliação de órfãos possui agendamento desativado por padrão. A flag `STRUCTURED_POSTS_ENABLED` controla novos chats estruturados e `STRUCTURED_WORKER_URLS` lista endereços diretos de workers compatíveis. Veja detalhes e limites em `docs/RUNBOOK.md`.
 
-Referências visuais do perfil são enviadas separadamente dos anexos e assets herdados: `reference_s3_keys` fornece a ordem para a análise visual e `reference_asset_sources` associa seus IDs às respectivas chaves. Por padrão elas não são incorporadas ao documento. Para incluir uma referência, o pedido deve identificá-la de forma explícita, por exemplo “Inclua a primeira imagem de referência no post” ou “Inclua ambas as referências”. Com várias referências e sem identificação, o job pede reformulação. O seletor reconhece essas formas conservadoras em português; outras formulações podem precisar ser reformuladas. Edições preservam imagens já existentes na versão base, inclusive após a remoção da referência original.
+Referências visuais do perfil foram retiradas da interface e não são enviadas em
+novos jobs. Os assets já copiados para versões de posts continuam utilizáveis;
+a retirada dos objetos de referência existentes segue o procedimento em
+`docs/RUNBOOK.md`.
 
-A API só aceita um job estruturado com referências se todos os workers diretos anunciarem `referencePolicyVersion: 1`. O worker novo rejeita jobs com referências de uma API antiga que não forneça a separação; durante a implantação, mantenha API e workers compatíveis para evitar indisponibilidade temporária. A capacidade não altera o comportamento do fluxo legado HTML.
+### Openverse e V3 experimental
+
+Com `STRUCTURED_STOCK_IMAGES_ENABLED=true` na API e workers V3 compatíveis, o fluxo
+estruturado usa uma consulta gerada por LLM para buscar imagens CC0 do Wikimedia
+Commons pelo Openverse. O download fica restrito a `upload.wikimedia.org`, sem
+redirecionamentos e com limite de 5 MiB. O snapshot V3 registra origem, autor e
+licença; a imagem usada é copiada para o prefixo imutável da versão. O chat mostra
+os créditos e links da fonte e da licença. O Openverse não verifica a precisão
+das licenças, que devem ser conferidas na origem. A consulta enviada ao provedor é
+gerada pelo modelo a partir do pedido e pode não excluir todos os dados pessoais.
+
+A flag é desligada por padrão. Não habilite antes de validar o acesso real ao
+Openverse, os limites de uso e a qualidade visual no ambiente de destino. API e
+workers devem suportar V3 antes do rollout; versões V3 existentes nunca são
+rebaixadas automaticamente. A integração não altera o fluxo legado HTML.
 
 ## AI / LLM — Slide Generation (Worker)
 
-**Serviço:** OpenAI no worker. `OPENAI_CHAT_MODEL` e `REFERENCE_VISION_MODEL` usam `gpt-5.4` por padrão. No fluxo legado, o grafo analisa referências e anexos, planeja e gera ou edita um pacote JSON com HTML por slide. No fluxo estruturado experimental, gera um documento tipado ou operações de edição. Os prompts ficam em `apps/worker/prompts/`; a implementação está em `apps/worker/app/nodes/` e `graph.py`.
+**Serviço:** OpenAI no worker. `OPENAI_CHAT_MODEL` e `REFERENCE_VISION_MODEL` usam `gpt-5.4` por padrão. No fluxo legado, o grafo analisa anexos, planeja e gera ou edita um pacote JSON com HTML por slide. No fluxo estruturado experimental, gera um documento tipado ou operações de edição. Os prompts ficam em `apps/worker/prompts/`; a implementação está em `apps/worker/app/nodes/` e `graph.py`.
 
 ---
 
@@ -60,7 +77,6 @@ A API só aceita um job estruturado com referências se todos os workers diretos
   "raw_message": "...",
   "audit_text": "...",
   "brand_text": "...",
-  "reference_s3_keys": ["slides/..."],
   "user_attachments": [{"id": "<uuid>", "s3_key": "users/.../current.png", "mime_type": "image/png", "sort_order": 0}],
   "known_attachments": [{"id": "<uuid>", "s3_key": "users/.../historical.png", "mime_type": "image/png", "sort_order": 0}],
   "existing_slide_html_s3_keys": ["slides/{jobId}/slide_01.html"],
