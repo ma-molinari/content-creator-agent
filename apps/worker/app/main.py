@@ -82,7 +82,7 @@ async def _run_job(state: AgentState) -> None:
             logger.error("job failed: invalid job_id=%r, cannot report failure", jid)
             return
         if isinstance(exc, StructuredEditingError):
-            await report_job_failure(job_uuid, "Não foi possível aplicar a edição. Reformule o pedido.", error_code="EDIT_UNSUPPORTED")
+            await report_job_failure(job_uuid, str(exc), error_code="EDIT_UNSUPPORTED")
         elif isinstance(exc, ImageSearchError):
             await report_job_failure(job_uuid, str(exc), error_code="IMAGE_SEARCH_FAILED")
         elif isinstance(exc, ReferenceSelectionError):

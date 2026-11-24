@@ -5,6 +5,7 @@ import pytest
 from langchain_core.messages import AIMessage
 
 from app.stock_planning import plan_stock_action
+from app.structured_editing import StructuredEditingError
 
 
 @pytest.mark.asyncio
@@ -28,3 +29,15 @@ async def test_planning_retries_out_of_range_slide(monkeypatch):
     plan = await plan_stock_action(request="troque a imagem", mode="edit", slide_count=1)
     assert plan.query == "floresta"
     assert plan.slide_number == 1
+
+
+@pytest.mark.asyncio
+async def test_multiple_image_request_is_rejected_without_partial_output(monkeypatch):
+    class FakeLLM:
+        def __init__(self, **kwargs): pass
+        async def ainvoke(self, messages):
+            return AIMessage(content=json.dumps({"action": "unsupported", "query": None, "slide_number": None}))
+    monkeypatch.setattr("app.stock_planning.ChatOpenAI", FakeLLM)
+    monkeypatch.setattr("app.stock_planning.get_settings", lambda: SimpleNamespace(openai_api_key="test", openai_chat_model="test"))
+    with pytest.raises(StructuredEditingError, match="uma imagem por vez"):
+        await plan_stock_action(request="Coloque fotos em todos os slides", mode="create", slide_count=3)

@@ -12,10 +12,11 @@ from typing_extensions import Self
 from app.config import get_settings
 from app.llm_messages import langchain_message_text
 from app.post_document import _StrictModel
+from app.structured_editing import StructuredEditingError
 
 
 class StockPlan(_StrictModel):
-    action: Literal["none", "replace"]
+    action: Literal["none", "replace", "unsupported"]
     query: str | None = Field(max_length=120)
     slide_number: int | None = Field(ge=1, le=20)
 
@@ -23,7 +24,7 @@ class StockPlan(_StrictModel):
     def validate_action(self) -> Self:
         if self.action == "replace" and (not self.query or not self.query.strip() or self.slide_number is None):
             raise ValueError("search and slide are required")
-        if self.action == "none" and (self.query is not None or self.slide_number is not None):
+        if self.action in ("none", "unsupported") and (self.query is not None or self.slide_number is not None):
             raise ValueError("no image action must not include search or slide")
         return self
 
@@ -37,7 +38,8 @@ async def plan_stock_action(*, request: str, mode: Literal["create", "edit"], sl
     system = ("Retorne somente JSON conforme o schema. Na criação, escolha replace e o primeiro slide, "
               "exceto quando o usuário pedir sem imagens. Na edição, escolha replace somente se o usuário "
               "pedir adicionar ou trocar uma imagem de fundo; caso contrário escolha none. Use slide 1 "
-              "quando não especificado. A busca deve conter apenas palavras genéricas para encontrar uma "
+              "quando não especificado. Se o pedido exigir imagens em mais de um slide, escolha unsupported; "
+              "nunca ignore parte do pedido. A busca deve conter apenas palavras genéricas para encontrar uma "
               "fotografia; nunca inclua nomes próprios, dados pessoais ou trechos privados do pedido.")
     payload = {"request": request, "mode": mode, "slideCount": slide_count, "schema": StockPlan.model_json_schema()}
     for _ in range(3):
@@ -46,6 +48,8 @@ async def plan_stock_action(*, request: str, mode: Literal["create", "edit"], sl
             plan = StockPlan.model_validate_json(langchain_message_text(response))
             if plan.slide_number is not None and plan.slide_number > slide_count:
                 raise ValueError("slide outside post")
+            if plan.action == "unsupported":
+                raise StructuredEditingError("Por enquanto, solicite uma imagem por vez.")
             return plan
         except (ValidationError, ValueError):
             payload["feedback"] = "A resposta não respeitou o schema ou o número de slides. Corrija o JSON."
