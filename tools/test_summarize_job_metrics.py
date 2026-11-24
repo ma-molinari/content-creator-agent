@@ -31,6 +31,29 @@ class MetricsSummaryTest(unittest.TestCase):
 
     def test_empty_input_has_no_percentile(self):
         self.assertIsNone(summarize([])['jobs']['structured_v1']['duration_p95_ms'])
+        self.assertIsNone(summarize([])['stock']['stock_search']['duration_p95_ms'])
+
+    def test_stock_events_use_allowlisted_outcome_and_reason_without_leaking_fields(self):
+        lines = [
+            '[metrics] event=stock_search outcome=success reason=ok duration_ms=100 query=private',
+            '[metrics] event=stock_search outcome=failed reason=rate_limit duration_ms=300 url=secret',
+            '[metrics] event=stock_selection outcome=failed reason=no_candidate duration_ms=200',
+            '[metrics] event=stock_selection outcome=success reason=ok duration_ms=500',
+            '[metrics] event=stock_search outcome=success reason=timeout duration_ms=1',
+            '[metrics] event=stock_search outcome=failed reason=secret duration_ms=1',
+            '[metrics] event=stock_search outcome=failed reason=timeout duration_ms=-1',
+            '[metrics] event=stock_search outcome=failed reason=timeout duration_ms=invalid',
+            '[metrics] event=stock_search outcome=failed reason=timeout',
+        ]
+        result = summarize(lines)['stock']
+        search = result['stock_search']
+        self.assertEqual(search['outcomes'], {'success': 1, 'failed': 1})
+        self.assertEqual(search['reasons']['rate_limit'], 1)
+        self.assertEqual(search['duration_p95_ms'], 300)
+        self.assertEqual(result['stock_selection']['reasons']['no_candidate'], 1)
+        self.assertEqual(result['stock_selection']['duration_p95_ms'], 500)
+        self.assertNotIn('secret', str(result))
+        self.assertNotIn('private', str(result))
 
     def test_visual_events_are_aggregated_without_exposing_content(self):
         lines = [

@@ -182,8 +182,18 @@ chat; o Openverse não garante a exatidão desses dados. O ensaio
 simulados e não comprova disponibilidade ou licença no serviço real.
 
 O worker registra `[metrics] event=stock_search` e `event=stock_selection` com
-resultado, motivo e duração, sem termos de busca ou URLs; o agregador de jobs
-existente ainda não consolida esses eventos. O acesso anônimo está sujeito a
-limites, e a busca não possui retentativa automática. Monitore falhas e custos e
-defina metas antes de ampliar o tráfego. Logs HTTPX e HTTPCore em INFO/DEBUG são
+resultado, motivo e duração, sem termos de busca ou URLs. Para agregá-los junto
+às métricas da API, execute da raiz do projeto:
+
+```powershell
+docker compose logs --since 24h api worker | python tools/summarize_job_metrics.py
+```
+
+O campo `stock` apresenta contagens por resultado e motivo e p95 de duração em
+milissegundos para cada etapa. As contagens representam eventos, não usuários nem
+jobs distintos: uma falha de busca também pode resultar em falha de seleção e logs
+duplicados são recontados. Restringir o período na origem, monitorar volume de
+amostras e garantir entrega dos logs no ambiente alvo. O acesso anônimo está sujeito
+a limites e a busca não possui retentativa automática; defina metas e monitore
+falhas e custos antes de ampliar o tráfego. Logs HTTPX e HTTPCore em INFO/DEBUG são
 suprimidos no startup; logs anteriores podem conter consultas enviadas ao Openverse.

@@ -1,4 +1,4 @@
-"""Summarize API metric events from stdin without emitting job data."""
+"""Summarize API and worker metric events without emitting job data."""
 
 import json
 import math
@@ -10,6 +10,10 @@ OUTCOMES = ("done", "failed", "conflict")
 VISUAL_EVENTS = ("visual_direction", "structured_validation", "structured_render", "structured_publication", "structured_execution", "worker_capability")
 VISUAL_OUTCOMES = ("success", "failed", "conflict", "unknown", "unavailable")
 VISUAL_REASONS = ("fetch", "model", "schema", "contrast", "validation", "font", "overflow", "execution")
+STOCK_REASONS = {
+    "stock_search": {"success": ("ok",), "failed": ("timeout", "rate_limit", "upstream", "network", "invalid_response")},
+    "stock_selection": {"success": ("ok",), "failed": ("search", "vision", "download", "no_candidate")},
+}
 
 
 def summarize(lines):
@@ -21,6 +25,9 @@ def summarize(lines):
     visual = {name: {"outcomes": {outcome: 0 for outcome in VISUAL_OUTCOMES},
                      "reasons": {reason: 0 for reason in VISUAL_REASONS}, "durations": [], "decorations": 0}
               for name in VISUAL_EVENTS}
+    stock = {name: {"outcomes": {"success": 0, "failed": 0},
+                    "reasons": {reason: 0 for reasons in categories.values() for reason in reasons},
+                    "durations": []} for name, categories in STOCK_REASONS.items()}
     for line in lines:
         if "[metrics] " not in line:
             continue
@@ -31,6 +38,21 @@ def summarize(lines):
                 fields[key] = value
         event = fields.get("event")
         outcome = fields.get("outcome")
+        if event in STOCK_REASONS:
+            reason = fields.get("reason")
+            if reason not in STOCK_REASONS[event].get(outcome, ()):
+                continue
+            try:
+                duration = int(fields["duration_ms"])
+                if duration < 0:
+                    continue
+            except (KeyError, ValueError):
+                continue
+            item = stock[event]
+            item["outcomes"][outcome] += 1
+            item["reasons"][reason] += 1
+            item["durations"].append(duration)
+            continue
         if event in VISUAL_EVENTS and outcome in VISUAL_OUTCOMES:
             if fields.get("schema", fields.get("schema_version")) != "2":
                 continue
@@ -97,7 +119,10 @@ def summarize(lines):
     for item in visual.values():
         durations = sorted(item.pop("durations"))
         item["duration_p95_ms"] = durations[math.ceil(len(durations) * 0.95) - 1] if durations else None
-    return {"jobs": jobs, "cleanup": cleanup, "watchdog": watchdog, "reconcile": reconcile, "visual_v2": visual}
+    for item in stock.values():
+        durations = sorted(item.pop("durations"))
+        item["duration_p95_ms"] = durations[math.ceil(len(durations) * 0.95) - 1] if durations else None
+    return {"jobs": jobs, "cleanup": cleanup, "watchdog": watchdog, "reconcile": reconcile, "visual_v2": visual, "stock": stock}
 
 
 if __name__ == "__main__":

@@ -69,7 +69,7 @@ Os chats dos ensaios foram removidos; uma segunda conta sintética permanece no 
   eventos de busca e seleção com resultado, categoria e duração, sem consulta ou
   URL. Testes cobrem o handler direto e propagação. Logs anteriores à correção
   podem conter consultas e devem ser tratados conforme a política do ambiente;
-  o agregador existente ainda não processa os novos eventos.
+  a agregação dos novos eventos foi adicionada posteriormente, conforme abaixo.
 - O Openverse informa limites de acesso e exige respeitá-los: consulte a
   [documentação de autenticação e limites](https://docs.openverse.org/api/reference/authentication_and_throttling.html).
   A consulta gerada pode conter dados pessoais e é enviada ao provedor externo.
@@ -81,3 +81,26 @@ Os chats dos ensaios foram removidos; uma segunda conta sintética permanece no 
   URLs assinadas, coleta de métricas e procedimento de rollback descritos no
   runbook. Definir metas de duração, falhas, custo e responsáveis pela operação.
   A compatibilidade V3 deve permanecer disponível para editar versões já criadas.
+
+## Métricas e reconciliação — continuação em 24/11/2026
+
+- O resumo `tools/summarize_job_metrics.py` agrega eventos de busca e seleção
+  por resultado, motivo permitido e duração p95, sem transportar consultas, URLs
+  ou outros campos desconhecidos. Quatro testes unitários passaram, incluindo
+  entradas inválidas, categorias incompatíveis e dados sentinela.
+- O resumo dos logs da stack de teste encontrou uma busca e uma seleção com
+  sucesso, com duração de 61 ms e 4.116 ms respectivamente. É uma única amostra
+  desde a instrumentação e não sustenta conclusão de disponibilidade ou latência.
+- `tests/docker_hybrid/run.py` passou com PostgreSQL e LocalStack descartáveis:
+  interrupção e retomada da reconciliação, remoção dos objetos simulados e
+  métricas foram verificadas. O proxy altera datas nas respostas de listagem para
+  simular objetos antigos; isso não comprova a passagem real de 24 horas.
+- Os testes de integração da API passaram com PostgreSQL descartável no Docker,
+  cobrindo objetos ativos, recentes e referenciados, paginação, falhas parciais
+  de exclusão e recuperação após reinício; o armazenamento nesses testes é simulado.
+- Os dois objetos reais do job `ba9347c0-2a54-4d92-9b30-576058898c40` ainda
+  estavam presentes; o mais recente fica elegível em 25/11/2026 às 09h40m28s
+  (UTC−03), observadas também as demais condições de reconciliação. Não houve
+  exclusão antecipada nem ativação da reconciliação no bucket real neste ensaio.
+- A entrega e retenção dos logs, metas de falha/duração/custo e ativação segura
+  da reconciliação no ambiente de destino ainda precisam de definição operacional.
