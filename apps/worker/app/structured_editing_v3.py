@@ -30,6 +30,9 @@ async def plan_content_edit_v3(*, request: str, document: PostDocumentV3,
               "layout e elementos. A troca ou inclusão de uma imagem de fundo é tratada separadamente: "
               "não gere operação para ela. Retorne unchanged apenas quando nada mais foi pedido; "
               "retorne unsupported se alguma outra alteração não puder ser representada. "
+              "Textos dos slides são copy final para o público: não escreva instruções de produção, "
+              "descrições de imagem, disponibilidade de acervo ou etapas internas, exceto quando "
+              "o usuário pedir explicitamente para publicar essas frases. "
               "Não use HTML, CSS ou URLs. Não altere o número nem a ordem dos slides.")
     payload = {"request": request, "document": document.model_dump(mode="json", by_alias=True),
                "imageAction": image_action, "authorizedAssetIds": sorted(authorized_assets),

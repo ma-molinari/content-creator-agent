@@ -91,7 +91,9 @@ def test_chromium_renders_v3_background(monkeypatch):
                 return await page.evaluate("""() => {
                     const main = document.querySelector('main');
                     const box = main.getBoundingClientRect();
-                    return {height: box.height, width: box.width, background: getComputedStyle(main).backgroundColor};
+                    const image = document.querySelector('.photo-background').getBoundingClientRect();
+                    return {height: box.height, width: box.width, background: getComputedStyle(main).backgroundColor,
+                            imageTop: image.top, imageBottom: image.bottom};
                 }""")
             finally:
                 await browser.close()
@@ -99,6 +101,8 @@ def test_chromium_renders_v3_background(monkeypatch):
     card = asyncio.run(measure_card())
     assert card["width"] * card["height"] < 1080 * 1350 * 0.5
     assert card["background"].startswith("rgba(255, 255, 255,")
+    assert card["imageTop"] == 0
+    assert card["imageBottom"] == 1350
 
     long_doc = v3_document()
     long_doc["slides"][0]["elements"][0]["content"] = "Conteúdo longo " * 120

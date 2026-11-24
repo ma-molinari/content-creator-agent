@@ -1,4 +1,4 @@
-"""Render V3 posts with image backgrounds and an opaque text surface."""
+"""Render V3 posts with image backgrounds and a translucent text surface."""
 
 from html import escape
 from typing import AbstractSet
@@ -9,7 +9,7 @@ from app.post_renderer_v2 import _luminance, render_post_v2, resolve_color
 from app.state import SlideItem
 
 
-RENDERER_VERSION = "3.2.0"
+RENDERER_VERSION = "3.2.1"
 
 
 def _transparent_surface(document: PostDocumentV3, slide) -> str:
@@ -49,7 +49,7 @@ def render_post_v3(document: PostDocumentV3, authorized_assets: AbstractSet[str]
         surface = _transparent_surface(document, slide)
         asset = escape(slide.background.asset_id, quote=True)
         html = slides[index]["html"]
-        styles = ("body{position:relative;} .photo-background{position:absolute;inset:0;width:100%;height:100%;"
+        styles = ("body{position:relative;display:flow-root;} .photo-background{position:absolute;inset:0;width:100%;height:100%;"
                   "object-fit:cover;} main.hero,main.editorial,main.quote{position:relative;margin:96px;"
                   "width:888px;height:auto;min-height:0;max-height:1158px;overflow:hidden;"
                   f"background:{surface};padding:64px;}} "

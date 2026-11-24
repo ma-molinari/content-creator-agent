@@ -19,6 +19,11 @@ from app.visual_direction import VisualDirection
 
 _SYSTEM = """Crie um documento JSON para um post do Instagram seguindo o schema fornecido.
 Use somente os IDs de imagem autorizados. Não produza HTML, CSS ou URLs.
+Os campos de texto dos slides são conteúdo final destinado ao público. Transforme o tema
+em copy publicável; não inclua instruções de produção, descrições de layout ou fotografia,
+observações sobre disponibilidade de imagem, acervo, ferramentas ou etapas internas.
+Pedidos sobre imagem, fundo e composição orientam a execução, não são frases para o post.
+Preserve essas frases apenas quando o usuário solicitar explicitamente que sejam publicadas.
 Responda apenas com JSON válido, sem markdown."""
 _MAX_ATTEMPTS = 3
 logger = logging.getLogger(__name__)

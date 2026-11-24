@@ -35,3 +35,20 @@ A região focal é aproximada: uma caixa imprecisa, assunto grande ou texto exte
 pode produzir sobreposição. A escolha é limitada às posições e larguras disponíveis;
 aprovação estética depende de avaliação humana. A licença e os créditos fornecidos
 pelo Openverse devem ser conferidos na fonte.
+
+## Correção de copy e faixa superior
+
+O renderer 3.2.1 impede o colapso da margem do painel que deslocava o fundo e
+deixava uma faixa na borda superior. O teste de Chromium verifica as coordenadas
+superior e inferior da fotografia. Os prompts de criação e edição agora distinguem
+instruções operacionais do texto publicável, sem impedir a publicação quando o
+usuário pedir explicitamente; como dependem do modelo, não garantem o resultado.
+
+No Docker, 346 testes do worker passaram e um foi ignorado; o ensaio V3 com
+Postgres, Chromium, LocalStack e provedores simulados passou. Duas amostras reais
+de três slides estão em `.local/openverse-real-20261124/correcao-cafe/` e
+`correcao-paisagem/`: o texto dos seis slides foi revisado e não apresentou
+frases operacionais, e as capas não apresentaram a faixa superior. Duas tentativas
+de gerar uma amostra de gatos falharam na busca de imagem (`IMAGE_SEARCH_FAILED`).
+Após os ensaios, não havia jobs ativos nem objetos restantes nos prefixos dos
+jobs dos chats de teste no S3.
