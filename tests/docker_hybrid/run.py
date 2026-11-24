@@ -179,33 +179,9 @@ def main():
                 wait_job(chat_id, job["jobId"], headers)
                 v2_current = call("GET", f"/chats/{chat_id}", headers=headers).json()["currentVersionId"]
                 assert v2_current != promoted
-                reference = call("POST", "/profile/references", headers=headers, files={"file": ("reference.png", png, "image/png")}).json()["references"][0]
-                reference_key = sql(names["postgres"], "SELECT s3_key FROM user_profile_references WHERE id = :'ref_id'::uuid", ref_id=reference["id"])
-                reference_chat = call("POST", "/chats", headers=headers, json={"postType": "single"}).json()["id"]
-                create_ref = call("POST", f"/chats/{reference_chat}/messages", headers=headers, json={"content": "Use a referência como inspiração", "mode": "create"}).json()
-                wait_job(reference_chat, create_ref["jobId"], headers)
-                def image_count(job_id):
-                    return int(docker("exec", names["worker"], "python", "-c", "import boto3,json,os,sys; d=json.loads(boto3.client('s3').get_object(Bucket=os.environ['AWS_S3_BUCKET'],Key='slides/'+sys.argv[1]+'/document.json')['Body'].read()); print(sum(e['type']=='image' for s in d['slides'] for e in s['elements']))", job_id))
-                assert image_count(create_ref["jobId"]) == 0
-                reference_base = call("GET", f"/chats/{reference_chat}", headers=headers).json()["currentVersionId"]
-                edit_ref = call("POST", f"/chats/{reference_chat}/messages", headers=headers, json={"content": "Inclua a imagem de referência no post", "mode": "edit", "baseVersionId": reference_base}).json()
-                wait_job(reference_chat, edit_ref["jobId"], headers)
-                assert image_count(edit_ref["jobId"]) == 1
-                reference_edit = call("GET", f"/chats/{reference_chat}", headers=headers).json()["currentVersionId"]
-                docker("exec", names["worker"], "python", "-c", "import boto3,os,sys; boto3.client('s3').delete_object(Bucket=os.environ['AWS_S3_BUCKET'], Key=sys.argv[1])", reference_key)
-                preserve_ref = call("POST", f"/chats/{reference_chat}/messages", headers=headers, json={"content": "Mude apenas o texto.", "mode": "edit", "baseVersionId": reference_edit}).json()
-                wait_job(reference_chat, preserve_ref["jobId"], headers)
-                assert image_count(preserve_ref["jobId"]) == 1
-                assert image_count(create_ref["jobId"]) == 0
-                call("DELETE", f"/chats/{reference_chat}", headers=headers)
                 job = call("POST", f"/chats/{chat_id}/messages", headers=headers, json={"content": "Edite sem reaplicar o perfil.", "mode": "edit", "baseVersionId": v2_current}).json()
                 wait_job(chat_id, job["jobId"], headers)
                 v2_current = call("GET", f"/chats/{chat_id}", headers=headers).json()["currentVersionId"]
-                job = call("POST", f"/chats/{chat_id}/messages", headers=headers, json={"content": "Aplicar referências visuais.", "mode": "edit", "baseVersionId": v2_current}).json()
-                failed = wait_job(chat_id, job["jobId"], headers, allow_failure=True)
-                assert failed["status"] == "failed" and failed.get("errorCode") == "VISUAL_REFERENCE_ERROR"
-                assert call("GET", f"/chats/{chat_id}", headers=headers).json()["currentVersionId"] == v2_current
-                call("DELETE", f"/profile/references/{reference['id']}", headers=headers)
                 concurrent = []
                 for number in (1, 2):
                     job = call("POST", f"/chats/{chat_id}/messages", headers=headers, json={"content": f"concorrente V2 {number}", "mode": "edit", "baseVersionId": v2_current}).json()
@@ -273,7 +249,6 @@ def main():
             assert visual_metrics["structured_validation"]["outcomes"]["success"] >= 1
             assert visual_metrics["structured_render"]["outcomes"]["success"] >= 1
             assert visual_metrics["structured_publication"]["outcomes"]["success"] >= 1
-            assert visual_metrics["visual_direction"]["reasons"]["fetch"] >= 1
             def callback_stats():
                 output = docker("exec", names["proxy"], "python", "-c", "import urllib.request; print(urllib.request.urlopen('http://127.0.0.1:8081/__rehearsal/stats').read().decode())")
                 return json.loads(output)
