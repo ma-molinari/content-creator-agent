@@ -2,7 +2,7 @@ import httpx
 import pytest
 
 from app.openverse import ImageSearchError
-from app.stock_selection import select_stock_image
+from app.stock_selection import _plain_credit, select_stock_image
 
 
 def response(request):
@@ -29,3 +29,7 @@ async def test_selection_never_reuses_excluded_source():
     async with httpx.AsyncClient(transport=httpx.MockTransport(response)) as client:
         with pytest.raises(ImageSearchError):
             await select_stock_image("praia", client=client, exclude_sources=frozenset({"https://commons.wikimedia.org/a"}))
+
+
+def test_credits_strip_markup_and_hidden_metadata():
+    assert _plain_credit('<div>Fotografia <b>de café</b><span style="display: none">metadado</span><script>ruim()</script></div>') == 'Fotografia de café'
