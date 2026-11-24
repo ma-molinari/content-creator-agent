@@ -4,8 +4,7 @@ from types import SimpleNamespace
 import pytest
 from langchain_core.messages import AIMessage
 
-from app.stock_planning import plan_stock_action
-from app.structured_editing import StructuredEditingError
+from app.stock_planning import StockPlanningError, plan_stock_action
 
 
 @pytest.mark.asyncio
@@ -39,5 +38,5 @@ async def test_multiple_image_request_is_rejected_without_partial_output(monkeyp
             return AIMessage(content=json.dumps({"action": "unsupported", "query": None, "slide_number": None}))
     monkeypatch.setattr("app.stock_planning.ChatOpenAI", FakeLLM)
     monkeypatch.setattr("app.stock_planning.get_settings", lambda: SimpleNamespace(openai_api_key="test", openai_chat_model="test"))
-    with pytest.raises(StructuredEditingError, match="uma imagem por vez"):
+    with pytest.raises(StockPlanningError, match="uma imagem por vez"):
         await plan_stock_action(request="Coloque fotos em todos os slides", mode="create", slide_count=3)

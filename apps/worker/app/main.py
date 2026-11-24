@@ -17,6 +17,7 @@ from fastapi import BackgroundTasks, FastAPI, Header, HTTPException
 from app.graph import graph
 from app.job_payload import DispatchPayload, initial_state
 from app.openverse import ImageSearchError
+from app.stock_planning import StockPlanningError
 from app.state import AgentState
 from app.structured_upload import StructuredCallbackUnknown
 from app.structured_editing import StructuredEditingError
@@ -82,7 +83,9 @@ async def _run_job(state: AgentState) -> None:
             logger.error("job failed: invalid job_id=%r, cannot report failure", jid)
             return
         if isinstance(exc, StructuredEditingError):
-            await report_job_failure(job_uuid, str(exc), error_code="EDIT_UNSUPPORTED")
+            await report_job_failure(job_uuid, "Não foi possível aplicar a edição. Reformule o pedido.", error_code="EDIT_UNSUPPORTED")
+        elif isinstance(exc, StockPlanningError):
+            await report_job_failure(job_uuid, "Por enquanto, solicite uma imagem por vez.", error_code="EDIT_UNSUPPORTED")
         elif isinstance(exc, ImageSearchError):
             await report_job_failure(job_uuid, str(exc), error_code="IMAGE_SEARCH_FAILED")
         elif isinstance(exc, ReferenceSelectionError):

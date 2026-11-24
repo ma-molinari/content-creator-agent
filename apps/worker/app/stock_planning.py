@@ -12,7 +12,10 @@ from typing_extensions import Self
 from app.config import get_settings
 from app.llm_messages import langchain_message_text
 from app.post_document import _StrictModel
-from app.structured_editing import StructuredEditingError
+
+
+class StockPlanningError(Exception):
+    """The requested image operation cannot be applied safely."""
 
 
 class StockPlan(_StrictModel):
@@ -40,7 +43,10 @@ async def plan_stock_action(*, request: str, mode: Literal["create", "edit"], sl
               "pedir adicionar ou trocar uma imagem de fundo; caso contrário escolha none. Use slide 1 "
               "quando não especificado. Se o pedido exigir imagens em mais de um slide, escolha unsupported; "
               "nunca ignore parte do pedido. A busca deve conter apenas palavras genéricas para encontrar uma "
-              "fotografia; nunca inclua nomes próprios, dados pessoais ou trechos privados do pedido.")
+              "fotografia; nunca inclua nomes próprios, dados pessoais ou trechos privados do pedido. "
+              "A quantidade de slides do carrossel não é a quantidade de imagens solicitadas. Por exemplo, "
+              "'três slides com uma foto apenas na capa' exige uma imagem e deve resultar em replace, "
+              "slide_number 1; 'uma foto diferente em cada um dos três slides' deve resultar em unsupported.")
     payload = {"request": request, "mode": mode, "slideCount": slide_count, "schema": StockPlan.model_json_schema()}
     for _ in range(3):
         response = await llm.ainvoke([SystemMessage(content=system), HumanMessage(content=json.dumps(payload, ensure_ascii=False))])
@@ -49,7 +55,7 @@ async def plan_stock_action(*, request: str, mode: Literal["create", "edit"], sl
             if plan.slide_number is not None and plan.slide_number > slide_count:
                 raise ValueError("slide outside post")
             if plan.action == "unsupported":
-                raise StructuredEditingError("Por enquanto, solicite uma imagem por vez.")
+                raise StockPlanningError("Por enquanto, solicite uma imagem por vez.")
             return plan
         except (ValidationError, ValueError):
             payload["feedback"] = "A resposta não respeitou o schema ou o número de slides. Corrija o JSON."

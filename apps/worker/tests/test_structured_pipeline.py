@@ -181,6 +181,18 @@ def test_unsupported_edit_reports_safe_error_code(monkeypatch):
     assert "private" not in failure.await_args.args[1]
 
 
+def test_stock_planning_reports_safe_error_code(monkeypatch):
+    from app.main import _run_job
+    from app.stock_planning import StockPlanningError
+    graph = SimpleNamespace(ainvoke=AsyncMock(side_effect=StockPlanningError("private")))
+    failure = AsyncMock()
+    monkeypatch.setattr("app.main.graph", graph)
+    monkeypatch.setattr("app.main.report_job_failure", failure)
+    asyncio.run(_run_job({"job_id": str(uuid4()), "post_format": "structured_v1", "target_schema_version": 3}))
+    assert failure.await_args.kwargs["error_code"] == "EDIT_UNSUPPORTED"
+    assert "private" not in failure.await_args.args[1]
+
+
 def test_runtime_graph_preserves_legacy_route(monkeypatch):
     from app.graph import build_graph
 
