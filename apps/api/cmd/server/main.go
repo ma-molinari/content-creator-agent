@@ -64,6 +64,7 @@ func main() {
 	var structuredReady func(context.Context) bool
 	var referencePolicyReady func(context.Context) bool
 	var visualV2Ready func(context.Context, int) bool
+	var stockImagesReady func(context.Context, int) bool
 	if wURL != "" {
 		pool, err := jobs.NewStructuredWorkerPool(jobs.NewHTTPWorkerClient(wURL, wKey), cfg.StructuredWorkerURLs, wKey)
 		if err != nil {
@@ -73,11 +74,13 @@ func main() {
 		structuredReady = pool.SupportsStructured
 		referencePolicyReady = pool.SupportsReferencePolicy
 		visualV2Ready = pool.SupportsStructuredV2
+		stockImagesReady = pool.SupportsStructuredV3
 	}
 	chatSvc := chat.NewService(chatRepo, jobsRepo, stor, profileRepo, profileSvc, worker)
 	chatSvc.ConfigureStructured(cfg.StructuredPostsEnabled, structuredReady)
 	chatSvc.ConfigureReferencePolicy(referencePolicyReady)
 	chatSvc.ConfigureVisualV2(cfg.StructuredVisualV2Enabled, cfg.StructuredVisualV2MutationsDisabled, visualV2Ready)
+	chatSvc.ConfigureStockImages(cfg.StructuredStockImagesEnabled, stockImagesReady)
 	ch := chat.NewHandler(chatSvc)
 
 	jobsH := jobs.NewHandler(&cfg, gdb, stor)

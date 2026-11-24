@@ -13,7 +13,7 @@ from app.main import capabilities, post_jobs, post_structured_jobs, post_structu
 
 def test_capability_requires_key(monkeypatch):
     monkeypatch.setattr("app.config.get_settings", lambda: SimpleNamespace(worker_api_key="secret"))
-    assert capabilities("secret") == {"structuredPost": {"contractVersion": 1, "readSchemas": [1, 2], "writeSchemas": [1, 2], "decorationOperations": True, "referencePolicyVersion": 1}}
+    assert capabilities("secret") == {"structuredPost": {"contractVersion": 1, "readSchemas": [1, 2, 3], "writeSchemas": [1, 2, 3], "decorationOperations": True, "referencePolicyVersion": 1, "stockImageOperations": True}}
     with pytest.raises(HTTPException) as exc:
         capabilities("wrong")
     assert exc.value.status_code == 401

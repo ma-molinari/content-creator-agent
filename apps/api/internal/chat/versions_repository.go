@@ -58,7 +58,7 @@ func (r *Repository) GetCurrentVersion(ctx context.Context, userID, chatID uuid.
 }
 
 // CreateStructuredMessageAndJob captures the current base under the chat lock.
-func (r *Repository) CreateStructuredMessageAndJob(ctx context.Context, userID uuid.UUID, content *db.ChatContent, job *db.Job, mode string, requestedBase *uuid.UUID, setTitle *string, attachments []db.ChatContentAttachment, v2Enabled, v2MutationsDisabled bool, v2Ready func(context.Context, int) bool) (string, error) {
+func (r *Repository) CreateStructuredMessageAndJob(ctx context.Context, userID uuid.UUID, content *db.ChatContent, job *db.Job, mode string, requestedBase *uuid.UUID, setTitle *string, attachments []db.ChatContentAttachment, v2Enabled, v2MutationsDisabled bool, v2Ready func(context.Context, int) bool, v3Enabled bool, v3Ready func(context.Context, int) bool) (string, error) {
 	var documentKey string
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		row, err := r.LockOwnedChat(ctx, tx, userID, content.ChatID)
@@ -79,11 +79,16 @@ func (r *Repository) CreateStructuredMessageAndJob(ctx context.Context, userID u
 			}
 			documentKey = base.DocumentS3Key
 			readSchema = base.SchemaVersion
-			if readSchema != 1 && readSchema != 2 {
+			if readSchema != 1 && readSchema != 2 && readSchema != 3 {
 				return ErrStructuredUnavailable
 			}
 		}
-		if v2Enabled || readSchema == 2 {
+		if v3Enabled || readSchema == 3 {
+			targetSchema = 3
+			if v3Ready == nil || !v3Ready(ctx, readSchema) {
+				return ErrStructuredUnavailable
+			}
+		} else if v2Enabled || readSchema == 2 {
 			targetSchema = 2
 			if v2MutationsDisabled || v2Ready == nil || !v2Ready(ctx, readSchema) {
 				return ErrStructuredUnavailable

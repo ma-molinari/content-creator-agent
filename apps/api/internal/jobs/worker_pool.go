@@ -18,6 +18,18 @@ type StructuredWorkerPool struct {
 	next       uint64
 }
 
+func (p *StructuredWorkerPool) SupportsStructuredV3(ctx context.Context, readSchema int) bool {
+	if len(p.structured) == 0 {
+		return false
+	}
+	for _, worker := range p.structured {
+		if !worker.SupportsStructuredV3(ctx, readSchema) {
+			return false
+		}
+	}
+	return true
+}
+
 // SupportsStructuredV2 probes every direct destination used by DispatchJob.
 func (p *StructuredWorkerPool) SupportsStructuredV2(ctx context.Context, readSchema int) bool {
 	if len(p.structured) == 0 {

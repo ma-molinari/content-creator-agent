@@ -32,6 +32,7 @@ type Config struct {
 	StructuredPostsEnabled              bool
 	StructuredVisualV2Enabled           bool
 	StructuredVisualV2MutationsDisabled bool
+	StructuredStockImagesEnabled        bool
 	ArtifactReconcileCron               string
 	ArtifactReconcileGraceHours         int
 	// ProfileRefMaxCount caps optional design reference uploads per user (default 8).
@@ -112,6 +113,7 @@ func Load() Config {
 		StructuredPostsEnabled:              strings.EqualFold(strings.TrimSpace(os.Getenv("STRUCTURED_POSTS_ENABLED")), "true"),
 		StructuredVisualV2Enabled:           strings.EqualFold(strings.TrimSpace(os.Getenv("STRUCTURED_VISUAL_V2_ENABLED")), "true"),
 		StructuredVisualV2MutationsDisabled: strings.EqualFold(strings.TrimSpace(os.Getenv("STRUCTURED_VISUAL_V2_MUTATIONS_DISABLED")), "true"),
+		StructuredStockImagesEnabled:        strings.EqualFold(strings.TrimSpace(os.Getenv("STRUCTURED_STOCK_IMAGES_ENABLED")), "true"),
 		ArtifactReconcileEnabled:            strings.EqualFold(strings.TrimSpace(os.Getenv("ARTIFACT_RECONCILE_ENABLED")), "true"),
 		ArtifactReconcileCron:               artifactCron,
 		ArtifactReconcileGraceHours:         artifactGraceHours,

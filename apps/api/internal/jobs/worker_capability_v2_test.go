@@ -87,6 +87,34 @@ func TestV2ProbeRejectsRedirectAndBadResponses(t *testing.T) {
 	}
 }
 
+func TestV3RequiresAllWorkersAndDedicatedRoute(t *testing.T) {
+	var ready atomic.Bool
+	var route atomic.Value
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/capabilities" {
+			if ready.Load() {
+				fmt.Fprint(w, `{"structuredPost":{"contractVersion":1,"readSchemas":[1,2,3],"writeSchemas":[1,2,3],"decorationOperations":true,"stockImageOperations":true}}`)
+			} else {
+				fmt.Fprint(w, `{"structuredPost":{"contractVersion":1,"readSchemas":[1,2],"writeSchemas":[1,2],"decorationOperations":true}}`)
+			}
+			return
+		}
+		route.Store(r.URL.Path)
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer server.Close()
+	pool, err := NewStructuredWorkerPool(&legacyCapture{}, []string{server.URL}, "key")
+	require.NoError(t, err)
+	require.False(t, pool.SupportsStructuredV3(context.Background(), 0))
+	ready.Store(true)
+	for _, read := range []int{0, 1, 2, 3} {
+		require.True(t, pool.SupportsStructuredV3(context.Background(), read))
+	}
+	version := 3
+	require.NoError(t, pool.DispatchJob(context.Background(), DispatchPayload{JobID: uuid.New(), PostFormat: "structured_v1", TargetSchemaVersion: &version}))
+	require.Equal(t, "/jobs/structured/v3", route.Load())
+}
+
 func TestReferencePolicyRequiresEveryWorker(t *testing.T) {
 	var old atomic.Bool
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

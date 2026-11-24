@@ -151,7 +151,7 @@ def _require_worker_key(raw_key: Optional[str]) -> None:
 @app.get("/capabilities")
 def capabilities(x_worker_api_key: Optional[str] = Header(default=None, alias="X-Worker-API-Key")):
     _require_worker_key(x_worker_api_key)
-    return {"structuredPost": {"contractVersion": 1, "readSchemas": [1, 2], "writeSchemas": [1, 2], "decorationOperations": True, "referencePolicyVersion": 1}}
+    return {"structuredPost": {"contractVersion": 1, "readSchemas": [1, 2, 3], "writeSchemas": [1, 2, 3], "decorationOperations": True, "referencePolicyVersion": 1, "stockImageOperations": True}}
 
 
 def _accept_job(payload: DispatchPayload, background_tasks: BackgroundTasks) -> dict[str, object]:

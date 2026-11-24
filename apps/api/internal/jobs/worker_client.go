@@ -93,7 +93,7 @@ func (c *HTTPWorkerClient) DispatchJob(ctx context.Context, payload DispatchPayl
 	if c.baseURL == "" {
 		return fmt.Errorf("jobs: worker URL not configured")
 	}
-	if payload.TargetSchemaVersion != nil && (*payload.TargetSchemaVersion < 1 || *payload.TargetSchemaVersion > 2 || (*payload.TargetSchemaVersion == 2 && payload.PostFormat != "structured_v1")) {
+	if payload.TargetSchemaVersion != nil && (*payload.TargetSchemaVersion < 1 || *payload.TargetSchemaVersion > 3 || (*payload.TargetSchemaVersion > 1 && payload.PostFormat != "structured_v1")) {
 		return fmt.Errorf("jobs: invalid target schema")
 	}
 	body, err := json.Marshal(payload)
@@ -105,6 +105,8 @@ func (c *HTTPWorkerClient) DispatchJob(ctx context.Context, payload DispatchPayl
 		path = "/jobs/structured"
 		if payload.TargetSchemaVersion != nil && *payload.TargetSchemaVersion == 2 {
 			path = "/jobs/structured/v2"
+		} else if payload.TargetSchemaVersion != nil && *payload.TargetSchemaVersion == 3 {
+			path = "/jobs/structured/v3"
 		}
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, bytes.NewReader(body))
@@ -123,7 +125,7 @@ func (c *HTTPWorkerClient) DispatchJob(ctx context.Context, payload DispatchPayl
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		snip, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		if payload.TargetSchemaVersion != nil && *payload.TargetSchemaVersion == 2 {
+		if payload.TargetSchemaVersion != nil && *payload.TargetSchemaVersion >= 2 {
 			log.Printf("[jobs] dispatch worker HTTP error job_id=%s status=%d", payload.JobID, resp.StatusCode)
 		} else {
 			log.Printf(
@@ -153,6 +155,7 @@ type structuredCapability struct {
 	WriteSchemas           []int `json:"writeSchemas"`
 	DecorationOperations   bool  `json:"decorationOperations"`
 	ReferencePolicyVersion int   `json:"referencePolicyVersion"`
+	StockImageOperations   bool  `json:"stockImageOperations"`
 }
 
 func (c *HTTPWorkerClient) structuredCapability(ctx context.Context) (structuredCapability, bool) {
@@ -187,6 +190,14 @@ func (c *HTTPWorkerClient) SupportsStructuredV2(ctx context.Context, readSchema 
 		return false
 	}
 	return readSchema == 0 || ((readSchema == 1 || readSchema == 2) && containsSchema(capability.ReadSchemas, readSchema))
+}
+
+func (c *HTTPWorkerClient) SupportsStructuredV3(ctx context.Context, readSchema int) bool {
+	capability, ok := c.structuredCapability(ctx)
+	if !ok || capability.ContractVersion != 1 || !capability.StockImageOperations || !capability.DecorationOperations || !containsSchema(capability.WriteSchemas, 3) {
+		return false
+	}
+	return readSchema == 0 || ((readSchema >= 1 && readSchema <= 3) && containsSchema(capability.ReadSchemas, readSchema))
 }
 
 func containsSchema(versions []int, wanted int) bool {

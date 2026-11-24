@@ -103,7 +103,7 @@ func TestVisualV2SchemaSelectionIsAtomic(t *testing.T) {
 			if tc.mode == "create" {
 				requested = nil
 			}
-			_, err := chat.NewRepository(env.DB).CreateStructuredMessageAndJob(ctx, user, message, job, tc.mode, requested, nil, nil, tc.enabled, tc.disabled, check)
+			_, err := chat.NewRepository(env.DB).CreateStructuredMessageAndJob(ctx, user, message, job, tc.mode, requested, nil, nil, tc.enabled, tc.disabled, check, false, nil)
 			if tc.fails {
 				require.ErrorIs(t, err, chat.ErrStructuredUnavailable)
 				var count int64
@@ -125,4 +125,44 @@ func TestVisualV2SchemaSelectionIsAtomic(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestV3SelectionRequiresCapabilityBeforeMutation(t *testing.T) {
+	env := newTestEnv(t, nil)
+	ctx := context.Background()
+	user, chatID := uuid.New(), uuid.New()
+	require.NoError(t, env.DB.Create(&db.User{ID: user, Email: uuid.NewString() + "@test.invalid", PasswordHash: "hash", SecurityKeyHash: "hash"}).Error)
+	t.Cleanup(func() { env.DB.Delete(&db.User{}, "id = ?", user) })
+	require.NoError(t, env.DB.Create(&db.Chat{ID: chatID, UserID: user, PostType: db.PostTypeSingle, PostFormat: db.PostFormatStructuredV1}).Error)
+	job := &db.Job{ID: uuid.New(), ChatID: chatID, UserID: user, Status: db.JobStatusProcessing}
+	message := &db.ChatContent{ID: uuid.New(), ChatID: chatID, Role: db.ChatContentRoleUser, Content: "mensagem"}
+	repository := chat.NewRepository(env.DB)
+	_, err := repository.CreateStructuredMessageAndJob(ctx, user, message, job, "create", nil, nil, nil, false, false, nil, true, func(context.Context, int) bool { return false })
+	require.ErrorIs(t, err, chat.ErrStructuredUnavailable)
+	var count int64
+	require.NoError(t, env.DB.Model(&db.ChatContent{}).Where("id = ?", message.ID).Count(&count).Error)
+	require.Zero(t, count)
+	_, err = repository.CreateStructuredMessageAndJob(ctx, user, message, job, "create", nil, nil, nil, false, false, nil, true, func(_ context.Context, read int) bool { return read == 0 })
+	require.NoError(t, err)
+	var saved db.Job
+	require.NoError(t, env.DB.First(&saved, "id = ?", job.ID).Error)
+	require.Equal(t, 3, saved.StructuredTargetSchema())
+}
+
+func TestV3EditNeverDowngradesAfterFlagRollback(t *testing.T) {
+	env := newTestEnv(t, nil)
+	ctx := context.Background()
+	user, chatID, oldJob, oldContent, oldVersion := uuid.New(), uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	require.NoError(t, env.DB.Create(&db.User{ID: user, Email: uuid.NewString() + "@test.invalid", PasswordHash: "hash", SecurityKeyHash: "hash"}).Error)
+	t.Cleanup(func() { env.DB.Delete(&db.User{}, "id = ?", user) })
+	require.NoError(t, env.DB.Create(&db.Chat{ID: chatID, UserID: user, PostType: db.PostTypeSingle, PostFormat: db.PostFormatStructuredV1}).Error)
+	require.NoError(t, env.DB.Create(&db.Job{ID: oldJob, ChatID: chatID, UserID: user, Status: db.JobStatusDone, PostFormat: db.PostFormatStructuredV1}).Error)
+	require.NoError(t, env.DB.Create(&db.ChatContent{ID: oldContent, ChatID: chatID, Role: db.ChatContentRoleAssistant, Content: "anterior"}).Error)
+	require.NoError(t, env.DB.Create(&db.PostVersion{ID: oldVersion, ChatID: chatID, JobID: oldJob, AssistantContentID: oldContent, DocumentS3Key: "slides/base/document.json", SchemaVersion: 3, RendererVersion: "3"}).Error)
+	require.NoError(t, env.DB.Model(&db.Chat{}).Where("id = ?", chatID).Update("current_version_id", oldVersion).Error)
+	job := &db.Job{ID: uuid.New(), ChatID: chatID, UserID: user, Status: db.JobStatusProcessing}
+	message := &db.ChatContent{ID: uuid.New(), ChatID: chatID, Role: db.ChatContentRoleUser, Content: "editar"}
+	_, err := chat.NewRepository(env.DB).CreateStructuredMessageAndJob(ctx, user, message, job, "edit", &oldVersion, nil, nil, false, false, nil, false, func(_ context.Context, read int) bool { return read == 3 })
+	require.NoError(t, err)
+	require.Equal(t, 3, *job.TargetSchemaVersion)
 }

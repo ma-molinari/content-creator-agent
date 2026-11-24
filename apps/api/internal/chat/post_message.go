@@ -257,7 +257,7 @@ func (s *Service) PostMessageWithOptions(ctx context.Context, userID, chatID uui
 	}
 	var documentKey string
 	if chatRow.PostFormat == db.PostFormatStructuredV1 {
-		documentKey, err = s.repo.CreateStructuredMessageAndJob(ctx, userID, userMsg, job, options.Mode, requestedBase, setTitle, chatAtts, s.visualV2Enabled, s.visualV2MutationsDisabled, s.visualV2Ready)
+		documentKey, err = s.repo.CreateStructuredMessageAndJob(ctx, userID, userMsg, job, options.Mode, requestedBase, setTitle, chatAtts, s.visualV2Enabled, s.visualV2MutationsDisabled, s.visualV2Ready, s.stockImagesEnabled, s.stockImagesReady)
 	} else {
 		err = s.repo.CreateUserMessageAndJob(ctx, userMsg, job, setTitle, chatAtts)
 	}

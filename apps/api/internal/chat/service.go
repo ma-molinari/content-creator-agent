@@ -56,6 +56,8 @@ type Service struct {
 	visualV2Enabled           bool
 	visualV2MutationsDisabled bool
 	visualV2Ready             func(context.Context, int) bool
+	stockImagesEnabled        bool
+	stockImagesReady          func(context.Context, int) bool
 
 	// latestAssistantHTMLKeys defaults to repo.GetLatestAssistantHTMLKeys; tests may replace it to simulate failures.
 	latestAssistantHTMLKeys func(context.Context, uuid.UUID) ([]string, error)
@@ -94,6 +96,10 @@ func (s *Service) ConfigureReferencePolicy(ready func(context.Context) bool) {
 // ConfigureVisualV2 enables selection separately from the structured chat format.
 func (s *Service) ConfigureVisualV2(enabled, mutationsDisabled bool, ready func(context.Context, int) bool) {
 	s.visualV2Enabled, s.visualV2MutationsDisabled, s.visualV2Ready = enabled, mutationsDisabled, ready
+}
+
+func (s *Service) ConfigureStockImages(enabled bool, ready func(context.Context, int) bool) {
+	s.stockImagesEnabled, s.stockImagesReady = enabled, ready
 }
 
 func (s *Service) CreateChat(ctx context.Context, userID uuid.UUID, postType string) (*db.Chat, error) {
