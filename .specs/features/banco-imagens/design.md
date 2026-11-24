@@ -9,8 +9,9 @@ Versões V1/V2 podem ser promovidas para V3 sem modificar o snapshot anterior.
 Créditos de assets ainda usados devem sobreviver à edição; os de assets removidos
 são excluídos apenas do novo snapshot.
 
-O renderer usa um fundo fotográfico e uma superfície opaca na cor do fundo para o
-texto, de modo que a validação de contraste continue calculável. API e worker
+O renderer usa um fundo fotográfico e uma superfície translúcida na cor do fundo,
+com opacidade calculada para garantir o contraste e posicionamento orientado pela
+caixa focal estimada da imagem. API e worker
 validam separadamente o documento e os IDs. A migração de jobs aceita a versão 3
 e bloqueia rollback enquanto existirem jobs ou versões V3.
 

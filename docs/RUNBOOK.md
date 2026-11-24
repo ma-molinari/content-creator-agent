@@ -101,13 +101,9 @@ recusa o rollback destrutivo.
 
 Configure `STRUCTURED_WORKER_URLS` com uma lista separada por vírgulas, contendo um endereço direto e estável para cada réplica elegível; não use endereços balanceados nem redirecionamentos. A API consulta `/capabilities` em todos os destinos antes da mutação e distribui os jobs entre esses mesmos endereços usando `/jobs/structured`. Uma lista vazia ou uma réplica incompatível impede operações estruturadas; mudanças na disponibilidade após a verificação ainda podem causar falha no dispatch. Mantenha a lista atualizada e as réplicas compatíveis durante o rollout. `WORKER_URL` continua responsável pelo tráfego legado. Clientes compatíveis informam `X-Post-Client-Version: 1`. Para editar chats estruturados existentes após desligar a flag, a lista e os workers compatíveis devem permanecer disponíveis.
 
-Para jobs estruturados com referências no perfil, todos os destinos diretos devem
-anunciar `referencePolicyVersion: 1`; workers antigos bloqueiam o aceite antes da
-criação do job. Em implantação mista, uma API antiga que não separe as fontes pode
-ter seus jobs rejeitados pelo worker novo. Atualize API e workers e valide essa
-capacidade antes de liberar o fluxo. As referências orientam a geração e só são
-incorporadas quando o pedido as seleciona explicitamente; imagens herdadas da
-versão base são preservadas.
+Referências visuais de perfil não são mais enviadas a novos jobs. As imagens já
+copiadas para versões existentes permanecem nos respectivos snapshots. Veja o
+procedimento de remoção dos arquivos de referência na seção abaixo.
 
 Os eventos `[metrics] event=job_terminal` incluem IDs do job e chat, etapa, formato, resultado, código e duração em milissegundos; para versões estruturadas concluídas, incluem versões do schema e renderizador; callbacks idempotentes não geram uma segunda contagem. `[metrics] event=artifact_cleanup` informa o resultado e a quantidade tentada por lote, sem nomes de objetos. Tentativas repetidas podem contar novamente o mesmo objeto. Os eventos são logs, não uma série de métricas agregada: falhas confirmadas antes ou durante o dispatch também geram `job_terminal`; o watchdog gera um `job_terminal` por job encerrado, com formato e duração, além de `stuck_job_cleanup` com contagem agregada.
 
@@ -184,3 +180,10 @@ serviços. Os créditos e a licença informada são preservados na versão e exi
 chat; o Openverse não garante a exatidão desses dados. O ensaio
 `python tests/docker_hybrid/run_v3.py` usa LocalStack, Chromium, LLM e Openverse
 simulados e não comprova disponibilidade ou licença no serviço real.
+
+O worker registra `[metrics] event=stock_search` e `event=stock_selection` com
+resultado, motivo e duração, sem termos de busca ou URLs; o agregador de jobs
+existente ainda não consolida esses eventos. O acesso anônimo está sujeito a
+limites, e a busca não possui retentativa automática. Monitore falhas e custos e
+defina metas antes de ampliar o tráfego. Logs HTTPX e HTTPCore em INFO/DEBUG são
+suprimidos no startup; logs anteriores podem conter consultas enviadas ao Openverse.
