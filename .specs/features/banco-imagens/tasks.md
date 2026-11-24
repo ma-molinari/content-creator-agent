@@ -1,5 +1,9 @@
 # Tarefas — banco de imagens
 
+**Status:** beta aceito pelo responsável em 24/11/2026 para o projeto open source,
+com as limitações e pendências registradas no relatório de validação. O aceite não
+significa implantação em outro ambiente nem conclusão das verificações pendentes.
+
 O Openverse é a alternativa inicial, pois o Pexels não está emitindo chaves. A
 V3 foi ligada ao fluxo estruturado, atrás da flag desativada por padrão. Em
 24/11/2026, criação e download reais foram exercitados em stack isolada, com
@@ -25,5 +29,6 @@ limpeza em outros ambientes e ativação no ambiente de beta permanecem pendente
    preservando um asset em `slides/`; falta executá-lo em cada ambiente após
    atualizar as instâncias antigas e aguardar os jobs ativos.
 7. **Integração (parcial):** o ensaio V3 passou com PostgreSQL, LocalStack e
-   Openverse/LLM simulados; a criação também passou com serviços reais. Faltam
-   validação operacional no ambiente de destino e metas antes de ampliar o tráfego.
+   Openverse/LLM simulados; criação e edição passaram com serviços reais, com
+   falhas intermitentes de geração. O beta foi aceito com essas limitações;
+   validação operacional no ambiente de destino e metas seguem pendentes.

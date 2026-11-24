@@ -159,7 +159,10 @@ antigas: elas poderiam iniciar um job usando referências durante a limpeza.
 
 # Imagens do Openverse
 
-A integração V3 é experimental e permanece desativada por padrão. Após validar
+A integração V3 teve o beta aceito pelo responsável para o projeto open source,
+com as limitações descritas em `.specs/features/banco-imagens/validacao-beta-2026-11-24.md`.
+Ela permanece desativada por padrão; o aceite não ativa a integração em outros
+ambientes nem comprova reconciliação dos objetos reais pendentes. Após validar
 acesso ao Openverse e ao Wikimedia Commons, licenças e qualidade visual no ambiente
 de destino, configure `STRUCTURED_POSTS_ENABLED=true`, `STRUCTURED_WORKER_URLS`
 com os endereços diretos e `STRUCTURED_STOCK_IMAGES_ENABLED=true` na API. Todos

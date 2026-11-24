@@ -1,4 +1,4 @@
-# Integração Openverse — desenho em implementação
+# Integração Openverse — desenho do beta
 
 ## Contrato V3
 
@@ -28,5 +28,7 @@ e bloqueia rollback enquanto existirem jobs ou versões V3.
 - Créditos e links são exibidos no conteúdo do assistente. O Openverse não garante
   a precisão das licenças; o usuário deve conferir a origem antes de usar a imagem.
 - O fluxo Docker com provedor simulado cobriu criação, edição, histórico e conflito;
-  a criação com provedor real foi exercitada com intermitência. A edição real e o
-  aceite visual no ambiente alvo permanecem pendentes.
+  criação e edição com serviços reais foram exercitadas em ambiente de teste, com
+  falhas intermitentes. O responsável aceitou o beta para o projeto open source em
+  24/11/2026, com as limitações registradas em `validacao-beta-2026-11-24.md`.
+  Isso não comprova implantação nem validação em outro ambiente de destino.

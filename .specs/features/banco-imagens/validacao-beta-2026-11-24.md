@@ -4,6 +4,11 @@ Data: 24/11/2026. Ambiente: Docker isolado com V3 habilitada, PostgreSQL,
 Openverse, Wikimedia, OpenAI e S3 reais. Esta validação não habilita a integração
 em outros ambientes nem constitui implantação em produção.
 
+**Aceite:** em 24/11/2026, o responsável aceitou o beta para o projeto open source,
+considerando as evidências deste relatório e as limitações conhecidas. O aceite não
+transforma verificações pendentes em testes concluídos e não implica ativação em
+outro ambiente ou aceitação de produção.
+
 ## Fluxo real por API
 
 - Criação de post com fotografia de café: concluída com crédito no snapshot.
@@ -57,9 +62,9 @@ Os chats dos ensaios foram removidos; uma segunda conta sintética permanece no 
   exclusão: não foram encontrados vínculos ativos, e não havia post_versions
   restantes no banco de teste. Depois da última criação pela interface, dois
   objetos permaneceram no prefixo do job `ba9347c0-2a54-4d92-9b30-576058898c40`;
-  o chat foi removido e não houve exclusão direta desses objetos. Antes do beta,
-  planejar a reconciliação durável e seu
-  prazo mínimo de segurança conforme o runbook; não prometer exclusão imediata.
+  o chat foi removido e não houve exclusão direta desses objetos. Para a operação,
+  planejar a reconciliação durável e seu prazo mínimo de segurança conforme o
+  runbook; não prometer exclusão imediata.
 - A busca anônima tem timeout de 10 segundos, sem retentativa automática nem
   tratamento de `Retry-After`. Houve falhas reais em ensaios anteriores; não há
   medição suficiente para afirmar disponibilidade ou taxa de sucesso. Aplique
