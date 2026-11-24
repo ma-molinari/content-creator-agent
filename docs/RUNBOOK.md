@@ -143,3 +143,20 @@ No fluxo estruturado, se a resposta do dispatch não chegar ou for 5xx, a API ma
 2. Estabeleça uma linha de base e combine metas de duração, falhas, conflitos, custo e qualidade visual antes de ampliar o tráfego. Valide o catálogo com uma marca real, pois as amostras aprovadas são genéricas.
 3. Para interromper novas criações estruturadas, configure `STRUCTURED_POSTS_ENABLED=false` e aplique a configuração às réplicas da API. Preserve migrations, leitores e workers estruturados compatíveis e sua lista de destinos para continuar acessando e editando as versões existentes.
 4. Em falhas repetidas de limpeza, mantenha `ARTIFACT_RECONCILE_ENABLED=false`, preserve os inventários e investigue permissões, disponibilidade do S3 e estado dos jobs antes de tentar novamente. Não remova objetos manualmente com base apenas em timeout.
+# Retirada de referências visuais
+
+O upload e o envio de referências de perfil a novos jobs foram desativados. A
+remoção dos dados existentes é uma operação separada: atualize todas as instâncias
+da API e pare instâncias antigas, aguarde os jobs ativos e execute, no ambiente
+alvo com `DATABASE_URL` e credenciais S3 configurados:
+
+```powershell
+Set-Location apps/api
+go run ./cmd/retire-references -apply
+```
+
+O comando recusa jobs pendentes ou em processamento, limita as exclusões aos
+arquivos cadastrados no prefixo de referência do próprio usuário e apaga o objeto
+antes da linha. Se interrompido, pode ser executado novamente. Assets copiados para
+`slides/` não são removidos. A verificação de jobs não substitui parar as instâncias
+antigas: elas poderiam iniciar um job usando referências durante a limpeza.

@@ -18,10 +18,11 @@ ligada ao fluxo de posts; as demais atividades continuam pendentes.
    conforme as condições do provedor. Validar slides e renderização no Chromium.
 4. **Edição:** selecionar e substituir imagens solicitadas preservando demais
    elementos e versões anteriores; verificar conflitos e indisponibilidade.
-5. **Interface:** retirar referências do perfil e exibir procedência e créditos
-   das imagens utilizadas; validar o fluxo de criação e troca.
-6. **Retirada e limpeza:** interromper novos usos e uploads de referências,
-   migrar a limpeza de registros e origens S3 com reexecução segura, preservando
-   cópias dos posts e jobs em andamento. Exercitar falhas e retomada.
+5. **Interface (parcial):** referências retiradas do perfil; faltam procedência e
+   créditos das imagens utilizadas e validação do fluxo de criação e troca.
+6. **Retirada e limpeza (parcial):** novos usos e uploads foram desativados. Um
+   comando com reexecução segura passou em PostgreSQL e LocalStack descartáveis,
+   preservando um asset em `slides/`; falta executá-lo em cada ambiente após
+   atualizar as instâncias antigas e aguardar os jobs ativos.
 7. **Integração:** executar suites e ensaio Docker de ponta a ponta, atualizar
    documentação e registrar limitações de operação e licença.
