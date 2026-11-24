@@ -12,6 +12,7 @@ from botocore.exceptions import ClientError
 
 from app.post_document import ImageElement, PostDocumentV1
 from app.post_document_v2 import PostDocumentV2
+from app.post_document_v3 import PostDocumentV3, used_asset_ids as used_v3_assets
 
 _MAX_BYTES = 5 * 1024 * 1024
 
@@ -67,21 +68,30 @@ def _put_immutable(client, bucket: str, key: str, data: bytes, content_type: str
 
 
 async def copy_version_assets(
-    document: PostDocumentV1 | PostDocumentV2, *, job_id: str, bucket: str,
-    authorized_sources: Mapping[str, str], client,
+    document: PostDocumentV1 | PostDocumentV2 | PostDocumentV3, *, job_id: str, bucket: str,
+    authorized_sources: Mapping[str, str], client, selected_assets: Mapping[str, bytes] | None = None,
 ) -> CopiedAssets:
     """The source mapping must be supplied by the API after ownership validation."""
     document = type(document).model_validate_json(document.model_dump_json(by_alias=True))
     job_uuid = UUID(job_id)
-    used_ids = sorted({item.asset_id for slide in document.slides for item in slide.elements if isinstance(item, ImageElement)})
-    if any(asset_id not in authorized_sources or not authorized_sources[asset_id] for asset_id in used_ids):
+    selected_assets = selected_assets or {}
+    if selected_assets and not isinstance(document, PostDocumentV3):
+        raise ValueError("selected images require the version 3 contract")
+    if set(selected_assets) & set(authorized_sources):
+        raise ValueError("asset sources overlap")
+    used_ids = sorted(used_v3_assets(document) if isinstance(document, PostDocumentV3) else
+                      {item.asset_id for slide in document.slides for item in slide.elements if isinstance(item, ImageElement)})
+    if any(asset_id not in selected_assets and not authorized_sources.get(asset_id) for asset_id in used_ids):
         raise ValueError("image asset is not authorized")
     keys: dict[str, str] = {}
     contents: dict[str, bytes] = {}
     attempted: list[str] = []
     try:
         for asset_id in used_ids:
-            data = await asyncio.to_thread(_read_image, client, bucket, authorized_sources[asset_id])
+            data = (selected_assets[asset_id] if asset_id in selected_assets else
+                    await asyncio.to_thread(_read_image, client, bucket, authorized_sources[asset_id]))
+            if len(data) > _MAX_BYTES:
+                raise ValueError("image exceeds size limit")
             extension, content_type = _extension_and_type(data)
             key = f"slides/{job_uuid}/assets/{asset_id}.{extension}"
             attempted.append(key)

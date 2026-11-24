@@ -9,6 +9,8 @@ import pytest
 from app.immutable_assets import AssetCopyError, copy_version_assets
 from app.post_document import PostDocumentV1
 from app.post_document_v2 import promote_v1
+from app.post_document_v3 import PostDocumentV3
+from tests.test_post_document_v3 import document as v3_document
 
 
 def document(ids):
@@ -84,3 +86,17 @@ def test_immutable_upload_allows_identical_retry_but_rejects_changed_body():
     _put_immutable(Existing(), "bucket", "key", b"saved", "image/png")
     with pytest.raises(ValueError, match="different content"):
         _put_immutable(Existing(), "bucket", "key", b"changed", "image/png")
+
+
+def test_v3_copies_selected_background_to_version_and_rejects_overlapping_sources():
+    png = b"\x89PNG\r\n\x1a\nimage"
+    client = FakeS3({})
+    doc = PostDocumentV3.model_validate(v3_document())
+    job_id = str(uuid4())
+    result = asyncio.run(copy_version_assets(doc, job_id=job_id, bucket="test", authorized_sources={},
+                                             selected_assets={"photo": png}, client=client))
+    assert result.keys == {"photo": f"slides/{job_id}/assets/photo.png"}
+    assert result.contents == {"photo": png}
+    with pytest.raises(ValueError, match="overlap"):
+        asyncio.run(copy_version_assets(doc, job_id=str(uuid4()), bucket="test", authorized_sources={"photo": "old"},
+                                        selected_assets={"photo": png}, client=client))
