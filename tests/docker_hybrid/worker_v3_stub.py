@@ -15,6 +15,7 @@ from app.stock_selection import select_stock_image
 
 pipeline = importlib.import_module("app.nodes.structured_pipeline_v3")
 stock = importlib.import_module("app.stock_pipeline")
+selection = importlib.import_module("app.stock_selection")
 renderer = importlib.import_module("app.structured_render")
 font = base64.b64encode(Path("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf").read_bytes()).decode("ascii")
 css = "".join("@font-face{font-family:'%s';src:url(data:font/ttf;base64,%s) format('truetype');font-weight:100 900;}" % (name, font) for name in ("Inter", "Plus Jakarta Sans"))
@@ -72,10 +73,15 @@ async def analyze(_state):
     return {"attachment_plan": []}
 
 
+async def choose_photo(_query, _images):
+    return 0
+
+
 pipeline.generate_structured_post_v2 = generate
 pipeline.plan_stock_action = plan
 pipeline.plan_content_edit_v3 = edit
 pipeline.attachment_analyze = analyze
 stock.select_stock_image = select
+selection._choose_photo = choose_photo
 renderer._allow_font_route = local_font
 uvicorn.run(app, host="0.0.0.0", port=8000, lifespan="off", log_level="warning")

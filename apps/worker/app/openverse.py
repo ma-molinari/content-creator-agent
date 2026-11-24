@@ -27,6 +27,7 @@ class ImageCandidate:
     creator_url: str | None
     license: str
     license_url: str
+    category: str | None = None
 
 
 def _https_url(value: object) -> str | None:
@@ -85,6 +86,7 @@ async def search_images(query: str, *, client: httpx.AsyncClient, limit: int = 1
                 image_url=image_url, source_url=source_url,
                 creator=creator if isinstance(creator, str) else None,
                 creator_url=_https_url(item.get("creator_url")), license="cc0", license_url=license_url,
+                category=item.get("category") if isinstance(item.get("category"), str) else None,
             ))
         return candidates
     except (httpx.HTTPError, ValueError) as exc:

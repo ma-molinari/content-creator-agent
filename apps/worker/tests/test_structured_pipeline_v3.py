@@ -28,6 +28,7 @@ async def test_v3_create_connects_provider_and_publishes_credit(monkeypatch):
     monkeypatch.setattr(module, "attachment_analyze", AsyncMock(return_value={}))
     monkeypatch.setattr(module, "generate_structured_post_v2", AsyncMock(return_value=base))
     monkeypatch.setattr(module, "plan_stock_action", AsyncMock(return_value=StockPlan(action="replace", query="praia", slide_number=1)))
+    monkeypatch.setattr("app.stock_selection._choose_photo", AsyncMock(return_value=0))
     actual_client = httpx.AsyncClient
     monkeypatch.setattr(module.httpx, "AsyncClient", lambda: actual_client(transport=httpx.MockTransport(provider_response)))
     copy = AsyncMock(return_value=SimpleNamespace(contents={"x": b"image"}))
@@ -58,6 +59,7 @@ async def test_v3_edit_preserves_previous_snapshot_and_uses_new_asset(monkeypatc
     monkeypatch.setattr(module, "report_job_progress", AsyncMock())
     monkeypatch.setattr(module, "attachment_analyze", AsyncMock(return_value={}))
     monkeypatch.setattr(module, "plan_stock_action", AsyncMock(return_value=StockPlan(action="replace", query="praia", slide_number=1)))
+    monkeypatch.setattr("app.stock_selection._choose_photo", AsyncMock(return_value=0))
     monkeypatch.setattr(module, "plan_content_edit_v3", AsyncMock(return_value=original))
     actual_client = httpx.AsyncClient
     monkeypatch.setattr(module.httpx, "AsyncClient", lambda: actual_client(transport=httpx.MockTransport(provider_response)))
