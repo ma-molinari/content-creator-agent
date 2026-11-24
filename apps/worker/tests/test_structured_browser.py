@@ -8,7 +8,9 @@ from pathlib import Path
 import pytest
 
 from app.post_document import PostDocumentV1
+from app.post_document_v3 import PostDocumentV3
 from app.structured_render import render_structured_post
+from tests.test_post_document_v3 import document as v3_document
 
 pytestmark = pytest.mark.skipif(os.getenv("RUN_CHROMIUM_TESTS") != "1", reason="requires Chromium and TEST_FONT_PATH")
 
@@ -56,3 +58,22 @@ def test_chromium_rejects_missing_font(monkeypatch):
     doc["slides"][0]["elements"] = doc["slides"][0]["elements"][:1]
     with pytest.raises(ValueError, match="font unavailable"):
         asyncio.run(render_structured_post(PostDocumentV1.model_validate(doc), {}))
+
+
+def test_chromium_renders_v3_background(monkeypatch):
+    font = base64.b64encode(Path(os.environ["TEST_FONT_PATH"]).read_bytes()).decode("ascii")
+    css = "@font-face{font-family:'Plus Jakarta Sans';src:url(data:font/ttf;base64," + font + ") format('truetype');}"
+
+    async def local_font_only(route):
+        if route.request.url.startswith("https://fonts.googleapis.com/"):
+            await route.fulfill(status=200, content_type="text/css", body=css)
+        elif route.request.url.startswith("data:"):
+            await route.continue_()
+        else:
+            await route.abort()
+
+    monkeypatch.setattr("app.structured_render._allow_font_route", local_font_only)
+    png = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/aXcAAAAASUVORK5CYII=")
+    slides, images = asyncio.run(render_structured_post(PostDocumentV3.model_validate(v3_document()), {"photo": png}))
+    assert images[0]["jpeg_bytes"].startswith(b"\xff\xd8\xff")
+    assert 'src="attachment://photo"' in slides[0]["html"]

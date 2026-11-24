@@ -14,6 +14,8 @@ from app.nodes.contrast_fix import _CONTRAST_FIX_JS
 from app.post_document import ImageElement, PostDocumentV1, TextElement
 from app.post_renderer import render_post
 from app.post_document_v2 import PostDocumentV2
+from app.post_document_v3 import ImageBackgroundV3, PostDocumentV3, used_asset_ids as used_v3_assets
+from app.post_renderer_v3 import render_post_v3
 from app.post_renderer_v2 import render_post_v2
 from app.slide_asset_wait import wait_for_slide_images
 from app.slide_design_checks import collect_design_violations
@@ -48,12 +50,15 @@ def _image_data_url(data: bytes) -> str:
 
 
 async def render_structured_post(
-    document: PostDocumentV1 | PostDocumentV2, authorized_assets: Mapping[str, bytes],
+    document: PostDocumentV1 | PostDocumentV2 | PostDocumentV3, authorized_assets: Mapping[str, bytes],
 ) -> tuple[list[SlideItem], list[RenderedSlide]]:
-    is_v2 = isinstance(document, PostDocumentV2)
+    is_v3 = isinstance(document, PostDocumentV3)
+    is_v2 = isinstance(document, PostDocumentV2) and not is_v3
     started = monotonic()
     try:
-        slides = render_post_v2(document, set(authorized_assets)) if is_v2 else render_post(document, set(authorized_assets))
+        slides = (render_post_v3(document, set(authorized_assets)) if is_v3 else
+                  render_post_v2(document, set(authorized_assets)) if is_v2 else
+                  render_post(document, set(authorized_assets)))
     except ValueError as exc:
         if is_v2:
             reason = "contrast" if str(exc) == "text contrast is insufficient" else "validation"
@@ -61,7 +66,8 @@ async def render_structured_post(
         raise
     if is_v2:
         logger.info("[metrics] event=structured_validation schema=2 outcome=success duration_ms=%d", int((monotonic() - started) * 1000))
-    used_asset_ids = {item.asset_id for slide in document.slides for item in slide.elements if isinstance(item, ImageElement)}
+    used_asset_ids = (used_v3_assets(document) if is_v3 else
+                      {item.asset_id for slide in document.slides for item in slide.elements if isinstance(item, ImageElement)})
     image_urls = {key: _image_data_url(authorized_assets[key]) + f"#asset-{key}" for key in used_asset_ids}
     fixed_slides: list[SlideItem] = []
     images: list[RenderedSlide] = []
@@ -83,6 +89,12 @@ async def render_structured_post(
                         data_url = image_urls[item.asset_id]
                         inline_html = inline_html.replace(f'src="{reference}"', f'src="{data_url}"')
                         references[data_url] = reference
+                background = document.slides[index].background
+                if is_v3 and isinstance(background, ImageBackgroundV3):
+                    reference = f"attachment://{background.asset_id}"
+                    data_url = image_urls[background.asset_id]
+                    inline_html = inline_html.replace(f'src="{reference}"', f'src="{data_url}"')
+                    references[data_url] = reference
                 page = await browser.new_page(viewport={"width": 1080, "height": 1350})
                 try:
                     await page.route("**/*", _allow_font_route)
