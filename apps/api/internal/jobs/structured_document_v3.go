@@ -52,7 +52,21 @@ func validateDocumentV3(data []byte, postType db.PostType, slideCount int) (map[
 		}
 		if kind == "image" {
 			var assetID string
-			if len(background) != 2 || json.Unmarshal(background["assetId"], &assetID) != nil || !structuredID.MatchString(assetID) {
+			if (len(background) != 2 && len(background) != 3) || json.Unmarshal(background["assetId"], &assetID) != nil || !structuredID.MatchString(assetID) {
+				return invalid()
+			}
+			if focal, exists := background["focalBox"]; exists && !bytes.Equal(bytes.TrimSpace(focal), []byte("null")) {
+				var box struct {
+					Left   *int `json:"left"`
+					Top    *int `json:"top"`
+					Right  *int `json:"right"`
+					Bottom *int `json:"bottom"`
+				}
+				if decodeStructured(focal, &box) != nil || box.Left == nil || box.Top == nil || box.Right == nil || box.Bottom == nil ||
+					*box.Left < 0 || *box.Top < 0 || *box.Right > 100 || *box.Bottom > 100 || *box.Right <= *box.Left || *box.Bottom <= *box.Top {
+					return invalid()
+				}
+			} else if len(background) == 3 && !exists {
 				return invalid()
 			}
 			backgroundAssets[assetID] = struct{}{}

@@ -9,7 +9,7 @@ from app.post_document_v2 import PostDocumentV2
 from app.post_document_v3 import PostDocumentV3
 from app.stock_planning import StockPlan
 from tests.test_post_document_v3 import document as v3_document
-from tests.test_stock_selection import response as provider_response
+from tests.test_stock_selection import choice, response as provider_response
 
 
 @pytest.mark.asyncio
@@ -28,7 +28,7 @@ async def test_v3_create_connects_provider_and_publishes_credit(monkeypatch):
     monkeypatch.setattr(module, "attachment_analyze", AsyncMock(return_value={}))
     monkeypatch.setattr(module, "generate_structured_post_v2", AsyncMock(return_value=base))
     monkeypatch.setattr(module, "plan_stock_action", AsyncMock(return_value=StockPlan(action="replace", query="praia", slide_number=1)))
-    monkeypatch.setattr("app.stock_selection._choose_photo", AsyncMock(return_value=0))
+    monkeypatch.setattr("app.stock_selection._choose_photo", AsyncMock(return_value=choice()))
     actual_client = httpx.AsyncClient
     monkeypatch.setattr(module.httpx, "AsyncClient", lambda: actual_client(transport=httpx.MockTransport(provider_response)))
     copy = AsyncMock(return_value=SimpleNamespace(contents={"x": b"image"}))
@@ -59,7 +59,7 @@ async def test_v3_edit_preserves_previous_snapshot_and_uses_new_asset(monkeypatc
     monkeypatch.setattr(module, "report_job_progress", AsyncMock())
     monkeypatch.setattr(module, "attachment_analyze", AsyncMock(return_value={}))
     monkeypatch.setattr(module, "plan_stock_action", AsyncMock(return_value=StockPlan(action="replace", query="praia", slide_number=1)))
-    monkeypatch.setattr("app.stock_selection._choose_photo", AsyncMock(return_value=0))
+    monkeypatch.setattr("app.stock_selection._choose_photo", AsyncMock(return_value=choice()))
     monkeypatch.setattr(module, "plan_content_edit_v3", AsyncMock(return_value=original))
     actual_client = httpx.AsyncClient
     monkeypatch.setattr(module.httpx, "AsyncClient", lambda: actual_client(transport=httpx.MockTransport(provider_response)))
@@ -76,3 +76,33 @@ async def test_v3_edit_preserves_previous_snapshot_and_uses_new_asset(monkeypatc
     assert published.slides[0].background.asset_id != "photo"
     assert published.slides[0].background.asset_id in copy.await_args.kwargs["selected_assets"]
     assert "photo" not in published.credits
+
+
+@pytest.mark.asyncio
+async def test_text_edit_enriches_old_background_without_mutating_snapshot(monkeypatch):
+    from app.nodes import structured_pipeline_v3 as module
+    from app.post_document_v3 import FocalBox
+    settings = SimpleNamespace(aws_region="us-east-1", aws_access_key_id="test", aws_secret_access_key="test",
+                               aws_s3_bucket="test", go_api_url="http://api", worker_api_key="test")
+    original = PostDocumentV3.model_validate(v3_document())
+    raw = original.model_dump_json(by_alias=True).encode()
+    monkeypatch.setattr(module, "get_settings", lambda: settings)
+    monkeypatch.setattr(module.boto3, "client", lambda *a, **k: object())
+    monkeypatch.setattr(module, "fetch_bytes_limited", lambda _client, _bucket, key, _limit: raw if key.endswith("document.json") else b"\xff\xd8\xffimage")
+    monkeypatch.setattr(module, "locate_focal_box", AsyncMock(return_value=FocalBox(left=10, top=5, right=80, bottom=60)))
+    monkeypatch.setattr(module, "report_job_progress", AsyncMock())
+    monkeypatch.setattr(module, "attachment_analyze", AsyncMock(return_value={}))
+    monkeypatch.setattr(module, "plan_stock_action", AsyncMock(return_value=StockPlan(action="none", query=None, slide_number=None)))
+    monkeypatch.setattr(module, "plan_content_edit_v3", AsyncMock(return_value=original))
+    copy = AsyncMock(return_value=SimpleNamespace(contents={"photo": b"\xff\xd8\xffimage"}))
+    monkeypatch.setattr(module, "copy_version_assets", copy)
+    monkeypatch.setattr(module, "render_structured_post", AsyncMock(return_value=([{}], [{}])))
+    monkeypatch.setattr(module, "upload_structured_post", AsyncMock(return_value=object()))
+    monkeypatch.setattr(module, "send_structured_completion", AsyncMock(return_value=204))
+    state = {"job_id": str(uuid4()), "generation_mode": "edit", "raw_message": "Mude o texto", "chat_post_type": "single",
+             "document_s3_key": f"slides/{uuid4()}/document.json", "authorized_asset_sources": {"photo": "slides/old/assets/photo.jpg"}}
+    assert await module.structured_pipeline_v3(state) == {}
+    published = copy.await_args.args[0]
+    assert original.slides[0].background.focal_box is None
+    assert published.slides[0].background.focal_box.top == 5
+    assert published.credits == original.credits

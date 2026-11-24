@@ -5,7 +5,11 @@ from types import SimpleNamespace
 from langchain_core.messages import AIMessage
 
 from app.openverse import ImageSearchError
-from app.stock_selection import _plain_credit, select_stock_image
+from app.stock_selection import PhotoChoice, _plain_credit, select_stock_image
+
+
+def choice(index=0):
+    return PhotoChoice.model_validate({"index": index, "focalBox": {"left": 20, "top": 10, "right": 80, "bottom": 60}})
 
 
 def response(request):
@@ -19,7 +23,7 @@ def response(request):
 
 @pytest.mark.asyncio
 async def test_selection_keeps_original_credit_and_image_bytes(monkeypatch):
-    monkeypatch.setattr("app.stock_selection._choose_photo", AsyncMock(return_value=0))
+    monkeypatch.setattr("app.stock_selection._choose_photo", AsyncMock(return_value=choice()))
     async with httpx.AsyncClient(transport=httpx.MockTransport(response)) as client:
         selected = await select_stock_image("praia", client=client)
     assert selected.asset_id.startswith("stock_")
@@ -48,11 +52,13 @@ async def test_vision_chooses_photo_instead_of_first_painting(monkeypatch):
         def __init__(self, **kwargs): pass
         async def ainvoke(self, messages):
             captured.extend(messages)
-            return AIMessage(content='{"index":1}')
+            return AIMessage(content='{"index":1,"focalBox":{"left":20,"top":10,"right":80,"bottom":60}}')
     monkeypatch.setattr("app.stock_selection.ChatOpenAI", FakeLLM)
     monkeypatch.setattr("app.stock_selection.get_settings", lambda: SimpleNamespace(openai_api_key="test", reference_vision_model="test"))
     candidate = ImageCandidate("a", "café", "https://upload.wikimedia.org/wikipedia/a.jpg", "https://example.org/a", None, None, "cc0", "https://creativecommons.org/publicdomain/zero/1.0/")
-    assert await _choose_photo("coffee", [(candidate, b"\xff\xd8\xfffirst"), (candidate, b"\xff\xd8\xffsecond")]) == 1
+    selected = await _choose_photo("coffee", [(candidate, b"\xff\xd8\xfffirst"), (candidate, b"\xff\xd8\xffsecond")])
+    assert selected.index == 1
+    assert selected.focal_box.top == 10
     assert len([block for block in captured[1].content if block["type"] == "image_url"]) == 2
 
 
@@ -62,7 +68,7 @@ async def test_vision_rejects_when_no_photograph_matches(monkeypatch):
     from app.stock_selection import _choose_photo
     class FakeLLM:
         def __init__(self, **kwargs): pass
-        async def ainvoke(self, messages): return AIMessage(content='{"index":null}')
+        async def ainvoke(self, messages): return AIMessage(content='{"index":null,"focalBox":null}')
     monkeypatch.setattr("app.stock_selection.ChatOpenAI", FakeLLM)
     monkeypatch.setattr("app.stock_selection.get_settings", lambda: SimpleNamespace(openai_api_key="test", reference_vision_model="test"))
     candidate = ImageCandidate("a", "pintura", "https://upload.wikimedia.org/wikipedia/a.jpg", "https://example.org/a", None, None, "cc0", "https://creativecommons.org/publicdomain/zero/1.0/")
@@ -79,7 +85,7 @@ async def test_selection_tries_next_batch_when_first_is_not_relevant(monkeypatch
                    "foreign_landing_url": f"https://commons.wikimedia.org/{i}",
                    "license_url": "https://creativecommons.org/publicdomain/zero/1.0/"} for i in range(6)]
         return httpx.Response(200, json={"results": photos})
-    choose = AsyncMock(side_effect=[None, 0])
+    choose = AsyncMock(side_effect=[None, choice()])
     monkeypatch.setattr("app.stock_selection._choose_photo", choose)
     async with httpx.AsyncClient(transport=httpx.MockTransport(many)) as client:
         selected = await select_stock_image("café", client=client)

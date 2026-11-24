@@ -93,7 +93,7 @@ func TestV3RequiresAllWorkersAndDedicatedRoute(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/capabilities" {
 			if ready.Load() {
-				fmt.Fprint(w, `{"structuredPost":{"contractVersion":1,"readSchemas":[1,2,3],"writeSchemas":[1,2,3],"decorationOperations":true,"stockImageOperations":true}}`)
+				fmt.Fprint(w, `{"structuredPost":{"contractVersion":1,"readSchemas":[1,2,3],"writeSchemas":[1,2,3],"decorationOperations":true,"stockImageOperations":true,"imageCompositionVersion":2}}`)
 			} else {
 				fmt.Fprint(w, `{"structuredPost":{"contractVersion":1,"readSchemas":[1,2],"writeSchemas":[1,2],"decorationOperations":true}}`)
 			}
@@ -113,6 +113,16 @@ func TestV3RequiresAllWorkersAndDedicatedRoute(t *testing.T) {
 	version := 3
 	require.NoError(t, pool.DispatchJob(context.Background(), DispatchPayload{JobID: uuid.New(), PostFormat: "structured_v1", TargetSchemaVersion: &version}))
 	require.Equal(t, "/jobs/structured/v3", route.Load())
+}
+
+func TestV3RejectsWorkerWithoutFocalCompositionCapability(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"structuredPost":{"contractVersion":1,"readSchemas":[1,2,3],"writeSchemas":[1,2,3],"decorationOperations":true,"stockImageOperations":true}}`)
+	}))
+	defer server.Close()
+	pool, err := NewStructuredWorkerPool(&legacyCapture{}, []string{server.URL}, "key")
+	require.NoError(t, err)
+	require.False(t, pool.SupportsStructuredV3(context.Background(), 3))
 }
 
 func TestReferencePolicyRequiresEveryWorker(t *testing.T) {

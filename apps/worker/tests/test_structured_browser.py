@@ -3,6 +3,7 @@
 import asyncio
 import base64
 import os
+import re
 from pathlib import Path
 
 import pytest
@@ -97,9 +98,68 @@ def test_chromium_renders_v3_background(monkeypatch):
 
     card = asyncio.run(measure_card())
     assert card["width"] * card["height"] < 1080 * 1350 * 0.5
-    assert card["background"] == "rgb(255, 255, 255)"
+    assert card["background"].startswith("rgba(255, 255, 255,")
 
     long_doc = v3_document()
     long_doc["slides"][0]["elements"][0]["content"] = "Conteúdo longo " * 120
     with pytest.raises(ValueError, match="exceeds canvas"):
         asyncio.run(render_structured_post(PostDocumentV3.model_validate(long_doc), {"photo": png}))
+
+
+def test_v3_places_text_away_from_focal_area(monkeypatch):
+    font = base64.b64encode(Path(os.environ["TEST_FONT_PATH"]).read_bytes()).decode("ascii")
+    css = "@font-face{font-family:'Plus Jakarta Sans';src:url(data:font/ttf;base64," + font + ") format('truetype');}"
+
+    async def local_font_only(route):
+        if route.request.url.startswith("https://fonts.googleapis.com/"):
+            await route.fulfill(status=200, content_type="text/css", body=css)
+        elif route.request.url.startswith("data:"):
+            await route.continue_()
+        else:
+            await route.abort()
+
+    monkeypatch.setattr("app.structured_render._allow_font_route", local_font_only)
+    png = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/aXcAAAAASUVORK5CYII=")
+    for box, moved in [({"left": 20, "top": 5, "right": 80, "bottom": 35}, True),
+                       ({"left": 20, "top": 70, "right": 80, "bottom": 95}, False)]:
+        raw = v3_document()
+        raw["slides"][0]["background"]["focalBox"] = box
+        slides, _ = asyncio.run(render_structured_post(PostDocumentV3.model_validate(raw), {"photo": png}))
+        placement = re.search(r"transform: translate\(([-\d.]+)px, ([-\d.]+)px\)", slides[0]["html"])
+        assert placement is not None
+        assert (float(placement.group(2)) > 0) == moved
+        assert 'src="attachment://photo"' in slides[0]["html"]
+
+
+def test_v3_adjusts_wide_image_crop_toward_focal_area(monkeypatch):
+    from playwright.async_api import async_playwright
+    font = base64.b64encode(Path(os.environ["TEST_FONT_PATH"]).read_bytes()).decode("ascii")
+    css = "@font-face{font-family:'Plus Jakarta Sans';src:url(data:font/ttf;base64," + font + ") format('truetype');}"
+
+    async def local_font_only(route):
+        if route.request.url.startswith("https://fonts.googleapis.com/"):
+            await route.fulfill(status=200, content_type="text/css", body=css)
+        elif route.request.url.startswith("data:"):
+            await route.continue_()
+        else:
+            await route.abort()
+
+    async def make_wide_png():
+        async with async_playwright() as playwright:
+            browser = await playwright.chromium.launch()
+            try:
+                page = await browser.new_page()
+                return await page.evaluate("""() => {
+                    const canvas = document.createElement('canvas'); canvas.width = 200; canvas.height = 100;
+                    canvas.getContext('2d').fillRect(0, 0, 200, 100);
+                    return canvas.toDataURL('image/png').split(',')[1];
+                }""")
+            finally:
+                await browser.close()
+
+    monkeypatch.setattr("app.structured_render._allow_font_route", local_font_only)
+    png = base64.b64decode(asyncio.run(make_wide_png()))
+    raw = v3_document()
+    raw["slides"][0]["background"]["focalBox"] = {"left": 75, "top": 15, "right": 95, "bottom": 60}
+    slides, _ = asyncio.run(render_structured_post(PostDocumentV3.model_validate(raw), {"photo": png}))
+    assert 'object-position: 100% 50%' in slides[0]["html"]

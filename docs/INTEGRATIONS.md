@@ -57,6 +57,15 @@ houver candidata adequada, o job falha sem publicar uma versão parcial. Essa
 análise adicional envia imagens públicas ao provedor de IA e aumenta o custo e a
 latência; a pertinência não é garantida. Os JPEGs anteriores não são alterados.
 
+Na seleção, o modelo também estima uma caixa focal na imagem original. O snapshot
+V3 armazena `focalBox` em porcentagens, e o renderer 3.2 posiciona o recorte e o
+painel translúcido para reduzir a sobreposição com essa região. A opacidade é
+calculada para contraste mínimo de 4,5:1 sobre qualquer cor de fundo; se não for
+possível mantê-lo com transparência, a geração falha. A localização é uma estimativa
+e não garante que o assunto ficará livre. Na edição de V3 anterior sem caixa, o
+worker analisa a imagem existente e salva a caixa apenas na nova versão. Esse
+processo envolve uma chamada adicional ao modelo de visão e pode falhar.
+
 A flag é desligada por padrão. Não habilite antes de validar o acesso real ao
 Openverse, os limites de uso e a qualidade visual no ambiente de destino. API e
 workers devem suportar V3 antes do rollout; versões V3 existentes nunca são

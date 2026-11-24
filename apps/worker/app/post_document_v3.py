@@ -12,9 +12,24 @@ from app.post_document import Identifier, PostDocumentV1, _StrictModel
 from app.post_document_v2 import PostDocumentV2, SlideV2, SolidBackgroundV2, promote_v1
 
 
+class FocalBox(_StrictModel):
+    """Subject bounds as integer percentages of the uncropped source image."""
+    left: int = Field(ge=0, le=100)
+    top: int = Field(ge=0, le=100)
+    right: int = Field(ge=0, le=100)
+    bottom: int = Field(ge=0, le=100)
+
+    @model_validator(mode="after")
+    def nonempty(self) -> Self:
+        if self.right <= self.left or self.bottom <= self.top:
+            raise ValueError("invalid focal box")
+        return self
+
+
 class ImageBackgroundV3(_StrictModel):
     type: Literal["image"]
     asset_id: Identifier = Field(alias="assetId")
+    focal_box: FocalBox | None = Field(default=None, alias="focalBox")
 
 
 class ImageCreditV3(_StrictModel):

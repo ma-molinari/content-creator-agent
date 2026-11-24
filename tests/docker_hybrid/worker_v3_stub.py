@@ -11,6 +11,7 @@ from app.main import app
 from app.post_document_v2 import PostDocumentV2
 from app.post_operations_v3 import apply_operations_v3
 from app.stock_planning import StockPlan
+from app.stock_selection import PhotoChoice
 from app.stock_selection import select_stock_image
 
 pipeline = importlib.import_module("app.nodes.structured_pipeline_v3")
@@ -74,7 +75,7 @@ async def analyze(_state):
 
 
 async def choose_photo(_query, _images):
-    return 0
+    return PhotoChoice.model_validate({"index": 0, "focalBox": {"left": 20, "top": 10, "right": 80, "bottom": 60}})
 
 
 pipeline.generate_structured_post_v2 = generate

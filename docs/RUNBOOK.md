@@ -167,9 +167,14 @@ A integração V3 é experimental e permanece desativada por padrão. Após vali
 acesso ao Openverse e ao Wikimedia Commons, licenças e qualidade visual no ambiente
 de destino, configure `STRUCTURED_POSTS_ENABLED=true`, `STRUCTURED_WORKER_URLS`
 com os endereços diretos e `STRUCTURED_STOCK_IMAGES_ENABLED=true` na API. Todos
-os workers selecionáveis devem anunciar leitura e escrita V3. Atualize os workers
-antes da API; se algum não for compatível, a criação/edição V3 falha antes de
-criar o job. A flag desligada impede novas raízes V3, mas uma versão V3 existente
+os workers selecionáveis devem anunciar leitura e escrita V3 e
+`imageCompositionVersion: 2`. Para introduzir a composição focal em um ambiente
+existente, suspenda o tráfego V3, drene os jobs e atualize todas as réplicas da
+API e dos workers antes de retomá-lo: APIs antigas não aceitam o novo campo do
+snapshot e workers antigos não conseguem editar snapshots que o contêm. A API
+atual bloqueia workers sem essa capacidade antes de criar o job. Um rollback deve
+manter leitores e workers compatíveis com os snapshots já criados; não há migração
+de banco. A flag desligada impede novas raízes V3, mas uma versão V3 existente
 continua exigindo worker V3 para edição, sem downgrade automático.
 
 O fluxo permite adicionar ou trocar uma imagem de fundo por solicitação; pedidos

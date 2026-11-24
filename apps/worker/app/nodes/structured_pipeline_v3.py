@@ -13,12 +13,13 @@ from app.nodes.attachment_analyze import attachment_analyze
 from app.nodes.structured_pipeline import _check_base_key, _check_required_assets
 from app.post_document import PostDocumentV1
 from app.post_document_v2 import PostDocumentV2
-from app.post_document_v3 import PostDocumentV3, promote_to_v3
+from app.post_document_v3 import ImageBackgroundV3, PostDocumentV3, promote_to_v3
 from app.post_renderer_v3 import RENDERER_VERSION
 from app.s3_image_utils import fetch_bytes_limited
 from app.state import AgentState
 from app.stock_pipeline import apply_stock_image
 from app.stock_planning import plan_stock_action
+from app.stock_selection import locate_focal_box
 from app.structured_editing_v3 import plan_content_edit_v3
 from app.structured_generation import generate_structured_post_v2
 from app.structured_render import render_structured_post
@@ -65,6 +66,26 @@ async def structured_pipeline_v3(state: AgentState) -> dict[str, object]:
     async with httpx.AsyncClient() as http:
         document, selected = await apply_stock_image(document, request=request, mode=mode,
                                                       authorized_assets=set(sources), client=http, plan=plan)
+    missing = {slide.background.asset_id for slide in document.slides
+               if isinstance(slide.background, ImageBackgroundV3) and slide.background.focal_box is None}
+    if missing:
+        semaphore = asyncio.Semaphore(3)
+        async def locate(asset_id: str):
+            async with semaphore:
+                if asset_id in selected:
+                    data = selected[asset_id]
+                elif asset_id in sources:
+                    data = await asyncio.to_thread(fetch_bytes_limited, client, settings.aws_s3_bucket, sources[asset_id], 5 * 1024 * 1024)
+                else:
+                    raise ValueError("image asset is not authorized")
+                return asset_id, await locate_focal_box(data)
+        boxes = dict(await asyncio.gather(*(locate(asset_id) for asset_id in sorted(missing))))
+        raw_document = document.model_dump(mode="json", by_alias=True)
+        for slide in raw_document["slides"]:
+            background = slide["background"]
+            if background["type"] == "image" and background.get("focalBox") is None:
+                background["focalBox"] = boxes[background["assetId"]].model_dump(mode="json")
+        document = PostDocumentV3.model_validate(raw_document)
     _check_required_assets(document, requirements)
     await report_job_progress(state, stage="validating_attachments", progress=80)
     copied = await copy_version_assets(document, job_id=job_id, bucket=settings.aws_s3_bucket,

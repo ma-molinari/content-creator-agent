@@ -2,11 +2,11 @@
 
 from typing import AbstractSet
 
-from app.post_document_v3 import ImageCreditV3, PostDocumentV3, validate_authorized_assets
+from app.post_document_v3 import FocalBox, ImageCreditV3, PostDocumentV3, validate_authorized_assets
 
 
 def set_stock_background(document: PostDocumentV3, *, slide_id: str, asset_id: str,
-                         credit: ImageCreditV3, authorized_assets: AbstractSet[str]) -> PostDocumentV3:
+                         credit: ImageCreditV3, authorized_assets: AbstractSet[str], focal_box: FocalBox | None = None) -> PostDocumentV3:
     if asset_id not in authorized_assets:
         raise ValueError("image asset is not authorized")
     data = PostDocumentV3.model_validate_json(document.model_dump_json(by_alias=True)).model_dump(mode="json", by_alias=True)
@@ -14,6 +14,8 @@ def set_stock_background(document: PostDocumentV3, *, slide_id: str, asset_id: s
     if slide is None:
         raise ValueError("slide not found")
     slide["background"] = {"type": "image", "assetId": asset_id}
+    if focal_box is not None:
+        slide["background"]["focalBox"] = focal_box.model_dump(mode="json")
     data["credits"][asset_id] = credit.model_dump(mode="json", by_alias=True)
     # Remove unused provenance only from the new snapshot; the base remains intact.
     used = {element["assetId"] for item in data["slides"] for element in item["elements"] if element["type"] == "image"}

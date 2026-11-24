@@ -20,5 +20,5 @@ async def apply_stock_image(document: PostDocumentV3, *, request: str, mode: Lit
     excluded = frozenset(credit.source_url for credit in document.credits.values()) if mode == "edit" else frozenset()
     image = await select_stock_image(plan.query, client=client, exclude_sources=excluded)
     result = set_stock_background(document, slide_id=slide.id, asset_id=image.asset_id, credit=image.credit,
-                                  authorized_assets=authorized_assets | {image.asset_id})
+                                  authorized_assets=authorized_assets | {image.asset_id}, focal_box=image.focal_box)
     return result, {image.asset_id: image.content}

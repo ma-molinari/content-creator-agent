@@ -150,12 +150,13 @@ func (c *HTTPWorkerClient) SupportsStructured(ctx context.Context) bool {
 }
 
 type structuredCapability struct {
-	ContractVersion        int   `json:"contractVersion"`
-	ReadSchemas            []int `json:"readSchemas"`
-	WriteSchemas           []int `json:"writeSchemas"`
-	DecorationOperations   bool  `json:"decorationOperations"`
-	ReferencePolicyVersion int   `json:"referencePolicyVersion"`
-	StockImageOperations   bool  `json:"stockImageOperations"`
+	ContractVersion         int   `json:"contractVersion"`
+	ReadSchemas             []int `json:"readSchemas"`
+	WriteSchemas            []int `json:"writeSchemas"`
+	DecorationOperations    bool  `json:"decorationOperations"`
+	ReferencePolicyVersion  int   `json:"referencePolicyVersion"`
+	StockImageOperations    bool  `json:"stockImageOperations"`
+	ImageCompositionVersion int   `json:"imageCompositionVersion"`
 }
 
 func (c *HTTPWorkerClient) structuredCapability(ctx context.Context) (structuredCapability, bool) {
@@ -194,7 +195,7 @@ func (c *HTTPWorkerClient) SupportsStructuredV2(ctx context.Context, readSchema 
 
 func (c *HTTPWorkerClient) SupportsStructuredV3(ctx context.Context, readSchema int) bool {
 	capability, ok := c.structuredCapability(ctx)
-	if !ok || capability.ContractVersion != 1 || !capability.StockImageOperations || !capability.DecorationOperations || !containsSchema(capability.WriteSchemas, 3) {
+	if !ok || capability.ContractVersion != 1 || !capability.StockImageOperations || capability.ImageCompositionVersion != 2 || !capability.DecorationOperations || !containsSchema(capability.WriteSchemas, 3) {
 		return false
 	}
 	return readSchema == 0 || ((readSchema >= 1 && readSchema <= 3) && containsSchema(capability.ReadSchemas, readSchema))

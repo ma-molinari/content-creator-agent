@@ -113,6 +113,43 @@ async def render_structured_post(
                             logger.info("[metrics] event=structured_render schema=2 outcome=failed reason=font duration_ms=%d", int((monotonic() - started) * 1000))
                         raise ValueError("required font unavailable")
                     await wait_for_slide_images(page)
+                    focal_positioned = False
+                    if is_v3 and isinstance(background, ImageBackgroundV3) and background.focal_box is not None:
+                        await page.evaluate("""box => {
+                            const image = document.querySelector('.photo-background');
+                            const main = document.querySelector('main');
+                            const width = 1080, height = 1350, margin = 96;
+                            const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
+                            const drawnWidth = image.naturalWidth * scale, drawnHeight = image.naturalHeight * scale;
+                            const offset = (canvas, drawn, midpoint) => drawn > canvas
+                                ? Math.max(canvas - drawn, Math.min(0, canvas / 2 - midpoint * drawn)) : 0;
+                            const x = offset(width, drawnWidth, (box.left + box.right) / 200);
+                            const y = offset(height, drawnHeight, (box.top + box.bottom) / 200);
+                            const pctX = drawnWidth > width ? x / (width - drawnWidth) * 100 : 50;
+                            const pctY = drawnHeight > height ? y / (height - drawnHeight) * 100 : 50;
+                            image.style.objectPosition = `${pctX}% ${pctY}%`;
+                            const focus = {left: x + drawnWidth * box.left / 100, right: x + drawnWidth * box.right / 100,
+                                           top: y + drawnHeight * box.top / 100, bottom: y + drawnHeight * box.bottom / 100};
+                            let best = null;
+                            for (const cardWidth of [888, 560]) {
+                                main.style.width = `${cardWidth}px`;
+                                main.style.transform = 'none';
+                                const card = main.getBoundingClientRect();
+                                if (main.scrollHeight > main.clientHeight + 1 || main.scrollWidth > main.clientWidth + 1) continue;
+                                for (const left of (cardWidth === 888 ? [margin] : [margin, width - margin - cardWidth])) {
+                                    for (const top of [margin, height - margin - card.height]) {
+                                        const area = Math.max(0, Math.min(left + cardWidth, focus.right) - Math.max(left, focus.left)) *
+                                            Math.max(0, Math.min(top + card.height, focus.bottom) - Math.max(top, focus.top));
+                                        if (best === null || area < best.area) best = {area, left, top, width: cardWidth};
+                                    }
+                                }
+                            }
+                            if (best !== null) {
+                                main.style.width = `${best.width}px`;
+                                main.style.transform = `translate(${best.left - margin}px, ${best.top - margin}px)`;
+                            }
+                        }""", background.focal_box.model_dump(mode="json"))
+                        focal_positioned = True
                     clipped = await page.evaluate("""safeArea => {
                         const main = document.querySelector('main');
                         const bounds = main.getBoundingClientRect();
@@ -139,7 +176,7 @@ async def render_structured_post(
                             logger.info("[metrics] event=structured_render schema=2 outcome=failed reason=overflow duration_ms=%d", int((monotonic() - started) * 1000))
                         raise ValueError("slide content exceeds canvas")
                     result = await page.evaluate(_CONTRAST_FIX_JS) if not (is_v2 or is_v3) else None
-                    fixed_html = await page.content() if result and result.get("hadViolations") else html
+                    fixed_html = await page.content() if focal_positioned or (result and result.get("hadViolations")) else html
                     for data_url, reference in references.items():
                         fixed_html = fixed_html.replace(data_url, reference)
                     jpeg = await page.screenshot(type="jpeg", quality=92, full_page=False)

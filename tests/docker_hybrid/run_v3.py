@@ -81,13 +81,16 @@ def main():
                 assert first_doc["schemaVersion"] == 3 and first_doc["slides"][0]["background"]["type"] == "image"
                 first_asset = first_doc["slides"][0]["background"]["assetId"]
                 assert first_doc["credits"][first_asset]["creator"] == "Pessoa autora"
+                assert first_doc["slides"][0]["background"]["focalBox"] == {"left": 20, "top": 10, "right": 80, "bottom": 60}
                 assert any("commons.wikimedia.org" in message["content"] for message in first["contents"])
                 _, edited, edit_doc = run_job("Altere o título", "edit", first["currentVersionId"])
                 assert edit_doc["slides"][0]["background"]["assetId"] == first_asset
+                assert edit_doc["slides"][0]["background"]["focalBox"] == first_doc["slides"][0]["background"]["focalBox"]
                 assert edit_doc["slides"][0]["elements"][0]["content"] == "Título editado"
                 _, final, final_doc = run_job("Troque a imagem", "edit", edited["currentVersionId"])
                 new_asset = final_doc["slides"][0]["background"]["assetId"]
                 assert new_asset != first_asset and final_doc["credits"][new_asset]["sourceUrl"].endswith("segunda")
+                assert final_doc["slides"][0]["background"]["focalBox"] == first_doc["slides"][0]["background"]["focalBox"]
                 assert final_doc["slides"][0]["elements"][0]["content"] == "Título editado"
                 raw = docker("exec", names["worker"], "python", "-c", "import boto3,os,sys; print(boto3.client('s3').get_object(Bucket=os.environ['AWS_S3_BUCKET'],Key='slides/'+sys.argv[1]+'/document.json')['Body'].read().decode())", first_job)
                 assert json.loads(raw) == first_doc
