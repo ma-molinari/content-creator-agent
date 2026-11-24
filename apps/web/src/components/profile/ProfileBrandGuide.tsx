@@ -33,7 +33,7 @@ export function ProfileBrandGuide() {
         </summary>
         <p className="mt-2">
           Prefira fatos a suposições. Se faltar um dado, diga que falta; o assistente pode adaptar em vez de inventar.
-          Nas referências de imagem, use arquivos e direitos alinhados com a sua marca.
+          Verifique a licença das imagens antes de usar os posts.
         </p>
       </details>
     </div>

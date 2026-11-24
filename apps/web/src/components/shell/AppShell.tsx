@@ -48,6 +48,11 @@ export function AppShell() {
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <Outlet />
         </div>
+        <p className="shrink-0 border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] px-4 py-2 text-center text-xs text-[var(--color-text-secondary)]">
+          Post Mind usa o{' '}
+          <a className="underline" href="https://openverse.org/" target="_blank" rel="noopener noreferrer">Openverse</a>
+          {' '}e não é endossado nem certificado por ele.
+        </p>
       </main>
       <OnboardingTour />
     </div>

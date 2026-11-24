@@ -275,7 +275,7 @@ export function ComposerBar({
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--color-text-muted)]">
-            <span>Até {MAX_ATTACHMENTS} imagens de referência por mensagem.</span>
+            <span>Até {MAX_ATTACHMENTS} imagens anexadas por mensagem.</span>
             <span>Enter envia · Shift+Enter quebra linha</span>
           </div>
         </div>
