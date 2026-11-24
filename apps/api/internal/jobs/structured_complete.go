@@ -44,6 +44,8 @@ func validateStructuredDocumentVersion(ctx context.Context, store storage.Storag
 		return validateDocumentV1(data, postType, slideCount)
 	case 2:
 		return validateDocumentV2(data, postType, slideCount)
+	case 3:
+		return validateDocumentV3(data, postType, slideCount)
 	default:
 		return nil, gorm.ErrInvalidData
 	}
@@ -99,7 +101,7 @@ func CompleteStructuredReply(ctx context.Context, gdb *gorm.DB, jobID uuid.UUID,
 		}
 		key := strings.TrimSpace(source.DocumentS3Key)
 		target := job.StructuredTargetSchema()
-		if key != "slides/"+job.ID.String()+"/document.json" || (target != 1 && target != 2) || source.SchemaVersion != target || strings.TrimSpace(source.RendererVersion) == "" || len(strings.TrimSpace(source.RendererVersion)) > 64 || len(artifacts) == 0 || len(artifacts) > 20 || (chat.PostType == db.PostTypeSingle && len(artifacts) != 1) {
+		if key != "slides/"+job.ID.String()+"/document.json" || (target != 1 && target != 2 && target != 3) || source.SchemaVersion != target || strings.TrimSpace(source.RendererVersion) == "" || len(strings.TrimSpace(source.RendererVersion)) > 64 || len(artifacts) == 0 || len(artifacts) > 20 || (chat.PostType == db.PostTypeSingle && len(artifacts) != 1) {
 			return gorm.ErrInvalidData
 		}
 		if e := validateSlideArtifactKey(job.ID, key); e != nil {

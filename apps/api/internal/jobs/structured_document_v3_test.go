@@ -1,6 +1,7 @@
 package jobs
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -11,6 +12,9 @@ import (
 func TestValidateDocumentV3(t *testing.T) {
 	doc := `{"schemaVersion":3,"postType":"single","palette":{"background":"#FFFFFF","text":"#000000","accent":"#000000"},"slides":[{"id":"s1","layout":"hero","background":{"type":"image","assetId":"photo"},"elements":[{"id":"t1","type":"text","role":"heading","content":"Olá","style":{"color":{"token":"text"},"size":"large"}}]}],"credits":{"photo":{"title":"Paisagem","creator":"Fotógrafa","sourceUrl":"https://commons.wikimedia.org/wiki/File:Example","license":"cc0","licenseUrl":"https://creativecommons.org/publicdomain/zero/1.0/"}}}`
 	assets, err := validateDocumentV3([]byte(doc), db.PostTypeSingle, 1)
+	require.NoError(t, err)
+	require.Contains(t, assets, "photo")
+	assets, err = validateStructuredDocumentVersion(context.Background(), documentStore{data: []byte(doc), contentType: "application/json"}, "test", db.PostTypeSingle, 1, 3)
 	require.NoError(t, err)
 	require.Contains(t, assets, "photo")
 	for _, invalid := range []string{
