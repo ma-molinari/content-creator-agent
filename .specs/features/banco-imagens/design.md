@@ -24,4 +24,5 @@ e bloqueia rollback enquanto existirem jobs ou versões V3.
 - Créditos e links são exibidos no conteúdo do assistente. O Openverse não garante
   a precisão das licenças; o usuário deve conferir a origem antes de usar a imagem.
 - O fluxo Docker com provedor simulado cobriu criação, edição, histórico e conflito;
-  permanecem pendentes a validação real da API e o aceite visual no ambiente alvo.
+  a criação com provedor real foi exercitada com intermitência. A edição real e o
+  aceite visual no ambiente alvo permanecem pendentes.

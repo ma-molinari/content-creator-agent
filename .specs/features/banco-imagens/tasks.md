@@ -1,18 +1,17 @@
 # Tarefas — banco de imagens
 
 O Openverse é a alternativa inicial, pois o Pexels não está emitindo chaves. A
-documentação confirma acesso anônimo, mas a consulta real a partir deste ambiente
-atingiu timeout; disponibilidade e limites reais precisam de nova validação.
-A V3 foi ligada ao fluxo estruturado, atrás da flag desativada por padrão. A
-criação e edição foram ensaiadas com Openverse simulado; a integração real e o
-aceite visual ainda precisam de validação.
+V3 foi ligada ao fluxo estruturado, atrás da flag desativada por padrão. Em
+24/11/2026, criação e download reais foram exercitados em stack isolada, com
+intermitência no serviço. Evidências e limites em `validacao-real-2026-11-24.md`;
+edição com o serviço real, metas operacionais e aceite visual permanecem pendentes.
 
 1. **Contrato e provedor:** V3 guarda crédito e origem no snapshot e negocia
    compatibilidade entre API e workers. Contratos e migração foram testados.
 2. **Busca segura (parcial):** o cliente consulta anonimamente e filtra
    resultados CC0 do Wikimedia Commons; o download aceita apenas o domínio oficial,
    até 5 MiB e sem redirecionamentos. Busca e download passaram com HTTP simulado;
-   seleção automática e integração foram testadas; falta validação com serviço real.
+   seleção automática foi testada com serviço real, que apresentou intermitência.
 3. **Criação e renderização:** imagem de fundo, superfície legível e cópias
    versionadas validadas no Chromium e no ensaio Docker com provedor simulado.
 4. **Edição:** troca de imagem, edição de texto, créditos e histórico validados
@@ -24,5 +23,5 @@ aceite visual ainda precisam de validação.
    preservando um asset em `slides/`; falta executá-lo em cada ambiente após
    atualizar as instâncias antigas e aguardar os jobs ativos.
 7. **Integração (parcial):** o ensaio V3 passou com PostgreSQL, LocalStack e
-   Openverse/LLM simulados; executar regressão e validar serviço real e aceite
-   visual antes de habilitar a flag no ambiente de destino.
+   Openverse/LLM simulados; a criação também passou com serviços reais. Faltam
+   edição real, metas operacionais e aceite visual antes de habilitar em produção.
