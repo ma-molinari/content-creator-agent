@@ -10,6 +10,7 @@ import httpx
 
 _SEARCH_URL = "https://api.openverse.org/v1/images/"
 _MAX_IMAGE_BYTES = 5 * 1024 * 1024
+_USER_AGENT = "PostMind/1.0 (https://github.com/ma-molinari/content-creator-agent)"
 
 
 class ImageSearchError(Exception):
@@ -61,7 +62,7 @@ async def search_images(query: str, *, client: httpx.AsyncClient, limit: int = 1
         raise ValueError("invalid image search parameters")
     try:
         response = await client.get(_SEARCH_URL, params={"q": query, "license": "cc0", "source": "wikimedia", "page_size": limit},
-                                    timeout=10.0, follow_redirects=False)
+                                    headers={"User-Agent": _USER_AGENT}, timeout=10.0, follow_redirects=False)
         response.raise_for_status()
         data = response.json()
         results = data.get("results") if isinstance(data, dict) else None
@@ -96,7 +97,7 @@ async def download_image(candidate: ImageCandidate, *, client: httpx.AsyncClient
         if _wikimedia_image_url(candidate.image_url) is None:
             raise ValueError("untrusted image URL")
         data = bytearray()
-        async with client.stream("GET", candidate.image_url, timeout=15.0, follow_redirects=False) as response:
+        async with client.stream("GET", candidate.image_url, headers={"User-Agent": _USER_AGENT}, timeout=15.0, follow_redirects=False) as response:
             response.raise_for_status()
             async for chunk in response.aiter_bytes():
                 data.extend(chunk)

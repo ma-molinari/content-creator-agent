@@ -10,6 +10,7 @@ async def test_search_filters_results_and_preserves_provenance():
         assert request.url.params["license"] == "cc0"
         assert request.url.params["q"] == "plantas"
         assert request.url.params["source"] == "wikimedia"
+        assert request.headers["user-agent"].startswith("PostMind/1.0 (")
         valid = {"id": "abc", "title": "Planta", "url": "https://upload.wikimedia.org/wikipedia/a.jpg",
                  "foreign_landing_url": "https://source.example/a", "creator": "Autora",
                  "creator_url": "https://source.example/author", "license": "cc0",
@@ -45,7 +46,11 @@ async def test_download_restricts_host_and_checks_image_bytes():
         return ImageCandidate("a", "", url, "https://commons.wikimedia.org/a", None, None,
                               "cc0", "https://creativecommons.org/publicdomain/zero/1.0/")
 
-    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _: httpx.Response(200, content=b"\xff\xd8\xffimage"))) as client:
+    def respond(request):
+        assert request.headers["user-agent"].startswith("PostMind/1.0 (")
+        return httpx.Response(200, content=b"\xff\xd8\xffimage")
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
         assert await download_image(candidate("https://upload.wikimedia.org/wikipedia/a.jpg"), client=client) == b"\xff\xd8\xffimage"
         with pytest.raises(ImageSearchError):
             await download_image(candidate("https://evil.example/wikipedia/a.jpg"), client=client)
