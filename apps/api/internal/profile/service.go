@@ -73,7 +73,7 @@ func TextsConfigured(audit, brand string) bool {
 	return strings.TrimSpace(audit) != "" && strings.TrimSpace(brand) != ""
 }
 
-// GetProfile returns stored text, configuration flag, and reference previews.
+// GetProfile returns stored text and the configuration flag.
 func (s *Service) GetProfile(ctx context.Context, userID uuid.UUID) (ProfileView, error) {
 	p, err := s.repo.GetByUserID(ctx, userID)
 	if err != nil {
@@ -85,20 +85,7 @@ func (s *Service) GetProfile(ctx context.Context, userID uuid.UUID) (ProfileView
 		out.BrandText = p.BrandText
 		out.Configured = TextsConfigured(p.AuditText, p.BrandText)
 	}
-	if s.refRepo == nil || s.store == nil {
-		return out, nil
-	}
-	rows, err := s.refRepo.ListByUserID(ctx, userID)
-	if err != nil {
-		return ProfileView{}, err
-	}
-	for _, row := range rows {
-		u, err := s.store.GetSignedURL(ctx, row.S3Key, s.preview)
-		if err != nil {
-			return ProfileView{}, err
-		}
-		out.References = append(out.References, ReferenceView{ID: row.ID, URL: u})
-	}
+
 	return out, nil
 }
 

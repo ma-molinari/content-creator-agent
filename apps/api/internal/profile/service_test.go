@@ -45,6 +45,14 @@ func TestGetProfile_configured(t *testing.T) {
 	require.Equal(t, " audit ", v.AuditText)
 }
 
+func TestGetProfileIgnoresRetiredReferences(t *testing.T) {
+	svc := &Service{repo: &stubRepo{p: &db.UserProfile{AuditText: "audit", BrandText: "brand"}}, refRepo: &ReferencesRepository{}, store: &retirementStore{}}
+	view, err := svc.GetProfile(context.Background(), uuid.New())
+	require.NoError(t, err)
+	require.True(t, view.Configured)
+	require.Empty(t, view.References)
+}
+
 func TestGetProfile_notConfiguredIfOneEmpty(t *testing.T) {
 	svc := &Service{repo: &stubRepo{p: &db.UserProfile{
 		AuditText: "x",
